@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import {
   Activity, AlertTriangle, Bot, ChevronRight, CircleAlert, Clock3, Database,
-  Pause, Server, ShieldCheck, ShieldX, Sparkles, Target, Zap,
+  Pause, Play, Server, ShieldCheck, ShieldX, Sparkles, Target, Zap,
 } from 'lucide-react';
 import { api, fmtTs, sevClass, verdictLabel } from '../lib/api';
 import InfoTip from '../components/InfoTip';
@@ -98,6 +98,8 @@ export default function Dashboard() {
   const [queue, setQueue] = useState([]);
   const [error, setError] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(new Date());
+  const [feedPaused, setFeedPaused] = useState(false);
+  const [frozenFeed, setFrozenFeed] = useState([]);
 
   useEffect(() => {
     let active = true;
@@ -150,7 +152,8 @@ export default function Dashboard() {
   if (!model) return <div className="dashboard-loading"><span /><span /><span /><span /></div>;
 
   const runTrend = model.activity.map(item => item.fetched);
-  const feed = queue.slice(0, 7);
+  const liveFeed = queue.slice(0, 7);
+  const feed = feedPaused ? frozenFeed : liveFeed;
   const topSources = (stats.top_src_ips || []).slice(0, 5);
   const maxSource = Math.max(...topSources.map(item => number(item.n)), 1);
   const collectorRunning = collector.collector?.cycle_active || (collector.collector?.scheduler_enabled && collector.collector?.scheduler_running);
@@ -235,7 +238,7 @@ export default function Dashboard() {
                 ))}
                 {!topSources.length && <EmptyState>No source activity yet</EmptyState>}
               </div>
-              <Link className="panel-link" to="/pivot">Open IOC pivot <ChevronRight size={13} /></Link>
+              <Link className="panel-link" to="/threat-intelligence">Open IOC pivot <ChevronRight size={13} /></Link>
             </article>
 
             <article className="dashboard-panel queue-panel">
@@ -272,7 +275,7 @@ export default function Dashboard() {
         </section>
 
         <aside className="security-feed dashboard-panel">
-          <PanelHeading icon={Activity} title="Live Security Feed" help="Newest grouped activities received from Elastic." action={<button className="feed-pause" aria-label="Pause feed"><Pause size={12} /></button>} />
+          <PanelHeading icon={Activity} title={feedPaused ? 'Security Feed Paused' : 'Live Security Feed'} help="Newest grouped activities received from Elastic." action={<button className={`feed-pause ${feedPaused ? 'paused' : ''}`} aria-label={feedPaused ? 'Resume feed' : 'Pause feed'} onClick={() => { if (!feedPaused) setFrozenFeed(liveFeed); setFeedPaused(value => !value); }}>{feedPaused ? <Play size={12} /> : <Pause size={12} />}</button>} />
           <div className="feed-list">
             {feed.map((item, index) => {
               const severity = severityOf(item);
@@ -295,4 +298,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
