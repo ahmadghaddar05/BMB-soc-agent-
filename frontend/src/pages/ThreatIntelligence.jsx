@@ -44,7 +44,14 @@ export default function ThreatIntelligence() {
     const confidenceRaw = intel.confidence ?? parseJson(primary.verdict).confidence ?? 0;
     const confidence = confidenceRaw <= 1 ? Math.round(confidenceRaw * 100) : Math.round(confidenceRaw);
     const reputation = intel.found ? (intel.severity || 'malicious') : alerts.length ? 'observed' : 'clean';
-    return { intel, alerts, primary, confidence, reputation };
+    const hosts = [...new Set(alerts.map(alert => alert.hostname || alert.agent_name).filter(Boolean))];
+    const users = [...new Set(alerts.map(alert => alert.username).filter(Boolean))];
+    const techniques = [...new Set(alerts.flatMap(alert => alert.mitre_techniques || []))];
+    const timestamps = alerts.map(alert => new Date(alert.timestamp).getTime()).filter(Number.isFinite).sort((a,b) => a-b);
+    const timeSpan = timestamps.length > 1 ? Math.max(1, Math.round((timestamps.at(-1) - timestamps[0]) / 3600000)) : 0;
+    const highRisk = alerts.filter(alert => ['critical','high'].includes(severityOf(alert))).length;
+    const correlationStrength = Math.min(99, Math.round((alerts.length ? 35 : 0) + Math.min(25, hosts.length * 5) + Math.min(15, users.length * 5) + Math.min(15, techniques.length * 3) + (result.incident_count ? 10 : 0)));
+    return { intel, alerts, primary, confidence, reputation, correlation: { hosts, users, techniques, timeSpan, highRisk, strength: correlationStrength } };
   }, [result]);
 
   const indicator = result?.indicator || query.trim();
@@ -80,6 +87,7 @@ export default function ThreatIntelligence() {
         <section className="module-panel intel-card"><h3>Related alerts ({result.alert_count})</h3>{model.alerts.slice(0,4).map(alert => <button className="intel-event" key={alert.id} onClick={() => navigate(`/alerts?search=${encodeURIComponent(indicator)}`)}><ShieldAlert /><span><strong>{alert.rule_desc}</strong><small>{fmtTs(alert.timestamp)}</small></span><em className={sevClass(severityOf(alert))}>{severityOf(alert)}</em></button>)}{!model.alerts.length && <p className="mini-empty">No alert evidence found.</p>}<footer><button onClick={() => navigate(`/alerts?search=${encodeURIComponent(indicator)}`)}>View matching alerts</button></footer></section>
         <section className="module-panel intel-card"><h3>Related incidents ({result.incident_count})</h3>{(result.incidents || []).slice(0,4).map(incident => <button className="intel-event" key={incident.id} onClick={() => navigate('/incidents')}><AlertTriangle /><span><strong>{incident.title}</strong><small>{incident.status} · {fmtTs(incident.last_seen)}</small></span><em className={sevClass(incident.severity)}>{incident.severity}</em></button>)}{!result.incidents?.length && <p className="mini-empty">No correlated incidents found.</p>}</section>
         <section className="module-panel intel-card"><h3>Observable profile</h3><dl className="profile-list"><div><dt>Indicator</dt><dd>{indicator}</dd></div><div><dt>Categories</dt><dd>{(model.intel.categories || []).join(', ') || 'Not classified'}</dd></div><div><dt>TLP</dt><dd>{model.intel.tlp || 'Internal'}</dd></div><div><dt>Last seen</dt><dd>{fmtTs(model.intel.last_seen || model.primary.timestamp)}</dd></div></dl><footer><button onClick={() => copyText(JSON.stringify(result, null, 2))}>Copy intelligence JSON</button></footer></section>
+        <section className="module-panel intel-card correlation-card"><h3>Correlation context</h3><div className="correlation-strength"><span><b style={{width:`${model.correlation.strength}%`}} /></span><strong>{model.correlation.strength}% evidence strength</strong></div><div className="correlation-metrics"><article><strong>{model.correlation.hosts.length}</strong><span>hosts</span></article><article><strong>{model.correlation.users.length}</strong><span>identities</span></article><article><strong>{model.correlation.highRisk}</strong><span>high-risk alerts</span></article><article><strong>{model.correlation.timeSpan ? `${model.correlation.timeSpan}h` : '—'}</strong><span>activity span</span></article></div><div className="correlation-techniques">{model.correlation.techniques.slice(0,6).map(item => <span key={item}>{item}</span>)}{!model.correlation.techniques.length && <em>No MITRE techniques mapped yet</em>}</div><footer><button onClick={() => navigate(`/investigations?search=${encodeURIComponent(indicator)}`)}>Build correlated investigation</button></footer></section>
       </div>
     </>}
   </div>;
