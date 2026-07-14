@@ -1,225 +1,147 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  AlertTriangle, Bot, Check, ChevronDown, CircleUserRound, Clock3, Download,
+  FileText, Fingerprint, Link2, LockKeyhole, Monitor, Network, RefreshCw,
+  Server, Shield, ShieldCheck, Sparkles, Target, UserRound, Users, X,
+} from 'lucide-react';
 import { api, fmtTs, sevClass } from '../lib/api';
-import { RefreshCw, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import InfoTip from '../components/InfoTip';
 
-const MITRE_TACTICS = {
-  reconnaissance:'Recon', resource_development:'Res Dev', initial_access:'Init Access',
-  execution:'Execution', persistence:'Persistence', privilege_escalation:'Priv Escal',
-  defense_evasion:'Def Evasion', credential_access:'Cred Access', discovery:'Discovery',
-  lateral_movement:'Lateral Mvmt', collection:'Collection', command_and_control:'C2',
-  exfiltration:'Exfil', impact:'Impact', unknown:'Unknown',
+const TACTIC_LABELS = {
+  reconnaissance: 'Reconnaissance', resource_development: 'Resource Development', initial_access: 'Initial Access',
+  execution: 'Execution', persistence: 'Persistence', privilege_escalation: 'Privilege Escalation',
+  defense_evasion: 'Defense Evasion', credential_access: 'Credential Access', discovery: 'Discovery',
+  lateral_movement: 'Lateral Movement', collection: 'Collection', command_and_control: 'Command & Control',
+  exfiltration: 'Exfiltration', impact: 'Impact', unknown: 'Investigation',
 };
 
-// 14-cell ATT&CK matrix
-const TACTIC_ORDER = Object.keys(MITRE_TACTICS);
-function MitreMatrix({ stages }) {
-  const hitSet = new Set(stages || []);
-  return (
-    <div className="flex flex-wrap gap-1 mt-2">
-      {TACTIC_ORDER.map(t => (
-        <span key={t}
-          className={`text-xs px-2 py-0.5 rounded border ${hitSet.has(t)
-            ? 'bg-blue-900/40 text-blue-300 border-blue-700 font-medium'
-            : 'bg-dark-700 text-gray-600 border-dark-600'}`}
-          title={t.replace(/_/g,' ')}>
-          {MITRE_TACTICS[t]}
-        </span>
-      ))}
-    </div>
-  );
+function severityScore(severity, alertCount) {
+  const base = { critical: 90, high: 72, medium: 48, low: 24 }[severity] || 35;
+  return Math.min(99, base + Math.min(9, Math.max(0, alertCount - 1)));
 }
 
-function IncidentRow({ inc, onStatusChange }) {
-  const [open, setOpen] = useState(false);
-  const [detail, setDetail] = useState(null);
-
-  const loadDetail = async () => {
-    if (!open) {
-      const d = await api(`/incidents/${inc.id}`);
-      setDetail(d);
-    }
-    setOpen(o => !o);
-  };
-
-  return (
-    <>
-      <tr className="table-row cursor-pointer" onClick={loadDetail}>
-        <td className="td w-8">{open ? <ChevronUp className="w-3 h-3"/> : <ChevronDown className="w-3 h-3"/>}</td>
-        <td className="td"><span className={`badge ${sevClass(inc.severity)}`}>{inc.severity||'?'}</span></td>
-        <td className="td text-gray-200 font-medium max-w-xs">{inc.title||'Untitled Incident'}
-          {inc.incident_type==='triage'
-            ? <span className="badge badge-info ml-2 text-[10px]">single</span>
-            : <span className="badge badge-blue ml-2 text-[10px]">correlated</span>}
-        </td>
-        <td className="td"><span className="font-mono text-xs text-gray-400">{inc.alert_ids?.length||0} alerts</span></td>
-        <td className="td text-xs text-gray-400">
-          {(inc.attack_stages||[]).slice(0,3).map(s => (
-            <span key={s} className="badge badge-blue mr-1">{MITRE_TACTICS[s]||s}</span>
-          ))}
-        </td>
-        <td className="td"><span className={`badge ${
-          inc.status==='open'?'badge-medium':inc.status==='closed'?'badge-low':'badge-info'}`}>
-          {inc.status}</span></td>
-        <td className="td font-mono text-xs text-gray-500">{fmtTs(inc.last_seen)}</td>
-      </tr>
-
-      {open && detail && (
-        <tr className="bg-dark-700/40">
-          <td colSpan={7} className="px-6 py-5">
-            <div className="space-y-4">
-              {/* Narrative */}
-              <p className="text-sm text-gray-300">{detail.narrative}</p>
-
-              {/* MITRE chain */}
-              <div>
-                <div className="text-xs text-gray-500 mb-1 uppercase tracking-wide">ATT&CK Coverage</div>
-                <MitreMatrix stages={detail.attack_stages} />
-              </div>
-
-              {/* Entities */}
-              {detail.common_entities && Object.keys(detail.common_entities).length > 0 && (
-                <div>
-                  <div className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Shared Entities</div>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(detail.common_entities).flatMap(([k,vs]) =>
-                      (vs||[]).map(v => (
-                        <span key={`${k}:${v}`} className="badge badge-blue">
-                          <span className="text-gray-500">{k}:</span> {v}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              {detail.recommended_actions?.length > 0 && (
-                <div>
-                  <div className="text-xs text-gray-500 mb-1 uppercase tracking-wide">Recommended Actions</div>
-                  <ul className="text-sm text-yellow-300 list-disc list-inside space-y-1">
-                    {detail.recommended_actions.map((a,i)=><li key={i}>{a}</li>)}
-                  </ul>
-                </div>
-              )}
-
-              {/* Alerts table */}
-              {detail.alerts?.length > 0 && (
-                <div>
-                  <div className="text-xs text-gray-500 mb-2 uppercase tracking-wide">Evidence ({detail.alerts.length} alerts)</div>
-                  <div className="overflow-x-auto rounded border border-dark-600">
-                    <table className="w-full text-xs">
-                      <thead><tr className="bg-dark-700">
-                        <th className="th">Time</th><th className="th">Lvl</th>
-                        <th className="th">Rule</th><th className="th">Src IP</th>
-                        <th className="th">User</th><th className="th">Host</th>
-                      </tr></thead>
-                      <tbody>
-                        {detail.alerts.map(a=>(
-                          <tr key={a.id} className="border-b border-dark-600 last:border-0">
-                            <td className="td font-mono">{fmtTs(a.timestamp)}</td>
-                            <td className="td">{a.rule_level}</td>
-                            <td className="td truncate max-w-xs" title={a.rule_desc}>{a.rule_desc}</td>
-                            <td className="td font-mono text-blue-400">{a.src_ip||'—'}</td>
-                            <td className="td">{a.username||'—'}</td>
-                            <td className="td">{a.agent_name||a.hostname?.split('.')[0]||'—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Status buttons */}
-              <div className="flex gap-2 pt-2 border-t border-dark-600">
-                <span className="text-xs text-gray-500 self-center">Update status:</span>
-                {['open','closed','false_positive'].map(s=>(
-                  <button key={s}
-                    className={`btn-secondary text-xs ${inc.status===s?'border-accent text-accent':''}`}
-                    onClick={()=>onStatusChange(inc.id,s)}>
-                    {s.replace(/_/g,' ')}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
-  );
+function stageIcon(stage) {
+  if (stage === 'credential_access') return Fingerprint;
+  if (stage === 'lateral_movement') return Network;
+  if (stage === 'collection') return Server;
+  if (stage === 'initial_access') return Target;
+  return Shield;
 }
 
-export default function Incidents() {
+function compactTime(timestamp) {
+  if (!timestamp) return '—';
+  return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function entityCounts(alerts = []) {
+  const users = new Set(alerts.map(item => item.username).filter(Boolean));
+  const hosts = new Set(alerts.map(item => item.hostname || item.agent_name).filter(Boolean));
+  return { users: users.size, hosts: hosts.size };
+}
+
+function IncidentEmpty() {
+  return <div className="incident-empty"><ShieldCheck /><strong>No incidents in this view</strong><span>Change the status filter or wait for the next correlation cycle.</span></div>;
+}
+
+export default function Incidents({ workspace = 'incidents' }) {
   const [incidents, setIncidents] = useState([]);
-  const [total, setTotal]         = useState(0);
-  const [status, setStatus]       = useState('open');
-  const [loading, setLoading]     = useState(false);
-  const [page, setPage]           = useState(1);
+  const [total, setTotal] = useState(0);
+  const [status, setStatus] = useState('open');
+  const [selectedId, setSelectedId] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const d = await api(`/incidents?status=${status}&page=${page}&limit=20`);
-      setIncidents(d.incidents);
-      setTotal(d.total);
+      const data = await api(`/incidents?status=${status}&page=1&limit=50`);
+      const rows = data.incidents || [];
+      setIncidents(rows);
+      setTotal(data.total || 0);
+      setSelectedId(current => rows.some(item => String(item.id) === String(current)) ? current : rows[0]?.id || null);
     } finally { setLoading(false); }
-  };
+  }, [status]);
 
-  useEffect(() => { load(); }, [status, page]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!selectedId) { setDetail(null); return; }
+    let live = true;
+    api(`/incidents/${selectedId}`).then(data => { if (live) setDetail(data); }).catch(() => { if (live) setDetail(incidents.find(item => String(item.id) === String(selectedId)) || null); });
+    return () => { live = false; };
+  }, [selectedId, incidents]);
 
-  const handleStatusChange = async (id, newStatus) => {
-    await api(`/incidents/${id}`, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
-    load();
-  };
+  const model = useMemo(() => {
+    if (!detail) return null;
+    const alerts = [...(detail.alerts || [])].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const stages = detail.attack_stages?.length ? detail.attack_stages : [...new Set(alerts.flatMap(item => item.mitre_tactics || []))];
+    const counts = entityCounts(alerts);
+    return { alerts, stages, counts, score: severityScore(detail.severity, alerts.length || detail.alert_ids?.length || 0) };
+  }, [detail]);
+
+  async function updateStatus(nextStatus) {
+    if (!detail?.id) return;
+    setUpdating(true);
+    try { await api(`/incidents/${detail.id}`, { method: 'PATCH', body: JSON.stringify({ status: nextStatus }) }); setStatus(nextStatus === 'open' ? 'open' : nextStatus); await load(); }
+    finally { setUpdating(false); }
+  }
+
+  if (!detail || !model) {
+    return <div className="incident-command"><div className="incident-list-toolbar"><div><h2>{workspace === 'cases' ? 'Case Workspace' : 'Incident Command'}</h2><span>{total} {status}</span></div><div><select value={status} onChange={event => setStatus(event.target.value)}><option value="open">Open</option><option value="closed">Closed</option><option value="false_positive">False positive</option></select><button onClick={load}><RefreshCw className={loading ? 'animate-spin' : ''} /></button></div></div><IncidentEmpty /></div>;
+  }
+
+  const alertCount = model.alerts.length || detail.alert_ids?.length || 0;
+  const highCount = model.alerts.filter(item => Number(item.rule_level) >= 9).length;
+  const mediumCount = model.alerts.filter(item => Number(item.rule_level) >= 6 && Number(item.rule_level) < 9).length;
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Incidents</h1>
-          <p className="text-sm text-gray-500">{total} {status}</p>
-        </div>
-        <div className="flex gap-2">
-          {['open','closed','false_positive'].map(s => (
-            <button key={s}
-              className={status===s?'btn-primary':'btn-secondary'}
-              onClick={() => { setStatus(s); setPage(1); }}>
-              {s.replace(/_/g,' ')}
-            </button>
-          ))}
-          <button className="btn-ghost" onClick={load}>
-            <RefreshCw className={`w-4 h-4 ${loading?'animate-spin':''}`} />
-          </button>
-        </div>
+    <div className="incident-command">
+      <div className="incident-list-toolbar">
+        <div><span className="incident-breadcrumb">Incidents <b>›</b> INC-{String(detail.id).padStart(5, '0')}</span><h2>{workspace === 'cases' ? 'Case Workspace' : 'Incident Command'}</h2></div>
+        <div><select value={selectedId || ''} onChange={event => setSelectedId(event.target.value)}>{incidents.map(item => <option key={item.id} value={item.id}>{item.title || `Incident ${item.id}`}</option>)}</select><select value={status} onChange={event => setStatus(event.target.value)}><option value="open">Open incidents</option><option value="closed">Closed incidents</option><option value="false_positive">False positives</option></select><button onClick={load} aria-label="Refresh"><RefreshCw className={loading ? 'animate-spin' : ''} /></button></div>
       </div>
 
-      {!incidents.length && !loading && (
-        <div className="card flex flex-col items-center py-16 text-gray-600">
-          <AlertTriangle className="w-10 h-10 mb-3 opacity-30" />
-          <p>No {status} incidents</p>
-        </div>
-      )}
+      <section className="incident-hero">
+        <div className={`incident-severity-icon ${detail.severity || 'medium'}`}><span>{detail.severity || 'medium'}</span><Shield /></div>
+        <div className="incident-title"><h1>{detail.title || 'Untitled security incident'}</h1><p>INC-{String(detail.id).padStart(5, '0')} <i /> Detected {fmtTs(detail.first_seen)} <i /> Last updated {fmtTs(detail.last_seen)}</p></div>
+        <div className="incident-score"><span>Incident Risk Score <InfoTip text="Calculated from incident severity, alert volume, and correlated activity." /></span><div><strong>{model.score}</strong><small>/100</small></div></div>
+        <div className="incident-alert-count"><span>Correlated Alerts</span><strong>{alertCount}</strong><small><b>{highCount} High</b> · {mediumCount} Medium</small></div>
+        <div className="incident-controls"><label>Status<select value={detail.status || 'open'} onChange={event => updateStatus(event.target.value)} disabled={updating}><option value="open">In progress</option><option value="closed">Closed</option><option value="false_positive">False positive</option></select></label><div><button><CircleUserRound />Assign</button><button className="contain" onClick={() => updateStatus('closed')}><LockKeyhole />Contain</button><a href={`/api/reports/incidents/${detail.id}`} target="_blank" rel="noreferrer"><Download />Generate report</a></div></div>
+      </section>
 
-      {incidents.length > 0 && (
-        <div className="card p-0 overflow-hidden">
-          <table className="w-full">
-            <thead><tr className="bg-dark-700 border-b border-dark-600">
-              <th className="th w-8"></th>
-              <th className="th">Severity</th>
-              <th className="th">Title</th>
-              <th className="th">Alerts</th>
-              <th className="th">ATT&CK Stages</th>
-              <th className="th">Status</th>
-              <th className="th">Last Seen</th>
-            </tr></thead>
-            <tbody>
-              {incidents.map(inc => (
-                <IncidentRow key={inc.id} inc={inc} onStatusChange={handleStatusChange} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <section className="incident-metrics">
+        <article><UserRound /><div><span>Affected identities</span><strong>{model.counts.users || '—'}</strong><small>{Object.values(detail.common_entities || {}).flat().filter(Boolean)[0] || 'No shared identity'}</small></div></article>
+        <article><Monitor /><div><span>Affected assets</span><strong>{model.counts.hosts || '—'}</strong><small>{model.alerts.map(item => item.hostname || item.agent_name).filter(Boolean).slice(0,3).join(' · ') || 'No host context'}</small></div></article>
+        <article><Link2 /><div><span>Attack path</span><strong>{model.stages.length || 1} stages</strong><small>{model.stages.map(stage => TACTIC_LABELS[stage] || stage).slice(0,3).join(' → ')}</small></div></article>
+        <article><Sparkles /><div><span>AI impact assessment</span><strong className={`impact-${detail.severity}`}>{detail.severity || 'Unknown'}</strong><small>{detail.narrative ? 'AI correlation narrative available' : 'Awaiting narrative'}</small></div></article>
+      </section>
+
+      <div className="incident-body-grid">
+        <main className="incident-main-column">
+          <section className="attack-story incident-panel">
+            <div className="incident-panel-title"><h2>ATT&amp;CK Attack Story <InfoTip text="Chronological security events mapped to MITRE ATT&CK stages." /></h2><button>View full graph ↗</button></div>
+            <div className="attack-stage-bar">{(model.stages.length ? model.stages : ['unknown']).slice(0,5).map(stage => <span key={stage}>{TACTIC_LABELS[stage] || stage}</span>)}</div>
+            <div className="attack-path">
+              {(model.alerts.length ? model.alerts.slice(0,6) : [{ rule_desc: detail.title, timestamp: detail.first_seen, mitre_tactics: model.stages }]).map((alert, index) => {
+                const stage = alert.mitre_tactics?.[0] || model.stages[index % Math.max(1, model.stages.length)] || 'unknown'; const Icon = stageIcon(stage);
+                return <article key={alert.id || index} className={Number(alert.rule_level) >= 12 ? 'critical' : index > 2 ? 'elevated' : ''}><time>{compactTime(alert.timestamp)}</time><span className="attack-node"><Icon /></span><strong>{alert.rule_desc || 'Correlated activity'}</strong><small>{alert.username || alert.hostname || alert.src_ip || TACTIC_LABELS[stage]}</small><em>{alert.mitre_techniques?.[0] || TACTIC_LABELS[stage]}</em></article>;
+              })}
+            </div>
+          </section>
+
+          <div className="incident-lower-grid">
+            <section className="incident-panel evidence-panel"><div className="incident-panel-title"><h2>Key Evidence</h2><button>View all evidence ↗</button></div><div className="incident-evidence-table"><div className="evidence-head"><span>Time</span><span>Event</span><span>Source</span><span>Details</span><span>Severity</span></div>{model.alerts.slice(0,7).map((alert,index)=><article key={alert.id || index}><time>{fmtTs(alert.timestamp)}</time><strong>{alert.rule_desc || 'Security event'}</strong><span>{alert.agent_name || alert.decoder || 'Elastic'}</span><p>{[alert.src_ip, alert.username, alert.hostname].filter(Boolean).join(' → ') || 'Normalized event evidence'}</p><em className={Number(alert.rule_level) >= 12 ? 'critical' : Number(alert.rule_level) >= 9 ? 'high' : 'medium'}>{Number(alert.rule_level) >= 12 ? 'Critical' : Number(alert.rule_level) >= 9 ? 'High' : 'Medium'}</em></article>)}</div></section>
+
+            <section className="incident-panel containment-panel"><div className="incident-panel-title"><h2>Recommended Containment</h2></div><div className="containment-list">{(detail.recommended_actions || ['Disable the affected account','Isolate affected hosts','Revoke active sessions','Reset credentials']).slice(0,5).map((action,index)=><article key={index}><span>{index === 0 ? <UserRound /> : index === 1 ? <Monitor /> : <LockKeyhole />}</span><div><strong>{action}</strong><small>{index === 0 ? 'Prevent further unauthorized access' : 'Execute through the approved response playbook'}</small></div><button onClick={() => updateStatus('closed')}>{index === 0 ? 'Disable' : index === 1 ? 'Isolate' : 'Run'}</button></article>)}</div></section>
+          </div>
+        </main>
+
+        <aside className="incident-side-column">
+          <section className="incident-panel live-activity-panel"><div className="incident-panel-title"><h2>Live Activity</h2><span><i />Live</span></div><div>{model.alerts.slice(-7).reverse().map((alert,index)=><article key={alert.id || index}><i className={Number(alert.rule_level) >= 12 ? 'critical' : Number(alert.rule_level) >= 9 ? 'high' : ''} /><time>{compactTime(alert.timestamp)}</time><p>{alert.rule_desc || 'Correlated activity'}<small>{alert.hostname || alert.username || alert.src_ip || 'Elastic'}</small></p><em>{Number(alert.rule_level) >= 12 ? 'Critical' : Number(alert.rule_level) >= 9 ? 'High' : 'Medium'}</em></article>)}</div></section>
+          <section className="incident-panel incident-ai"><div className="incident-panel-title"><h2>BMB AI Assistant</h2><span className="beta">Beta</span></div><div className="ai-summary"><Bot /><p><strong>Here’s what I found so far.</strong>{detail.narrative || 'This incident contains correlated security activity. Review the attack path and containment actions before changing its status.'}</p></div><button onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant'))}>Explain attack path</button></section>
+        </aside>
+      </div>
     </div>
   );
 }
+
