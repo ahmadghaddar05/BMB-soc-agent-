@@ -97,7 +97,6 @@ function Shell() {
         </nav>
 
         <div className="sidebar-footer">
-          {!collapsed && <div className="sidebar-mini-brand"><BmbLogo /><span>AI-SOC</span></div>}
           <div className="agent-status" title="Collector online"><span className="status-orbit"><span /></span>{!collapsed && <div><strong>Agent online</strong><small>Monitoring Elastic</small></div>}</div>
           <button className="collapse-button" onClick={() => setCollapsed(value => !value)}><ChevronLeft className={collapsed ? 'rotate-180' : ''} size={16} />{!collapsed && <span>Collapse</span>}</button>
         </div>

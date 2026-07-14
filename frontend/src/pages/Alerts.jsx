@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  AlertTriangle, Bot, Check, ChevronDown, Clock3, Filter, ListFilter, Maximize2,
+  AlertTriangle, Bot, Check, ChevronDown, Clock3, Copy, Filter, ListFilter, Maximize2,
   Monitor, MoreVertical, Network, Pin, PlayCircle, RefreshCw, Save, Search,
   Shield, ShieldCheck, Sparkles, User, X, Zap,
 } from 'lucide-react';
@@ -22,7 +22,7 @@ function sourceSeverity(alert) {
 
 function shortId(alert) {
   const id = alert?.id || alert?.representative_alert_id || 'pending';
-  return id.length > 22 ? `${id.slice(0, 19)}…` : id;
+  return id.length > 22 ? `${id.slice(0, 19)}â€¦` : id;
 }
 
 function entity(alert) {
@@ -30,8 +30,14 @@ function entity(alert) {
 }
 
 function timeOnly(timestamp) {
-  if (!timestamp) return '—';
+  if (!timestamp) return 'â€”';
   return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function readableRuleReference(id) {
+  if (!id) return 'No technical ID';
+  const value = String(id);
+  return /^\d+$/.test(value) ? `Rule ${value}` : `Rule ${value.slice(0, 8).toUpperCase()}`;
 }
 
 function SourceBadge({ alert }) {
@@ -49,15 +55,18 @@ function StructuredEvent({ alert }) {
   const host = raw.host || {};
   const process = raw.process || {};
   const rule = raw.rule || {};
+  const kibanaRule = raw.kibana?.alert?.rule || {};
   const timestamp = raw['@timestamp'] || alert.timestamp;
-  const summary = [event.category, event.type, event.action].flat().filter(Boolean).join(' · ') || alert.rule_desc || 'Security event';
+  const ruleId = alert.rule_id || rule.id || kibanaRule.uuid || kibanaRule.rule_id || '';
+  const ruleName = rule.name || kibanaRule.name || alert.rule_desc || 'Detection rule';
+  const summary = [event.category, event.type, event.action].flat().filter(Boolean).join(' Â· ') || alert.rule_desc || 'Security event';
   const facts = [
     ['Event action', event.action || 'Not provided'],
     ['Outcome', event.outcome || 'Unknown'],
     ['Dataset', event.dataset || alert.event_dataset || 'Elastic'],
-    ['ECS version', ecs.version || '—'],
-    ['Rule ID', alert.rule_id || rule.id || '—'],
-    ['Rule level', alert.rule_level ?? rule.level ?? '—'],
+    ['ECS version', ecs.version || 'â€”'],
+    ['Detection rule', ruleName],
+    ['Rule level', alert.rule_level ?? rule.level ?? 'â€”'],
   ];
   const entities = [
     ['User', alert.username || user.name || user.email || 'Not identified'],
@@ -72,7 +81,7 @@ function StructuredEvent({ alert }) {
   return <div className="structured-event">
     <div className="structured-event-hero"><span><Shield /></span><div><small>Normalized security event</small><h3>{alert.rule_desc || event.reason || 'Security event'}</h3><p>{summary}</p></div><time><Clock3 />{fmtTs(timestamp)}</time></div>
     <div className="event-entity-grid"><article><User /><span>User</span><strong>{entities[0][1]}</strong></article><article><Monitor /><span>Host</span><strong>{entities[1][1]}</strong></article><article><Network /><span>Source</span><strong>{entities[2][1]}</strong></article><article><Network /><span>Destination</span><strong>{entities[3][1]}</strong></article></div>
-    <div className="event-detail-grid"><section><h4>Detection details</h4><dl>{facts.map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}</dl></section><section><h4>Entity context</h4><dl>{entities.map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}</dl></section></div>
+    <div className="event-detail-grid"><section><h4>Detection details</h4><dl>{facts.map(([label,value]) => <div key={label}><dt>{label}</dt><dd title={String(value)}>{String(value)}</dd></div>)}</dl>{ruleId && <div className="rule-reference"><div><small>Technical rule reference</small><strong>{readableRuleReference(ruleId)}</strong></div><details><summary>Show full ID</summary><code>{ruleId}</code><button type="button" onClick={() => navigator.clipboard?.writeText(String(ruleId))} title="Copy full rule ID"><Copy />Copy ID</button></details></div>}</section><section><h4>Entity context</h4><dl>{entities.map(([label,value]) => <div key={label}><dt>{label}</dt><dd title={String(value)}>{String(value)}</dd></div>)}</dl></section></div>
     <details className="raw-event-disclosure"><summary>View raw event JSON</summary><pre className="raw-event">{rawText}</pre></details>
   </div>;
 }
@@ -106,7 +115,7 @@ function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, on
       </div>
       <div className="detail-actions">
         <button className="detail-action primary" onClick={onInvestigate}><PlayCircle />Investigate</button>
-        <button className="detail-action" onClick={onRetriage} disabled={busy}><Sparkles />{busy ? 'Queuing…' : 'Re-run AI'}</button>
+        <button className="detail-action" onClick={onRetriage} disabled={busy}><Sparkles />{busy ? 'Queuingâ€¦' : 'Re-run AI'}</button>
         <button className={`detail-action ${escalated ? 'is-complete' : ''}`} onClick={onEscalate}><ShieldCheck />{escalated ? 'Escalated' : 'Escalate'}</button>
       </div>
       <div className="detail-tabs">{['overview','evidence','entities','response'].map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}</button>)}</div>
@@ -119,7 +128,7 @@ function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, on
               <div className={`verdict-hero verdict-${verdict?.verdict || 'pending'}`}><Bot /><div><strong>{verdict ? verdictLabel(verdict.verdict) : 'Awaiting triage'}</strong><span>{confidence == null ? 'No confidence score' : `${confidence}% confidence`}</span></div></div>
               {confidence != null && <div className="verdict-meter"><i style={{ width: `${confidence}%` }} /></div>}
             </section>
-            <section className="detail-card"><span className="detail-card-label">Enrichment</span><dl><div><dt>Reputation</dt><dd>{enrichment.src_threat_intel?.found ? 'Malicious' : 'No known threat'}</dd></div><div><dt>CMDB match</dt><dd>{enrichment.dst_asset || enrichment.src_asset ? 'Matched' : '—'}</dd></div><div><dt>EDR context</dt><dd>{enrichment.edr_recent?.total || 0} detections</dd></div></dl></section>
+            <section className="detail-card"><span className="detail-card-label">Enrichment</span><dl><div><dt>Reputation</dt><dd>{enrichment.src_threat_intel?.found ? 'Malicious' : 'No known threat'}</dd></div><div><dt>CMDB match</dt><dd>{enrichment.dst_asset || enrichment.src_asset ? 'Matched' : 'â€”'}</dd></div><div><dt>EDR context</dt><dd>{enrichment.edr_recent?.total || 0} detections</dd></div></dl></section>
             <section className="detail-card"><span className="detail-card-label">MITRE ATT&CK</span><div className="mitre-list">{(alert.mitre_techniques || []).map(item => <span key={item}>{item}</span>)}{!(alert.mitre_techniques || []).length && <em>No technique mapped</em>}</div></section>
           </div>
           <section className="detail-section"><div className="detail-section-title"><h3>Evidence Timeline</h3><span>{evidence.length} events</span></div><div className="evidence-timeline">{evidence.map((item, index) => <article key={`${item.label}-${index}`}><i className={index === evidence.length - 1 ? 'danger' : ''} /><time>{timeOnly(alert.timestamp || alert.last_seen)}</time><div><strong>{item.label}</strong><p>{item.detail}</p></div><span>{item.type}</span></article>)}</div></section>
@@ -154,7 +163,9 @@ export default function Alerts({ workspace = 'alerts' }) {
     severity: searchParams.get('severity') || '',
     triage_status: workspace === 'triage' ? 'pending' : searchParams.get('triage_status') || '',
     source: '',
-    hours: '24',
+    time_range: '1440',
+    custom_from: '',
+    custom_to: '',
   }));
 
   const load = useCallback(async () => {
@@ -165,7 +176,12 @@ export default function Alerts({ workspace = 'alerts' }) {
       if (filters.severity) query.set('severity', filters.severity);
       if (filters.triage_status) query.set('triage_status', filters.triage_status);
       if (filters.source && viewMode === 'grouped') query.set('dataset', filters.source);
-      if (filters.hours) query.set('from', new Date(Date.now() - Number(filters.hours) * 3600000).toISOString());
+      if (filters.time_range === 'custom') {
+        if (filters.custom_from) query.set('from', new Date(filters.custom_from).toISOString());
+        if (filters.custom_to) query.set('to', new Date(filters.custom_to).toISOString());
+      } else if (filters.time_range !== 'all') {
+        query.set('from', new Date(Date.now() - Number(filters.time_range) * 60000).toISOString());
+      }
       const grouped = viewMode === 'grouped';
       const data = await api(`${grouped ? '/alert-groups' : '/alerts'}?${query}`);
       const rows = grouped ? (data.groups || []).map(group => ({ ...group, id: group.representative_alert_id, timestamp: group.last_seen, agent_name: group.hostname })) : data.alerts || [];
@@ -203,7 +219,7 @@ export default function Alerts({ workspace = 'alerts' }) {
     setNotice('Alert view saved for this browser.'); setTimeout(() => setNotice(''), 2500);
   }
 
-  function clearFilters() { setFilters({ search:'', severity:'', triage_status:'', source:'', hours:'24' }); setPage(1); }
+  function clearFilters() { setFilters({ search:'', severity:'', triage_status:'', source:'', time_range:'1440', custom_from:'', custom_to:'' }); setPage(1); }
 
   return (
     <div className="triage-page">
@@ -216,13 +232,14 @@ export default function Alerts({ workspace = 'alerts' }) {
       {notice && <div className="workspace-notice">{notice}</div>}
       <div className="filter-bar">
         <button className="filter-primary" onClick={clearFilters}><Filter />Clear Filters<InfoTip text="Clear severity, AI state, source, and search filters." /></button>
-        <select value={filters.hours} onChange={event => setFilters(current => ({...current,hours:event.target.value}))}><option value="24">Last 24 hours</option><option value="168">Last 7 days</option><option value="720">Last 30 days</option><option value="">All time</option></select>
+        <select className="time-range-select" aria-label="Alert time range" value={filters.time_range} onChange={event => { setFilters(current => ({...current,time_range:event.target.value})); setPage(1); }}><option value="1">Last 1 minute</option><option value="5">Last 5 minutes</option><option value="15">Last 15 minutes</option><option value="30">Last 30 minutes</option><option value="60">Last 1 hour</option><option value="240">Last 4 hours</option><option value="720">Last 12 hours</option><option value="1440">Last 24 hours</option><option value="10080">Last 7 days</option><option value="43200">Last 30 days</option><option value="all">All time</option><option value="custom">Custom rangeâ€¦</option></select>
         <select value={filters.severity} onChange={event => setFilters(current => ({ ...current, severity: event.target.value }))}><option value="">Severity</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
         <select value={filters.triage_status} onChange={event => setFilters(current => ({ ...current, triage_status: event.target.value }))}><option value="">AI status</option><option value="pending">Pending</option><option value="triaged">Triaged</option><option value="triage_failed">Failed</option></select>
         <input className="filter-input" value={filters.source} onChange={event => setFilters(current => ({...current,source:event.target.value}))} placeholder="Dataset / source" disabled={viewMode !== 'grouped'} />
         <span className="filter-spacer" />
         <button onClick={saveView}><Save />Save view</button><button onClick={load} aria-label="Refresh"><RefreshCw className={loading ? 'animate-spin' : ''} /></button>
       </div>
+      {filters.time_range === 'custom' && <div className="custom-time-range"><span><Clock3 />Custom time range</span><label>From<input type="datetime-local" value={filters.custom_from} onChange={event => { setFilters(current => ({...current,custom_from:event.target.value})); setPage(1); }} /></label><label>To<input type="datetime-local" value={filters.custom_to} onChange={event => { setFilters(current => ({...current,custom_to:event.target.value})); setPage(1); }} /></label><small>Times use your browser's local timezone.</small></div>}
 
       <div className={`triage-layout ${expanded ? 'detail-expanded' : ''}`}>
         <section className="alert-list-panel">
@@ -232,12 +249,12 @@ export default function Alerts({ workspace = 'alerts' }) {
               <thead><tr><th><span className="fake-check" /></th><th>Alert</th><th>Severity</th><th>Source</th><th>AI verdict</th><th>Affected entity</th><th>Time</th><th /></tr></thead>
               <tbody>{alerts.map(alert => {
                 const verdict = json(alert.verdict); const severity = sourceSeverity(alert); const active = selected?.id === alert.id; const confidence = verdict?.confidence != null ? Math.round(verdict.confidence * 100) : null;
-                return <tr key={alert.group_key || alert.id} className={active ? 'selected' : ''} onClick={() => setSelected(alert)}><td><span className={`fake-check ${active ? 'checked' : ''}`}>{active && <Check />}</span></td><td><strong>{shortId(alert)}</strong><span>{alert.rule_desc || 'Security event'}</span>{alert.occurrence_count > 1 && <em>{alert.occurrence_count}×</em>}</td><td><span className={`badge ${sevClass(severity)}`}>{severity}</span></td><td><SourceBadge alert={alert} /></td><td><span className={`table-verdict verdict-${verdict?.verdict || 'pending'}`}><Zap />{verdict ? verdictLabel(verdict.verdict) : 'Pending'}</span>{confidence != null && <small>{confidence}%</small>}</td><td><strong>{entity(alert)}</strong><span>{alert.hostname || alert.src_ip || '—'}</span></td><td><strong>{timeOnly(alert.timestamp)}</strong><span>{new Date(alert.timestamp || Date.now()).toLocaleDateString()}</span></td><td><MoreVertical /></td></tr>;
+                return <tr key={alert.group_key || alert.id} className={active ? 'selected' : ''} onClick={() => setSelected(alert)}><td><span className={`fake-check ${active ? 'checked' : ''}`}>{active && <Check />}</span></td><td><strong>{shortId(alert)}</strong><span>{alert.rule_desc || 'Security event'}</span>{alert.occurrence_count > 1 && <em>{alert.occurrence_count}Ã—</em>}</td><td><span className={`badge ${sevClass(severity)}`}>{severity}</span></td><td><SourceBadge alert={alert} /></td><td><span className={`table-verdict verdict-${verdict?.verdict || 'pending'}`}><Zap />{verdict ? verdictLabel(verdict.verdict) : 'Pending'}</span>{confidence != null && <small>{confidence}%</small>}</td><td><strong>{entity(alert)}</strong><span>{alert.hostname || alert.src_ip || 'â€”'}</span></td><td><strong>{timeOnly(alert.timestamp)}</strong><span>{new Date(alert.timestamp || Date.now()).toLocaleDateString()}</span></td><td><MoreVertical /></td></tr>;
               })}</tbody>
             </table>
             {!loading && !alerts.length && <div className="workspace-empty"><AlertTriangle /><strong>No alerts match these filters</strong><span>Clear filters or change the selected time range.</span></div>}
           </div>
-          <div className="workspace-pagination"><span>{total ? `${(page - 1) * 20 + 1}–${Math.min(page * 20, total)} of ${total.toLocaleString()}` : '0 alerts'}</span><div><button disabled={page <= 1} onClick={() => setPage(value => value - 1)}>‹</button><b>{page}</b><button disabled={page >= pages} onClick={() => setPage(value => value + 1)}>›</button></div><select><option>20 / page</option></select></div>
+          <div className="workspace-pagination"><span>{total ? `${(page - 1) * 20 + 1}â€“${Math.min(page * 20, total)} of ${total.toLocaleString()}` : '0 alerts'}</span><div><button disabled={page <= 1} onClick={() => setPage(value => value - 1)}>â€¹</button><b>{page}</b><button disabled={page >= pages} onClick={() => setPage(value => value + 1)}>â€º</button></div><select><option>20 / page</option></select></div>
         </section>
         <AlertDetail alert={detail || selected} onClose={() => { setSelected(null); setDetail(null); setExpanded(false); }} onRetriage={retriage} busy={retriaging} expanded={expanded} onExpand={() => setExpanded(value => !value)} pinned={pinnedIds.includes((detail || selected)?.id)} onPin={() => persistList('bmb-pinned-alerts',setPinnedIds,pinnedIds,(detail || selected)?.id)} escalated={escalatedIds.includes((detail || selected)?.id)} onEscalate={() => { const id=(detail || selected)?.id; persistList('bmb-escalated-alerts',setEscalatedIds,escalatedIds,id); setNotice(escalatedIds.includes(id) ? 'Alert removed from escalation queue.' : 'Alert added to the analyst escalation queue.'); }} onInvestigate={() => navigate(`/investigations?search=${encodeURIComponent((detail || selected)?.id || entity(detail || selected))}`)} />
       </div>
