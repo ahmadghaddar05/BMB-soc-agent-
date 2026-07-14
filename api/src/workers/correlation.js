@@ -76,45 +76,186 @@ async function upsertIncident(inc, firstSeen, lastSeen, runId, incidentType = 'c
 }
 
 // Pull all triaged alerts from the last N hours and ask the LLM to correlate.
+function boundedInt(value, fallback, min, max) {
+  const n = parseInt(value, 10);
+  return Math.min(max, Math.max(min, Number.isFinite(n) ? n : fallback));
+}
+
+function meaningful(value) {
+  const v = String(value || '').trim().toLowerCase();
+  return v && !['unknown','n/a','na','none','null','-'].includes(v) ? v : null;
+}
+
+function relationScore(a, b) {
+  let score = 0;
+  const direct = ['username','hostname','process','target_db'];
+  for (const key of direct) {
+    const av = meaningful(a[key]);
+    const bv = meaningful(b[key]);
+    if (av && av === bv) score += key === 'process' ? 1 : 2;
+  }
+  const aIps = new Set([meaningful(a.src_ip), meaningful(a.dst_ip)].filter(Boolean));
+  const bIps = [meaningful(b.src_ip), meaningful(b.dst_ip)].filter(Boolean);
+  if (bIps.some(ip => aIps.has(ip))) score += 2;
+  return score;
+}
+
+function withinHours(a, b, hours) {
+  const at = new Date(a.timestamp).getTime();
+  const bt = new Date(b.timestamp).getTime();
+  return Number.isFinite(at) && Number.isFinite(bt) &&
+    Math.abs(at - bt) <= hours * 60 * 60 * 1000;
+}
+
+// Incremental correlation: process each newly triaged alert once, then add only
+// recent alerts that share a meaningful entity. This avoids resending the same
+// 24-hour batch to the LLM on every scheduler cycle.
 async function correlatePending(settings = {}, runId = null) {
-  const hours = parseInt(settings.correlation_lookback_hours || 24);
-  const cap   = parseInt(settings.correlation_max_alerts     || 60);
+  const hours = boundedInt(settings.correlation_lookback_hours, 24, 1, 168);
+  const cap = boundedInt(settings.correlation_max_alerts, 40, 2, 80);
+  const newCap = boundedInt(settings.correlation_new_alerts_per_cycle, 20, 1, 50);
+  const initialCap = boundedInt(settings.correlation_initial_alerts, 20, 2, 40);
+  const contextPoolCap = boundedInt(settings.correlation_context_pool, 100, 10, 300);
+  const entityWindowHours = boundedInt(settings.correlation_entity_window_hours, 6, 1, 48);
+  const tokenBudget = boundedInt(settings.correlation_token_budget, 20000, 6000, 100000);
 
-  const { rows } = await db.query(
-    `SELECT id, timestamp, rule_id, rule_level, rule_desc,
-            src_ip, dst_ip, username, hostname, target_db, process, verdict
-     FROM alerts
-     WHERE triage_status = 'triaged'
-       AND auto_closed = false
-       AND timestamp >= NOW() - ($1 || ' hours')::interval
-     ORDER BY rule_level DESC, timestamp DESC
-     LIMIT $2`,
-    [String(hours), cap]
-  );
+  let cursor = null;
+  try {
+    const parsed = JSON.parse(settings.correlation_cursor_json || 'null');
+    if (Array.isArray(parsed) && parsed.length === 2 &&
+        Number.isFinite(new Date(parsed[0]).getTime())) {
+      cursor = [new Date(parsed[0]).toISOString(), String(parsed[1] || '')];
+    }
+  } catch {
+    cursor = null;
+  }
+  // Backward-compatible migration from the earlier timestamp-only cursor.
+  if (!cursor && settings.correlation_cursor_at) {
+    const legacy = new Date(settings.correlation_cursor_at);
+    if (Number.isFinite(legacy.getTime())) cursor = [legacy.toISOString(), ''];
+  }
+  const hasCursor = !!cursor;
 
-  if (rows.length < 2) {
-    return { incidents_created: 0, incidents_updated: 0, considered: rows.length };
+  const columns = `
+    id, timestamp, triaged_at, rule_id, rule_level, rule_desc,
+    src_ip, dst_ip, username, hostname, target_db, process, verdict
+  `;
+
+  const fresh = hasCursor
+    ? await db.query(
+        `SELECT ${columns}
+         FROM alerts
+         WHERE triage_status='triaged' AND auto_closed=false
+           AND (COALESCE(triaged_at, timestamp), id) > ($1::timestamptz, $2::text)
+         ORDER BY COALESCE(triaged_at, timestamp) ASC, id ASC
+         LIMIT $3`,
+        [cursor[0], cursor[1], newCap]
+      )
+    : await db.query(
+        `SELECT ${columns}
+         FROM alerts
+         WHERE triage_status='triaged' AND auto_closed=false
+           AND timestamp >= NOW() - ($1 || ' hours')::interval
+         ORDER BY COALESCE(triaged_at, timestamp) ASC, id ASC
+         LIMIT $2`,
+        [String(hours), initialCap]
+      );
+
+  const newRows = fresh.rows;
+  if (!newRows.length) {
+    return {
+      incidents_created: 0, incidents_updated: 0, considered: 0,
+      new_alerts: 0, llm_calls: 0, llm_tokens: 0, skipped_reason: 'no_new_triaged_alerts',
+    };
   }
 
-  const tsById = Object.fromEntries(rows.map(r => [r.id, r.timestamp]));
-  const incidents = await correlateAlerts(rows, settings);
+  const lastFresh = newRows[newRows.length - 1];
+  const nextCursor = [
+    new Date(lastFresh.triaged_at || lastFresh.timestamp).toISOString(),
+    String(lastFresh.id),
+  ];
+  const newIds = newRows.map(row => row.id);
+
+  const pool = await db.query(
+    `SELECT ${columns}
+     FROM alerts
+     WHERE triage_status='triaged' AND auto_closed=false
+       AND timestamp >= NOW() - ($1 || ' hours')::interval
+       AND NOT (id = ANY($2::text[]))
+     ORDER BY rule_level DESC, timestamp DESC
+     LIMIT $3`,
+    [String(hours), newIds, contextPoolCap]
+  );
+
+  const relatedContext = pool.rows.filter(candidate =>
+    newRows.some(freshAlert =>
+      relationScore(freshAlert, candidate) > 0 &&
+      withinHours(freshAlert, candidate, entityWindowHours)
+    )
+  );
+
+  // Reserve prompt/output headroom. In practice compact alerts are usually
+  // below 220 tokens each; this keeps a single correlation request bounded.
+  const budgetCandidateCap = Math.max(2, Math.floor((tokenBudget - 3000) / 220));
+  const effectiveCap = Math.min(cap, budgetCandidateCap);
+  const candidates = [...newRows, ...relatedContext]
+    .filter((row, index, all) => all.findIndex(x => x.id === row.id) === index)
+    .slice(0, effectiveCap);
+
+  let hasPlausiblePair = false;
+  for (let i = 0; i < candidates.length && !hasPlausiblePair; i++) {
+    for (let j = i + 1; j < candidates.length; j++) {
+      if (relationScore(candidates[i], candidates[j]) > 0 &&
+          withinHours(candidates[i], candidates[j], entityWindowHours)) {
+        hasPlausiblePair = true;
+        break;
+      }
+    }
+  }
+
+  if (!hasPlausiblePair) {
+    await db.setSetting('correlation_cursor_json', JSON.stringify(nextCursor));
+    return {
+      incidents_created: 0, incidents_updated: 0, considered: candidates.length,
+      new_alerts: newRows.length, llm_calls: 0, llm_tokens: 0,
+      skipped_reason: 'no_plausible_entity_links',
+    };
+  }
+
+  const tsById = Object.fromEntries(candidates.map(r => [r.id, r.timestamp]));
+  const { incidents, usage } = await correlateAlerts(candidates, settings);
 
   let created = 0, updated = 0;
+  const failures = [];
   for (const inc of incidents) {
-    const times     = inc.alert_ids.map(id => tsById[id]).filter(Boolean).map(t => new Date(t));
+    const times = inc.alert_ids.map(id => tsById[id]).filter(Boolean).map(t => new Date(t));
     const firstSeen = times.length ? new Date(Math.min(...times)).toISOString() : new Date().toISOString();
-    const lastSeen  = times.length ? new Date(Math.max(...times)).toISOString() : firstSeen;
-
+    const lastSeen = times.length ? new Date(Math.max(...times)).toISOString() : firstSeen;
     try {
       const result = await upsertIncident(inc, firstSeen, lastSeen, runId);
       if (result === 'created') created++; else updated++;
     } catch (err) {
-      console.error('[correlate] failed to upsert incident:', err.message || String(err));
+      failures.push(`${inc.title || 'incident'}: ${err.message || String(err)}`);
     }
   }
 
-  console.log(`[correlate] considered=${rows.length} incidents: created=${created} updated=${updated}`);
-  return { incidents_created: created, incidents_updated: updated, considered: rows.length };
+  // Cursor advances only after the model response and every database write
+  // succeed. Retrying is safe because incident upserts are idempotent.
+  if (failures.length) {
+    throw new Error(`Correlation persistence failed; cursor retained: ${failures.join('; ').slice(0, 400)}`);
+  }
+  await db.setSetting('correlation_cursor_json', JSON.stringify(nextCursor));
+
+  const llmTokens = parseInt(usage?.total_tokens || 0, 10) || 0;
+  console.log(
+    `[correlate] new=${newRows.length} context=${relatedContext.length} ` +
+    `considered=${candidates.length} created=${created} updated=${updated} tokens=${llmTokens}`
+  );
+  return {
+    incidents_created: created, incidents_updated: updated,
+    considered: candidates.length, new_alerts: newRows.length,
+    llm_calls: 1, llm_tokens: llmTokens, token_budget: tokenBudget,
+  };
 }
 
 // Promote significant standalone alerts to single-alert incidents so the

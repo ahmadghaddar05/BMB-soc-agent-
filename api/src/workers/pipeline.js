@@ -5,7 +5,7 @@ const {
   fetchAlerts: fetchElasticAlerts,
   searchAlertsCursor,
 } = require('../services/elastic');
-const { triageAlert, investigateAlert } = require('../services/llm');
+const { triageAlert, investigateAlert, triageHybrid } = require('../services/llm');
 const { alertSignature } = require('../services/signature');
 const { correlatePending, promoteSingletons } = require('./correlation');
 
@@ -150,8 +150,14 @@ async function triagePending(settings, limit = 50) {
   );
   if (!rows.length) return { triaged: 0, failed: 0, llm_calls: 0, cache_hits: 0 };
 
-  const agentic   = (settings.triage_mode || 'pipeline') === 'agentic';
-  const useCache  = (settings.caching_enabled || 'true') === 'true';
+  const mode = settings.triage_mode || 'hybrid';
+  const agentic = mode === 'agentic';
+  const hybrid = mode === 'hybrid';
+  const useCache = (settings.caching_enabled || 'true') === 'true';
+  const cacheTtlHours = Math.min(720, Math.max(1,
+    parseInt(settings.triage_cache_ttl_hours || 168, 10) || 168));
+  const tokenBudget = Math.min(500000, Math.max(10000,
+    parseInt(settings.triage_token_budget || 120000, 10) || 120000));
 
   // ── Noise reduction: group near-identical alerts by signature ───────────
   // Alerts with the same rule + same key entities are triaged ONCE; the verdict
@@ -165,6 +171,8 @@ async function triagePending(settings, limit = 50) {
   }
 
   let triaged = 0, failed = 0, llm_calls = 0, cache_hits = 0;
+  let llm_tokens = 0, prompt_tokens = 0, completion_tokens = 0;
+  let agentic_escalations = 0, budget_exhausted = false;
 
   for (const [sig, members] of clusters) {
     const rep = members[0];
@@ -173,7 +181,12 @@ async function triagePending(settings, limit = 50) {
 
       // 1. Cache: have we already triaged this exact signature?
       if (useCache) {
-        const c = await db.query('SELECT verdict FROM triage_cache WHERE signature=$1', [sig]);
+        const c = await db.query(
+          `SELECT verdict FROM triage_cache
+           WHERE signature=$1
+             AND updated_at >= NOW() - ($2 || ' hours')::interval`,
+          [sig, String(cacheTtlHours)]
+        );
         if (c.rows.length) {
           verdict = c.rows[0].verdict;
           source  = 'cache';
@@ -185,11 +198,30 @@ async function triagePending(settings, limit = 50) {
 
       // 2. Miss → call the LLM (agentic investigation or single-shot triage)
       if (!verdict) {
+        const expectedNextTokens = llm_calls
+          ? Math.max(1500, Math.ceil(llm_tokens / llm_calls))
+          : (agentic ? 12000 : (hybrid ? 5000 : 3500));
+        if (llm_tokens + expectedNextTokens > tokenBudget) {
+          budget_exhausted = true;
+          console.warn(
+            `[triage] token budget guard reached (${llm_tokens}/${tokenBudget}, ` +
+            `next estimate ${expectedNextTokens}); leaving remaining alerts pending`
+          );
+          break;
+        }
+
         verdict = agentic
           ? await investigateAlert(rep, settings)
-          : await triageAlert(rep, rep.enrichment || null, settings);
-        source = agentic ? 'agentic' : 'llm';
+          : hybrid
+            ? await triageHybrid(rep, rep.enrichment || null, settings)
+            : await triageAlert(rep, rep.enrichment || null, settings);
+        source = agentic ? 'agentic' : (hybrid ? verdict.triage_path : 'llm');
         llm_calls++;
+        llm_tokens += parseInt(verdict.total_tokens || 0, 10) || 0;
+        prompt_tokens += parseInt(verdict.prompt_tokens || 0, 10) || 0;
+        completion_tokens += parseInt(verdict.completion_tokens || 0, 10) || 0;
+        if (verdict.agentic_escalated) agentic_escalations++;
+
         if (useCache) {
           await db.query(
             `INSERT INTO triage_cache (signature, rule_id, verdict)
@@ -243,8 +275,15 @@ async function triagePending(settings, limit = 50) {
     }
   }
 
-  console.log(`[triage] alerts=${triaged} clusters=${clusters.size} llm_calls=${llm_calls} cache_hits=${cache_hits} mode=${agentic?'agentic':'pipeline'}`);
-  return { triaged, failed, llm_calls, cache_hits, clusters: clusters.size };
+  console.log(
+    `[triage] alerts=${triaged} clusters=${clusters.size} llm_calls=${llm_calls} ` +
+    `cache_hits=${cache_hits} tokens=${llm_tokens}/${tokenBudget} mode=${mode}`
+  );
+  return {
+    triaged, failed, llm_calls, cache_hits, clusters: clusters.size,
+    llm_tokens, prompt_tokens, completion_tokens, agentic_escalations,
+    token_budget: tokenBudget, budget_exhausted,
+  };
 }
 
 // ── Full run cycle ────────────────────────────────────────────────────────
@@ -275,7 +314,9 @@ async function runCycle(trigger = 'scheduler') {
   const stats = {
     fetched:0, stored:0, duplicates:0,
     enriched:0, enrichment_failed:0,
-    triaged:0,  triage_failed:0, incidents_created:0,
+    triaged:0, triage_failed:0, incidents_created:0,
+    llm_calls:0, llm_tokens:0, cache_hits:0, agentic_escalations:0,
+    correlation_calls:0, correlation_tokens:0,
   };
 
   try {
@@ -476,11 +517,17 @@ async function runCycle(trigger = 'scheduler') {
 
     if (triageEnabled) {
       const tr = await triagePending(settings, 50);
-      stats.triaged       = tr.triaged;
+      stats.triaged = tr.triaged;
       stats.triage_failed = tr.failed;
+      stats.llm_calls = tr.llm_calls || 0;
+      stats.llm_tokens = tr.llm_tokens || 0;
+      stats.cache_hits = tr.cache_hits || 0;
+      stats.agentic_escalations = tr.agentic_escalations || 0;
+      stats.token_budget_exhausted = !!tr.budget_exhausted;
 
       console.log(
-        `[cycle] triaged=${tr.triaged} triage_failed=${tr.failed}`
+        `[cycle] triaged=${tr.triaged} triage_failed=${tr.failed} ` +
+        `llm_calls=${tr.llm_calls || 0} tokens=${tr.llm_tokens || 0}`
       );
 
       // 5. Optional AI correlation
@@ -488,10 +535,15 @@ async function runCycle(trigger = 'scheduler') {
         const cr = await correlatePending(settings, runId);
 
         stats.incidents_created = cr.incidents_created;
+        stats.correlation_calls = cr.llm_calls || 0;
+        stats.correlation_tokens = cr.llm_tokens || 0;
+        stats.llm_calls += cr.llm_calls || 0;
+        stats.llm_tokens += cr.llm_tokens || 0;
 
         console.log(
           `[cycle] correlated: created=${cr.incidents_created} ` +
-          `updated=${cr.incidents_updated} considered=${cr.considered}`
+          `updated=${cr.incidents_updated} considered=${cr.considered} ` +
+          `llm_calls=${cr.llm_calls || 0} tokens=${cr.llm_tokens || 0}`
         );
 
         if (

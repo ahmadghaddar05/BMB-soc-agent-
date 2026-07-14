@@ -31,7 +31,11 @@ r.put('/settings', async (req, res) => {
       'llm_provider','groq_model','ollama_model','triage_mode','triage_enabled',
       'autoclose_enabled','autoclose_confidence','autoclose_max_severity','autoclose_verdicts',
       'correlation_enabled','correlation_lookback_hours','correlation_max_alerts',
-      'caching_enabled', 'anthropic_model',
+      'correlation_new_alerts_per_cycle','correlation_initial_alerts',
+      'correlation_context_pool','correlation_entity_window_hours','correlation_token_budget',
+      'caching_enabled','triage_cache_ttl_hours','triage_token_budget',
+      'agentic_max_iterations','hybrid_agentic_min_rule_level',
+      'hybrid_agentic_confidence_below','anthropic_model',
       'incident_promote_enabled','incident_promote_verdicts','incident_promote_min_severity',
     ];
     const updates = Object.entries(req.body).filter(([k]) => allowed.includes(k));

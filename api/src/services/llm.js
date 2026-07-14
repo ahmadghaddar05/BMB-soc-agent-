@@ -29,6 +29,33 @@ const STAGE_ALIASES = {
 const SEVERITIES = ['critical','high','medium','low','informational'];
 const VERDICTS   = ['true_positive','false_positive','needs_investigation','benign_anomaly'];
 
+function clampInt(value, fallback, min, max) {
+  const n = parseInt(value, 10);
+  return Math.min(max, Math.max(min, Number.isFinite(n) ? n : fallback));
+}
+
+// Keep prompt evidence useful while preventing oversized enrichment payloads from
+// dominating every request. Security-relevant scalar values are preserved;
+// only deep/very large collections and strings are bounded.
+function compactForPrompt(value, depth = 0) {
+  if (value == null || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.length > 500 ? value.slice(0, 500) + '…' : value;
+  if (depth >= 5) return '[depth limited]';
+  if (Array.isArray(value)) {
+    const out = value.slice(0, 10).map(v => compactForPrompt(v, depth + 1));
+    if (value.length > 10) out.push({ omitted_items: value.length - 10 });
+    return out;
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value);
+    const out = {};
+    for (const [key, child] of entries.slice(0, 40)) out[key] = compactForPrompt(child, depth + 1);
+    if (entries.length > 40) out._omitted_fields = entries.length - 40;
+    return out;
+  }
+  return String(value);
+}
+
 function normalizeStage(v) {
   if (!v) return 'unknown';
   const l = String(v).toLowerCase().trim().replace(/\s+/g, '_');
@@ -77,6 +104,7 @@ function resolveProvider(settings = {}) {
 // Shared by triageAlert and correlateAlerts so both behave identically.
 async function chatJSON({ messages, settings = {}, maxTokens = 600 }) {
   const { baseUrl, model, apiKey, provider, jsonMode } = resolveProvider(settings);
+  const cumulativeUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
   for (let attempt = 0; attempt <= 2; attempt++) {
     const t0 = Date.now();
@@ -115,6 +143,17 @@ async function chatJSON({ messages, settings = {}, maxTokens = 600 }) {
     const raw  = data.choices?.[0]?.message?.content;
     if (!raw) throw new Error('LLM returned empty response');
 
+    const callUsage = data.usage || {};
+    const estimatedPrompt = Math.ceil(JSON.stringify(messages).length / 4);
+    const estimatedCompletion = Math.ceil(
+      (typeof raw === 'string' ? raw.length : JSON.stringify(raw).length) / 4
+    );
+    cumulativeUsage.prompt_tokens += callUsage.prompt_tokens || estimatedPrompt;
+    cumulativeUsage.completion_tokens += callUsage.completion_tokens || estimatedCompletion;
+    cumulativeUsage.total_tokens += callUsage.total_tokens ||
+      ((callUsage.prompt_tokens || estimatedPrompt) +
+       (callUsage.completion_tokens || estimatedCompletion));
+
     let parsed;
     if (typeof raw === 'object' && raw !== null) {
       parsed = raw;
@@ -133,7 +172,7 @@ async function chatJSON({ messages, settings = {}, maxTokens = 600 }) {
       }
     }
 
-    return { parsed, usage: data.usage || {}, model, provider, processing_ms: Date.now() - t0 };
+    return { parsed, usage: cumulativeUsage, model, provider, processing_ms: Date.now() - t0 };
   }
   throw new Error('LLM call exhausted all retries');
 }
@@ -180,7 +219,7 @@ async function triageAlert(alert, enrichmentCtx, settings = {}) {
       mitre_tactics:    alert.mitre_tactics || [],
       full_log:    String(alert.full_log || '').slice(0, 400),
     },
-    enrichment: enrichmentCtx || {},
+    enrichment: compactForPrompt(enrichmentCtx || {}),
   };
 
   const messages = [
@@ -279,7 +318,7 @@ function compactAlert(a) {
 }
 
 async function correlateAlerts(alerts, settings = {}) {
-  if (!Array.isArray(alerts) || alerts.length < 2) return [];
+  if (!Array.isArray(alerts) || alerts.length < 2) return { incidents: [], usage: {} };
 
   const inputIds = new Set(alerts.map(a => a.id));
   const compact  = alerts.map(compactAlert);
@@ -289,7 +328,7 @@ async function correlateAlerts(alerts, settings = {}) {
     { role: 'user',   content: `Correlate these ${compact.length} triaged alerts into incidents:\n\n${JSON.stringify(compact, null, 1)}` },
   ];
 
-  const { parsed } = await chatJSON({ messages, settings, maxTokens: 2000 });
+  const { parsed, usage } = await chatJSON({ messages, settings, maxTokens: 1600 });
 
   const rawIncidents = Array.isArray(parsed.incidents) ? parsed.incidents : [];
   const out = [];
@@ -329,7 +368,7 @@ async function correlateAlerts(alerts, settings = {}) {
     });
   }
 
-  return out;
+  return { incidents: out, usage };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -371,7 +410,7 @@ async function postChat(body, { baseUrl, apiKey, provider }) {
 
 // Runs the tool loop. Returns { content, trace, usage }. `trace` records every
 // tool call (name, args, short result) so the verdict/answer is auditable.
-async function runToolLoop({ messages, tools, dispatch, settings = {}, maxTokens = 700, maxIterations = 5 }) {
+async function runToolLoop({ messages, tools, dispatch, settings = {}, maxTokens = 700, maxIterations = 3, toolResultChars = 2200 }) {
   const conn = resolveProvider(settings);
   const trace = [];
   const usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
@@ -388,13 +427,20 @@ async function runToolLoop({ messages, tools, dispatch, settings = {}, maxTokens
       tool_choice: last ? 'none' : 'auto',
     };
     const data = await postChat(body, conn);
-    const u = data.usage || {};
-    usage.prompt_tokens     += u.prompt_tokens     || 0;
-    usage.completion_tokens += u.completion_tokens || 0;
-    usage.total_tokens      += u.total_tokens      || 0;
-
     const msg = data.choices?.[0]?.message;
     if (!msg) throw new Error('LLM returned no message');
+
+    const u = data.usage || {};
+    const estimatedPrompt = Math.ceil(
+      (JSON.stringify(messages).length + JSON.stringify(tools).length) / 4
+    );
+    const estimatedCompletion = Math.ceil(JSON.stringify(msg).length / 4);
+    const promptUsed = u.prompt_tokens || estimatedPrompt;
+    const completionUsed = u.completion_tokens || estimatedCompletion;
+    usage.prompt_tokens += promptUsed;
+    usage.completion_tokens += completionUsed;
+    usage.total_tokens += u.total_tokens || (promptUsed + completionUsed);
+
     messages.push(msg);
 
     const calls = msg.tool_calls || [];
@@ -410,7 +456,7 @@ async function runToolLoop({ messages, tools, dispatch, settings = {}, maxTokens
       catch (e) { result = { error: e.message || String(e) }; }
       const resultStr = JSON.stringify(result);
       trace.push({ step: iter + 1, tool: name, args, result: resultStr.slice(0, 600) });
-      messages.push({ role: 'tool', tool_call_id: tc.id, content: resultStr.slice(0, 4000) });
+      messages.push({ role: 'tool', tool_call_id: tc.id, content: resultStr.slice(0, toolResultChars) });
     }
   }
   return { content: '', trace, usage, model: conn.model, provider: conn.provider };
@@ -450,8 +496,12 @@ evidence, STOP calling tools and respond with ONLY the verdict JSON described ab
   ];
 
   const t0 = Date.now();
+  const maxIterations = clampInt(settings.agentic_max_iterations, 3, 2, 4);
   const { content, trace, usage, model, provider } =
-    await runToolLoop({ messages, tools: TRIAGE_TOOLS, dispatch, settings, maxTokens: 700, maxIterations: 5 });
+    await runToolLoop({
+      messages, tools: TRIAGE_TOOLS, dispatch, settings,
+      maxTokens: 650, maxIterations, toolResultChars: 2200,
+    });
 
   let parsed = extractJSON(content) || {};
   parsed.attack_stage = normalizeStage(parsed.attack_stage);
@@ -469,6 +519,50 @@ evidence, STOP calling tools and respond with ONLY the verdict JSON described ab
     tools_used: trace.length,
     prompt_tokens: usage.prompt_tokens, completion_tokens: usage.completion_tokens,
     total_tokens: usage.total_tokens, processing_ms: Date.now() - t0,
+  };
+}
+
+// ── Hybrid triage: inexpensive screening, agentic escalation only when useful
+function shouldEscalateAgentically(alert, preliminary, settings = {}) {
+  const minLevel = clampInt(settings.hybrid_agentic_min_rule_level, 12, 1, 20);
+  const confidenceFloor = Math.min(0.95, Math.max(0.5,
+    parseFloat(settings.hybrid_agentic_confidence_below || 0.82)));
+  const level = parseInt(alert.rule_level, 10) || 0;
+  const confidence = Number(preliminary.confidence) || 0;
+  const highRisk =
+    level >= minLevel ||
+    preliminary.severity === 'critical' ||
+    (preliminary.severity === 'high' && level >= Math.max(8, minLevel - 2));
+  const ambiguous =
+    preliminary.verdict === 'needs_investigation' ||
+    confidence < confidenceFloor;
+  return highRisk && ambiguous;
+}
+
+async function triageHybrid(alert, enrichmentCtx, settings = {}) {
+  const preliminary = await triageAlert(alert, enrichmentCtx, settings);
+  if (!shouldEscalateAgentically(alert, preliminary, settings)) {
+    return {
+      ...preliminary,
+      triage_path: 'hybrid_screened',
+      agentic_escalated: false,
+    };
+  }
+
+  const investigated = await investigateAlert(alert, settings);
+  return {
+    ...investigated,
+    prompt_tokens: (preliminary.prompt_tokens || 0) + (investigated.prompt_tokens || 0),
+    completion_tokens: (preliminary.completion_tokens || 0) + (investigated.completion_tokens || 0),
+    total_tokens: (preliminary.total_tokens || 0) + (investigated.total_tokens || 0),
+    processing_ms: (preliminary.processing_ms || 0) + (investigated.processing_ms || 0),
+    triage_path: 'hybrid_agentic',
+    agentic_escalated: true,
+    screening: {
+      severity: preliminary.severity,
+      verdict: preliminary.verdict,
+      confidence: preliminary.confidence,
+    },
   };
 }
 
@@ -508,6 +602,6 @@ async function chatAgent(question, history = [], settings = {}) {
 }
 
 module.exports = {
-  triageAlert, investigateAlert, correlateAlerts, chatAgent,
-  normalizeStage, resolveProvider,
+  triageAlert, investigateAlert, triageHybrid, correlateAlerts, chatAgent,
+  normalizeStage, resolveProvider, compactForPrompt,
 };

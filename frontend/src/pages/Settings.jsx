@@ -174,7 +174,7 @@ export default function Settings() {
                     if (r.error) {
                       setMsg({type:'err', text:'Cycle failed: '+r.error});
                     } else {
-                      setMsg({type:'ok', text:`Done — fetched ${st.fetched||0}, stored ${st.stored||0}, enriched ${st.enriched||0}, triaged ${st.triaged||0}`});
+                      setMsg({type:'ok', text:`Done — fetched ${st.fetched||0}, stored ${st.stored||0}, triaged ${st.triaged||0}, AI calls ${st.llm_calls||0}, tokens ${(st.llm_tokens||0).toLocaleString()}`});
                     }
                   } catch(e) { setMsg({type:'err', text:e.message}); }
                   await load();
@@ -215,15 +215,68 @@ export default function Settings() {
         <Row label="Ollama model" hint="Used when provider = ollama">
           <input className="input w-72" placeholder="llama3.1:8b" {...field('ollama_model')} />
         </Row>
-        <Row label="Triage mode">
-          <select className="select w-40" {...field('triage_mode')}>
-            <option value="pipeline">Pipeline (fast, 1 LLM call)</option>
-            <option value="agentic">Agentic (tool-calling loop)</option>
+        <Row label="Enable AI triage"
+             hint="When disabled, collection and enrichment continue without any LLM calls">
+          <Toggle {...toggle('triage_enabled')} />
+        </Row>
+        <Row label="Triage mode"
+             hint="Hybrid screens every alert once and uses agentic tools only for ambiguous high-risk cases">
+          <select className="select w-56" {...field('triage_mode')}>
+            <option value="hybrid">Hybrid (recommended)</option>
+            <option value="pipeline">Pipeline (fast, single call)</option>
+            <option value="agentic">Agentic for every alert (expensive)</option>
           </select>
         </Row>
+        <Row label="Token budget per cycle"
+             hint="Stops starting new triage calls after this budget is reached; remaining alerts stay pending">
+          <input className="input w-40" type="number" min="10000" max="500000" step="5000"
+            placeholder="120000" {...field('triage_token_budget')} />
+        </Row>
+        <Row label="Agentic iterations"
+             hint="Maximum investigation rounds per escalated alert (2–4; recommended 3)">
+          <input className="input w-24" type="number" min="2" max="4"
+            placeholder="3" {...field('agentic_max_iterations')} />
+        </Row>
+        <Row label="Use triage cache"
+             hint="Reuses recent verdicts for genuine duplicate alert signatures">
+          <Toggle {...toggle('caching_enabled')} />
+        </Row>
+        <Row label="Cache lifetime"
+             hint="Hours before a cached verdict must be validated again">
+          <input className="input w-24" type="number" min="1" max="720"
+            placeholder="168" {...field('triage_cache_ttl_hours')} />
+        </Row>
+        <Row label="Incremental correlation"
+             hint="Correlates only newly triaged alerts and relevant recent context">
+          <Toggle {...toggle('correlation_enabled')} />
+        </Row>
+        <Row label="New alerts per correlation"
+             hint="Maximum newly triaged alerts considered in one cycle">
+          <input className="input w-24" type="number" min="1" max="50"
+            placeholder="20" {...field('correlation_new_alerts_per_cycle')} />
+        </Row>
+        <Row label="Correlation token budget"
+             hint="Bounds the size of the incremental correlation request">
+          <input className="input w-40" type="number" min="6000" max="100000" step="1000"
+            placeholder="20000" {...field('correlation_token_budget')} />
+        </Row>
         <button className="btn-primary" disabled={loading}
-          onClick={()=>save({ llm_provider:s.llm_provider, groq_model:s.groq_model, anthropic_model:s.anthropic_model, ollama_model:s.ollama_model, triage_mode:s.triage_mode })}>
-          <Save className="w-4 h-4"/> Save LLM settings
+          onClick={()=>save({
+            llm_provider:s.llm_provider,
+            groq_model:s.groq_model,
+            anthropic_model:s.anthropic_model,
+            ollama_model:s.ollama_model,
+            triage_enabled:s.triage_enabled,
+            triage_mode:s.triage_mode || 'hybrid',
+            triage_token_budget:s.triage_token_budget || '120000',
+            agentic_max_iterations:s.agentic_max_iterations || '3',
+            caching_enabled:s.caching_enabled,
+            triage_cache_ttl_hours:s.triage_cache_ttl_hours || '168',
+            correlation_enabled:s.correlation_enabled,
+            correlation_new_alerts_per_cycle:s.correlation_new_alerts_per_cycle || '20',
+            correlation_token_budget:s.correlation_token_budget || '20000',
+          })}>
+          <Save className="w-4 h-4"/> Save AI efficiency policy
         </button>
       </Section>
 
