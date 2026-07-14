@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, fmtTs, sevClass, verdictClass, verdictLabel, statusClass } from '../lib/api';
 import { RefreshCw, ChevronDown, ChevronUp, Search, Filter } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 
 const ENRICH_LABELS = {
   pending: 'Pending', enriched: 'Enriched',
@@ -242,6 +243,8 @@ function AlertRow({ a }) {
 }
 
 export default function Alerts() {
+  const [searchParams] = useSearchParams();
+  const requestedSearch = searchParams.get('search') || '';
   const [alerts, setAlerts]       = useState([]);
   const [total,  setTotal]        = useState(0);
   const [page,   setPage]         = useState(1);
@@ -251,6 +254,13 @@ export default function Alerts() {
     triage_status:'', enrichment_status:'', severity:'',
     src_ip:'', username:'', hostname:'', search:'',
   });
+
+  useEffect(() => {
+    if (requestedSearch) {
+      setFilters(current => ({ ...current, search: requestedSearch }));
+      setPage(1);
+    }
+  }, [requestedSearch]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -453,3 +463,4 @@ export default function Alerts() {
     </div>
   );
 }
+
