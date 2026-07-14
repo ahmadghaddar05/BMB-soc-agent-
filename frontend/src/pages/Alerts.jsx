@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle, Bot, Check, ChevronDown, Clock3, Filter, ListFilter, Maximize2,
   Monitor, MoreVertical, Network, Pin, PlayCircle, RefreshCw, Save, Search,
@@ -39,8 +39,9 @@ function SourceBadge({ alert }) {
   return <span className="source-badge"><Shield size={12} />{String(source).split('.')[0]}</span>;
 }
 
-function AlertDetail({ alert, onClose, onRetriage, busy }) {
+function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, onPin, onExpand, busy, pinned, escalated, expanded }) {
   const [tab, setTab] = useState('overview');
+  const [completedActions, setCompletedActions] = useState([]);
   if (!alert) return <aside className="alert-detail empty"><ShieldCheck /><strong>Select an alert</strong><span>Choose an activity to open the investigation workspace.</span></aside>;
   const verdict = json(alert.verdict);
   const enrichment = json(alert.enrichment) || {};
@@ -63,12 +64,12 @@ function AlertDetail({ alert, onClose, onRetriage, busy }) {
     <aside className="alert-detail">
       <div className="detail-header">
         <div><span className="detail-id">{shortId(alert)}</span><span className={`badge ${sevClass(severity)}`}>{severity}</span><h2>{alert.rule_desc || 'Security alert'}</h2></div>
-        <div className="detail-header-actions"><button title="Pin investigation"><Pin /></button><button title="Expand"><Maximize2 /></button><button onClick={onClose} title="Close panel"><X /></button></div>
+        <div className="detail-header-actions"><button className={pinned ? 'active' : ''} onClick={onPin} title={pinned ? 'Unpin investigation' : 'Pin investigation'}><Pin /></button><button className={expanded ? 'active' : ''} onClick={onExpand} title={expanded ? 'Restore panel' : 'Expand'}><Maximize2 /></button><button onClick={onClose} title="Close panel"><X /></button></div>
       </div>
       <div className="detail-actions">
-        <button className="detail-action primary"><PlayCircle />Investigate</button>
+        <button className="detail-action primary" onClick={onInvestigate}><PlayCircle />Investigate</button>
         <button className="detail-action" onClick={onRetriage} disabled={busy}><Sparkles />{busy ? 'Queuing…' : 'Re-run AI'}</button>
-        <button className="detail-action"><ShieldCheck />Escalate</button>
+        <button className={`detail-action ${escalated ? 'is-complete' : ''}`} onClick={onEscalate}><ShieldCheck />{escalated ? 'Escalated' : 'Escalate'}</button>
       </div>
       <div className="detail-tabs">{['overview','evidence','entities','response'].map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}</button>)}</div>
 
@@ -89,13 +90,14 @@ function AlertDetail({ alert, onClose, onRetriage, busy }) {
 
         {tab === 'evidence' && <section className="detail-section tab-section"><div className="detail-section-title"><h3>Raw Security Event</h3></div><pre className="raw-event">{alert.full_log || JSON.stringify(alert.raw || alert, null, 2)}</pre></section>}
         {tab === 'entities' && <section className="entity-grid tab-section"><article><User /><span>Affected identity</span><strong>{alert.username || 'Unknown'}</strong></article><article><Monitor /><span>Affected host</span><strong>{alert.hostname || alert.agent_name || 'Unknown'}</strong></article><article><Network /><span>Source address</span><strong>{alert.src_ip || 'Unknown'}</strong></article><article><Network /><span>Destination address</span><strong>{alert.dst_ip || 'Unknown'}</strong></article></section>}
-        {tab === 'response' && <section className="detail-section tab-section"><div className="detail-section-title"><h3>Response Checklist</h3></div><ul className="response-list">{actions.map((item,index)=><li key={index}><button><Check /></button><span>{item}</span></li>)}</ul></section>}
+        {tab === 'response' && <section className="detail-section tab-section"><div className="detail-section-title"><h3>Response Checklist</h3><span>{completedActions.length}/{actions.length} complete</span></div><ul className="response-list">{actions.map((item,index)=><li key={index} className={completedActions.includes(index) ? 'complete' : ''}><button onClick={() => setCompletedActions(current => current.includes(index) ? current.filter(value => value !== index) : [...current,index])}><Check /></button><span>{item}</span></li>)}</ul></section>}
       </div>
     </aside>
   );
 }
 
 export default function Alerts({ workspace = 'alerts' }) {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [alerts, setAlerts] = useState([]);
   const [total, setTotal] = useState(0);
@@ -105,11 +107,16 @@ export default function Alerts({ workspace = 'alerts' }) {
   const [detail, setDetail] = useState(null);
   const [viewMode, setViewMode] = useState('grouped');
   const [retriaging, setRetriaging] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [pinnedIds, setPinnedIds] = useState(() => { try { return JSON.parse(localStorage.getItem('bmb-pinned-alerts')) || []; } catch { return []; } });
+  const [escalatedIds, setEscalatedIds] = useState(() => { try { return JSON.parse(localStorage.getItem('bmb-escalated-alerts')) || []; } catch { return []; } });
   const [filters, setFilters] = useState(() => ({
     search: searchParams.get('search') || '',
-    severity: '',
+    severity: searchParams.get('severity') || '',
     triage_status: workspace === 'triage' ? 'pending' : searchParams.get('triage_status') || '',
     source: '',
+    hours: '24',
   }));
 
   const load = useCallback(async () => {
@@ -119,6 +126,8 @@ export default function Alerts({ workspace = 'alerts' }) {
       if (filters.search) query.set('search', filters.search);
       if (filters.severity) query.set('severity', filters.severity);
       if (filters.triage_status) query.set('triage_status', filters.triage_status);
+      if (filters.source && viewMode === 'grouped') query.set('dataset', filters.source);
+      if (filters.hours) query.set('from', new Date(Date.now() - Number(filters.hours) * 3600000).toISOString());
       const grouped = viewMode === 'grouped';
       const data = await api(`${grouped ? '/alert-groups' : '/alerts'}?${query}`);
       const rows = grouped ? (data.groups || []).map(group => ({ ...group, id: group.representative_alert_id, timestamp: group.last_seen, agent_name: group.hostname })) : data.alerts || [];
@@ -146,6 +155,18 @@ export default function Alerts({ workspace = 'alerts' }) {
     finally { setRetriaging(false); }
   }
 
+  function persistList(key, setter, current, id) {
+    const next = current.includes(id) ? current.filter(value => value !== id) : [...current,id];
+    setter(next); localStorage.setItem(key, JSON.stringify(next));
+  }
+
+  function saveView() {
+    localStorage.setItem('bmb-alert-view', JSON.stringify({ filters, viewMode }));
+    setNotice('Alert view saved for this browser.'); setTimeout(() => setNotice(''), 2500);
+  }
+
+  function clearFilters() { setFilters({ search:'', severity:'', triage_status:'', source:'', hours:'24' }); setPage(1); }
+
   return (
     <div className="triage-page">
       <div className="workspace-toolbar">
@@ -154,17 +175,18 @@ export default function Alerts({ workspace = 'alerts' }) {
         <div className="toolbar-status"><span><i />Live agents</span><small>Monitoring</small></div>
       </div>
 
+      {notice && <div className="workspace-notice">{notice}</div>}
       <div className="filter-bar">
-        <button className="filter-primary"><Filter />All Filters<InfoTip text="Filter by severity, AI state, source, identity, and observable." /></button>
-        <button>Last 24 Hours<ChevronDown /></button>
+        <button className="filter-primary" onClick={clearFilters}><Filter />Clear Filters<InfoTip text="Clear severity, AI state, source, and search filters." /></button>
+        <select value={filters.hours} onChange={event => setFilters(current => ({...current,hours:event.target.value}))}><option value="24">Last 24 hours</option><option value="168">Last 7 days</option><option value="720">Last 30 days</option><option value="">All time</option></select>
         <select value={filters.severity} onChange={event => setFilters(current => ({ ...current, severity: event.target.value }))}><option value="">Severity</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
         <select value={filters.triage_status} onChange={event => setFilters(current => ({ ...current, triage_status: event.target.value }))}><option value="">AI status</option><option value="pending">Pending</option><option value="triaged">Triaged</option><option value="triage_failed">Failed</option></select>
-        <button>Source<ChevronDown /></button><button>Tactics<ChevronDown /></button><button><ListFilter />More filters</button>
+        <input className="filter-input" value={filters.source} onChange={event => setFilters(current => ({...current,source:event.target.value}))} placeholder="Dataset / source" disabled={viewMode !== 'grouped'} />
         <span className="filter-spacer" />
-        <button><Save />Save view</button><button onClick={load} aria-label="Refresh"><RefreshCw className={loading ? 'animate-spin' : ''} /></button>
+        <button onClick={saveView}><Save />Save view</button><button onClick={load} aria-label="Refresh"><RefreshCw className={loading ? 'animate-spin' : ''} /></button>
       </div>
 
-      <div className="triage-layout">
+      <div className={`triage-layout ${expanded ? 'detail-expanded' : ''}`}>
         <section className="alert-list-panel">
           <div className="list-mode-bar"><div><button className={viewMode === 'grouped' ? 'active' : ''} onClick={() => setViewMode('grouped')}>Grouped</button><button className={viewMode === 'individual' ? 'active' : ''} onClick={() => setViewMode('individual')}>Individual</button></div><span>{total.toLocaleString()} results</span></div>
           <div className="alert-table-scroll">
@@ -179,9 +201,8 @@ export default function Alerts({ workspace = 'alerts' }) {
           </div>
           <div className="workspace-pagination"><span>{total ? `${(page - 1) * 20 + 1}–${Math.min(page * 20, total)} of ${total.toLocaleString()}` : '0 alerts'}</span><div><button disabled={page <= 1} onClick={() => setPage(value => value - 1)}>‹</button><b>{page}</b><button disabled={page >= pages} onClick={() => setPage(value => value + 1)}>›</button></div><select><option>20 / page</option></select></div>
         </section>
-        <AlertDetail alert={detail || selected} onClose={() => { setSelected(null); setDetail(null); }} onRetriage={retriage} busy={retriaging} />
+        <AlertDetail alert={detail || selected} onClose={() => { setSelected(null); setDetail(null); setExpanded(false); }} onRetriage={retriage} busy={retriaging} expanded={expanded} onExpand={() => setExpanded(value => !value)} pinned={pinnedIds.includes((detail || selected)?.id)} onPin={() => persistList('bmb-pinned-alerts',setPinnedIds,pinnedIds,(detail || selected)?.id)} escalated={escalatedIds.includes((detail || selected)?.id)} onEscalate={() => { const id=(detail || selected)?.id; persistList('bmb-escalated-alerts',setEscalatedIds,escalatedIds,id); setNotice(escalatedIds.includes(id) ? 'Alert removed from escalation queue.' : 'Alert added to the analyst escalation queue.'); }} onInvestigate={() => navigate(`/investigations?search=${encodeURIComponent((detail || selected)?.id || entity(detail || selected))}`)} />
       </div>
     </div>
   );
 }
-
