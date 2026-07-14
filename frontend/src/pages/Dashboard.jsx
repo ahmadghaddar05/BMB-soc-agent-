@@ -45,6 +45,23 @@ function timeAgo(timestamp) {
   return `${Math.floor(seconds / 86400)}d`;
 }
 
+function buildAlertActivity(alerts = []) {
+  const hour = 60 * 60 * 1000;
+  const end = new Date(); end.setMinutes(0, 0, 0);
+  const start = end.getTime() - 23 * hour;
+  const buckets = Array.from({ length: 24 }, (_, index) => ({
+    bucket: new Date(start + index * hour).toISOString(), raw_alerts: 0, high_risk: 0,
+  }));
+  alerts.forEach(alert => {
+    const timestamp = new Date(alert.timestamp).getTime();
+    const index = Math.floor((timestamp - start) / hour);
+    if (index < 0 || index >= buckets.length) return;
+    buckets[index].raw_alerts += 1;
+    if (['critical', 'high'].includes(severityOf(alert))) buckets[index].high_risk += 1;
+  });
+  return buckets;
+}
+
 function MiniBars({ values = [], color = '#3988ff' }) {
   const data = values.length ? values.slice(-14) : [2, 4, 3, 6, 5, 8, 4, 7, 9, 6, 10, 7, 11, 8];
   const max = Math.max(...data, 1);
@@ -96,6 +113,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [collector, setCollector] = useState(null);
   const [queue, setQueue] = useState([]);
+  const [recentAlerts, setRecentAlerts] = useState([]);
   const [error, setError] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(new Date());
   const [feedPaused, setFeedPaused] = useState(false);
@@ -105,15 +123,18 @@ export default function Dashboard() {
     let active = true;
     async function load() {
       try {
-        const [statsData, collectorData, queueData] = await Promise.all([
+        const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const [statsData, collectorData, queueData, alertData] = await Promise.all([
           api('/stats'),
           api('/collector/status'),
           api('/alert-groups?page=1&limit=8').catch(() => ({ groups: [] })),
+          api(`/alerts?page=1&limit=1000&from=${encodeURIComponent(from)}`).catch(() => ({ alerts: [] })),
         ]);
         if (!active) return;
         setStats(statsData);
         setCollector(collectorData);
         setQueue(queueData.groups || []);
+        setRecentAlerts(alertData.alerts || []);
         setUpdatedAt(new Date());
         setError(null);
       } catch (loadError) {
@@ -140,18 +161,18 @@ export default function Dashboard() {
     const incidentPressure = Math.min(1, open / 20);
     const pendingPressure = total ? Math.min(1, pending / total) : 0;
     const risk = Math.min(1000, Math.round((severityPressure * 0.5 + incidentPressure * 0.3 + pendingPressure * 0.2) * 1000));
-    const activity = (stats.alert_activity || []).map(item => ({
+    const activity = buildAlertActivity(recentAlerts).map(item => ({
       label: new Date(item.bucket).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      activities: number(item.activities), raw_alerts: number(item.raw_alerts),
+      raw_alerts: number(item.raw_alerts), high_risk: number(item.high_risk),
     }));
     const severity = (stats.severity_split || []).map(item => ({ name: item.severity, value: number(item.n) })).filter(item => item.value > 0);
     return { alerts, incidents, runs, total, critical, high, open, triaged, pending, risk, activity, severity };
-  }, [stats, collector]);
+  }, [stats, collector, recentAlerts]);
 
   if (error) return <div className="dashboard-state error"><CircleAlert /><div><strong>Dashboard unavailable</strong><span>{error}</span></div></div>;
   if (!model) return <div className="dashboard-loading"><span /><span /><span /><span /></div>;
 
-  const runTrend = model.activity.map(item => item.activities);
+  const runTrend = model.activity.map(item => item.raw_alerts);
   const liveFeed = queue.slice(0, 7);
   const feed = feedPaused ? frozenFeed : liveFeed;
   const topSources = (stats.top_src_ips || []).slice(0, 5);
@@ -190,7 +211,7 @@ export default function Dashboard() {
 
             <article className="dashboard-panel activity-panel">
               <PanelHeading icon={Activity} title="Alert Activity" help="Real Elastic alert volume grouped by hour. This is independent of the collector's fixed batch size." action={<span className="panel-filter">Last 24 hours</span>} />
-              <div className="activity-legend"><span><i className="fetched" />Grouped activities</span><span><i className="stored" />Raw alerts</span></div>
+              <div className="activity-legend"><span><i className="fetched" />All alerts</span><span><i className="stored" />Critical + high</span></div>
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={model.activity} margin={{ top: 14, right: 8, left: -20, bottom: 0 }}>
                   <defs>
@@ -201,8 +222,8 @@ export default function Dashboard() {
                   <XAxis dataKey="label" tick={{ fill: '#688198', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: '#688198', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<ChartTooltip />} />
-                  <Area type="monotone" dataKey="activities" name="Grouped activities" stroke="#3988ff" strokeWidth={2} fill="url(#activityFetched)" activeDot={{ r: 4 }} />
-                  <Area type="monotone" dataKey="raw_alerts" name="Raw alerts" stroke="#3ee6c2" strokeWidth={1.5} fill="url(#activityStored)" />
+                  <Area type="monotone" dataKey="raw_alerts" name="All alerts" stroke="#3988ff" strokeWidth={2} fill="url(#activityFetched)" activeDot={{ r: 4 }} />
+                  <Area type="monotone" dataKey="high_risk" name="Critical + high" stroke="#3ee6c2" strokeWidth={1.5} fill="url(#activityStored)" />
                 </AreaChart>
               </ResponsiveContainer>
             </article>
