@@ -39,6 +39,44 @@ function SourceBadge({ alert }) {
   return <span className="source-badge"><Shield size={12} />{String(source).split('.')[0]}</span>;
 }
 
+function StructuredEvent({ alert }) {
+  const raw = json(alert.full_log) || json(alert.raw) || {};
+  const event = raw.event || {};
+  const ecs = raw.ecs || {};
+  const source = raw.source || {};
+  const destination = raw.destination || {};
+  const user = raw.user || {};
+  const host = raw.host || {};
+  const process = raw.process || {};
+  const rule = raw.rule || {};
+  const timestamp = raw['@timestamp'] || alert.timestamp;
+  const summary = [event.category, event.type, event.action].flat().filter(Boolean).join(' · ') || alert.rule_desc || 'Security event';
+  const facts = [
+    ['Event action', event.action || 'Not provided'],
+    ['Outcome', event.outcome || 'Unknown'],
+    ['Dataset', event.dataset || alert.event_dataset || 'Elastic'],
+    ['ECS version', ecs.version || '—'],
+    ['Rule ID', alert.rule_id || rule.id || '—'],
+    ['Rule level', alert.rule_level ?? rule.level ?? '—'],
+  ];
+  const entities = [
+    ['User', alert.username || user.name || user.email || 'Not identified'],
+    ['Host', alert.hostname || alert.agent_name || host.hostname || host.name || 'Not identified'],
+    ['Source IP', alert.src_ip || source.ip || 'Not identified'],
+    ['Destination IP', alert.dst_ip || destination.ip || 'Not identified'],
+    ['Process', alert.process || process.name || process.executable || 'Not identified'],
+    ['Target', alert.target_db || destination.domain || raw.url?.domain || 'Not identified'],
+  ];
+  const rawText = Object.keys(raw).length ? JSON.stringify(raw, null, 2) : String(alert.full_log || 'No raw payload is available.');
+
+  return <div className="structured-event">
+    <div className="structured-event-hero"><span><Shield /></span><div><small>Normalized security event</small><h3>{alert.rule_desc || event.reason || 'Security event'}</h3><p>{summary}</p></div><time><Clock3 />{fmtTs(timestamp)}</time></div>
+    <div className="event-entity-grid"><article><User /><span>User</span><strong>{entities[0][1]}</strong></article><article><Monitor /><span>Host</span><strong>{entities[1][1]}</strong></article><article><Network /><span>Source</span><strong>{entities[2][1]}</strong></article><article><Network /><span>Destination</span><strong>{entities[3][1]}</strong></article></div>
+    <div className="event-detail-grid"><section><h4>Detection details</h4><dl>{facts.map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}</dl></section><section><h4>Entity context</h4><dl>{entities.map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{String(value)}</dd></div>)}</dl></section></div>
+    <details className="raw-event-disclosure"><summary>View raw event JSON</summary><pre className="raw-event">{rawText}</pre></details>
+  </div>;
+}
+
 function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, onPin, onExpand, busy, pinned, escalated, expanded }) {
   const [tab, setTab] = useState('overview');
   const [completedActions, setCompletedActions] = useState([]);
@@ -88,7 +126,7 @@ function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, on
           <div className="detail-bottom-grid"><section className="detail-section"><div className="detail-section-title"><h3>Key Findings</h3></div><ul className="finding-list">{findings.length ? findings.map((item, index) => <li key={index}>{item}</li>) : <li>No AI findings available yet.</li>}</ul></section><section className="detail-section"><div className="detail-section-title"><h3>Recommended Actions</h3></div><ul className="action-list">{actions.map((item, index) => <li key={index}><Check />{item}</li>)}</ul></section></div>
         </>}
 
-        {tab === 'evidence' && <section className="detail-section tab-section"><div className="detail-section-title"><h3>Raw Security Event</h3></div><pre className="raw-event">{alert.full_log || JSON.stringify(alert.raw || alert, null, 2)}</pre></section>}
+        {tab === 'evidence' && <StructuredEvent alert={alert} />}
         {tab === 'entities' && <section className="entity-grid tab-section"><article><User /><span>Affected identity</span><strong>{alert.username || 'Unknown'}</strong></article><article><Monitor /><span>Affected host</span><strong>{alert.hostname || alert.agent_name || 'Unknown'}</strong></article><article><Network /><span>Source address</span><strong>{alert.src_ip || 'Unknown'}</strong></article><article><Network /><span>Destination address</span><strong>{alert.dst_ip || 'Unknown'}</strong></article></section>}
         {tab === 'response' && <section className="detail-section tab-section"><div className="detail-section-title"><h3>Response Checklist</h3><span>{completedActions.length}/{actions.length} complete</span></div><ul className="response-list">{actions.map((item,index)=><li key={index} className={completedActions.includes(index) ? 'complete' : ''}><button onClick={() => setCompletedActions(current => current.includes(index) ? current.filter(value => value !== index) : [...current,index])}><Check /></button><span>{item}</span></li>)}</ul></section>}
       </div>
