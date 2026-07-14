@@ -8,9 +8,16 @@ import {
 import Dashboard from './pages/Dashboard';
 import Alerts from './pages/Alerts';
 import Incidents from './pages/Incidents';
-import Pivot from './pages/Pivot';
 import SettingsPage from './pages/Settings';
 import Reports from './pages/Reports';
+import AITriage from './pages/AITriage';
+import ThreatIntelligence from './pages/ThreatIntelligence';
+import Assets from './pages/Assets';
+import Vulnerabilities from './pages/Vulnerabilities';
+import Investigations from './pages/Investigations';
+import Playbooks from './pages/Playbooks';
+import Integrations from './pages/Integrations';
+import Cases from './pages/Cases';
 import ChatWidget from './components/ChatWidget';
 import './index.css';
 
@@ -49,12 +56,7 @@ const PAGE_META = {
 function BmbLogo({ compact = false }) {
   return (
     <div className="bmb-brand" aria-label="BMB">
-      <span className="bmb-mark" aria-hidden="true">
-        <i className="bmb-loop bmb-loop-top" />
-        <i className="bmb-loop bmb-loop-middle" />
-        <i className="bmb-loop bmb-loop-bottom" />
-      </span>
-      {!compact && <span className="bmb-wordmark"><b>b</b>mb</span>}
+      <img className={compact ? 'bmb-logo-symbol' : 'bmb-logo-full'} src={compact ? '/bmb-symbol.svg' : '/bmb-logo.svg'} alt="BMB" />
     </div>
   );
 }
@@ -63,6 +65,7 @@ function Shell() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const [title, subtitle] = PAGE_META[location.pathname] || PAGE_META['/dashboard'];
@@ -109,30 +112,31 @@ function Shell() {
           <form className="global-search" onSubmit={submitSearch}>
             <Search size={16} />
             <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search IP, user, device, hash, alert ID..." aria-label="Global security search" />
-            <kbd>⌘K</kbd>
+            <kbd>Enter</kbd>
           </form>
           <div className="topbar-actions">
             <button className="ask-ai-button" onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant'))}><Sparkles size={15} /><span>Ask AI Analyst</span></button>
-            <button className="icon-button notification-button" aria-label="Notifications"><Bell size={18} /><span /></button>
+            <button className="icon-button notification-button" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen(value => !value)}><Bell size={18} /><span /></button>
             <div className="analyst-profile"><div><strong>Analyst</strong><small>SOC Director</small></div><span className="avatar">AM<i /></span></div>
           </div>
         </header>
+        {notificationsOpen && <div className="notification-popover"><div><strong>Security notifications</strong><button onClick={() => setNotificationsOpen(false)}><X /></button></div><button onClick={() => { navigate('/alerts?severity=critical'); setNotificationsOpen(false); }}><ShieldAlert /><span><strong>Review critical alerts</strong><small>Open the current critical investigation queue.</small></span></button><button onClick={() => { navigate('/incidents'); setNotificationsOpen(false); }}><AlertTriangle /><span><strong>Open incidents</strong><small>Continue correlated incident response.</small></span></button></div>}
 
         <main className="workspace-scroll">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/alerts" element={<Alerts />} />
-            <Route path="/ai-triage" element={<Alerts workspace="triage" />} />
-            <Route path="/investigations" element={<Alerts workspace="investigations" />} />
+            <Route path="/ai-triage" element={<AITriage />} />
+            <Route path="/investigations" element={<Investigations />} />
             <Route path="/incidents" element={<Incidents />} />
-            <Route path="/cases" element={<Incidents workspace="cases" />} />
-            <Route path="/threat-intelligence" element={<Pivot />} />
-            <Route path="/assets" element={<Pivot />} />
-            <Route path="/vulnerabilities" element={<Pivot />} />
+            <Route path="/cases" element={<Cases />} />
+            <Route path="/threat-intelligence" element={<ThreatIntelligence />} />
+            <Route path="/assets" element={<Assets />} />
+            <Route path="/vulnerabilities" element={<Vulnerabilities />} />
             <Route path="/reports" element={<Reports />} />
-            <Route path="/playbooks" element={<Reports />} />
-            <Route path="/integrations" element={<SettingsPage />} />
+            <Route path="/playbooks" element={<Playbooks />} />
+            <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
@@ -144,4 +148,3 @@ function Shell() {
 }
 
 export default function App() { return <BrowserRouter><Shell /></BrowserRouter>; }
-
