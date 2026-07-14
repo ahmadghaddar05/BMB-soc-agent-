@@ -274,9 +274,9 @@
 
 /* Distinct SOC module workspaces */
 .bmb-brand { position:relative; width:120px; height:44px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-.bmb-logo-original { width:204px; height:193px; max-width:none; flex:none; display:block; object-fit:contain; }
+.bmb-logo-original { width:190px; height:180px; max-width:none; flex:none; display:block; object-fit:contain; transform:translate(5px,8px); }
 .bmb-brand.is-compact { width:38px; justify-content:flex-start; }
-.bmb-brand.is-compact .bmb-logo-original { transform:translateX(-41px); }
+.bmb-brand.is-compact .bmb-logo-original { transform:translate(-30px,8px); }
 .module-page { min-height:100%; padding:15px 18px 24px; color:#91aabd; background:radial-gradient(circle at 50% -20%,rgba(13,74,121,.12),transparent 40%); }
 .module-hero { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:13px; }
 .module-hero h2 { margin:4px 0 3px; color:#e7f2f9; font-size:19px; letter-spacing:-.02em; }
