@@ -13,13 +13,19 @@ export default function ChatWidget() {
   const [input, setInput]     = useState('');
   const [busy, setBusy]       = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hi — I'm your SOC assistant. Ask me about alerts, incidents, or what to investigate next." },
+    { role: 'assistant', content: "Hi — I'm your BMB AI analyst. Ask me about alerts, incidents, or what to investigate next." },
   ]);
   const scrollRef = useRef(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, open]);
+
+  useEffect(() => {
+    const openAssistant = () => setOpen(true);
+    window.addEventListener('open-soc-assistant', openAssistant);
+    return () => window.removeEventListener('open-soc-assistant', openAssistant);
+  }, []);
 
   async function send(text) {
     const q = (text ?? input).trim();
@@ -48,16 +54,17 @@ export default function ChatWidget() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-accent text-white shadow-lg hover:scale-105 transition-transform"
+          className="soc-chat-launcher"
           title="Ask the SOC assistant"
         >
-          <MessageSquare className="w-6 h-6" />
+          <MessageSquare className="w-4 h-4" />
+          <span className="text-xs font-semibold">AI Analyst</span>
         </button>
       )}
 
       {/* Panel */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col w-[380px] h-[560px] max-h-[80vh] rounded-xl bg-dark-800 border border-dark-600 shadow-2xl overflow-hidden">
+        <div className="soc-chat-panel">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-dark-600 bg-dark-800">
             <div className="flex items-center gap-2">
@@ -65,7 +72,7 @@ export default function ChatWidget() {
                 <Bot className="w-4 h-4 text-accent" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-white">SOC Assistant</div>
+                <div className="text-sm font-semibold text-white">BMB AI Analyst</div>
                 <div className="text-xs text-gray-500">Investigation &amp; triage help</div>
               </div>
             </div>
@@ -138,3 +145,4 @@ export default function ChatWidget() {
     </>
   );
 }
+
