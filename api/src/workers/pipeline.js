@@ -157,7 +157,7 @@ async function triagePending(settings, limit = 50) {
   const cacheTtlHours = Math.min(720, Math.max(1,
     parseInt(settings.triage_cache_ttl_hours || 168, 10) || 168));
   const tokenBudget = Math.min(500000, Math.max(10000,
-    parseInt(settings.triage_token_budget || 120000, 10) || 120000));
+    parseInt(settings.triage_token_budget || 60000, 10) || 60000));
 
   // ── Noise reduction: group near-identical alerts by signature ───────────
   // Alerts with the same rule + same key entities are triaged ONCE; the verdict

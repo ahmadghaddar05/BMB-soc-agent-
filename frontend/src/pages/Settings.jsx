@@ -230,7 +230,7 @@ export default function Settings() {
         <Row label="Token budget per cycle"
              hint="Stops starting new triage calls after this budget is reached; remaining alerts stay pending">
           <input className="input w-40" type="number" min="10000" max="500000" step="5000"
-            placeholder="120000" {...field('triage_token_budget')} />
+            placeholder="60000" {...field('triage_token_budget')} />
         </Row>
         <Row label="Agentic iterations"
              hint="Maximum investigation rounds per escalated alert (2–4; recommended 3)">
@@ -268,7 +268,7 @@ export default function Settings() {
             ollama_model:s.ollama_model,
             triage_enabled:s.triage_enabled,
             triage_mode:s.triage_mode || 'hybrid',
-            triage_token_budget:s.triage_token_budget || '120000',
+            triage_token_budget:s.triage_token_budget || '60000',
             agentic_max_iterations:s.agentic_max_iterations || '3',
             caching_enabled:s.caching_enabled,
             triage_cache_ttl_hours:s.triage_cache_ttl_hours || '168',
