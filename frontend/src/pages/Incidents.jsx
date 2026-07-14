@@ -51,6 +51,10 @@ export default function Incidents({ workspace = 'incidents' }) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [graphExpanded, setGraphExpanded] = useState(false);
+  const [showAllEvidence, setShowAllEvidence] = useState(false);
+  const [completedActions, setCompletedActions] = useState({});
+  const [owners, setOwners] = useState(() => { try { return JSON.parse(localStorage.getItem('bmb-incident-owners')) || {}; } catch { return {}; } });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,6 +90,17 @@ export default function Incidents({ workspace = 'incidents' }) {
     finally { setUpdating(false); }
   }
 
+  function assignIncident() {
+    if (!detail?.id) return;
+    const next = { ...owners, [detail.id]: owners[detail.id] ? '' : 'Analyst' };
+    setOwners(next); localStorage.setItem('bmb-incident-owners', JSON.stringify(next));
+  }
+
+  function toggleContainment(index) {
+    const key = String(detail.id); const current = completedActions[key] || [];
+    setCompletedActions({ ...completedActions, [key]: current.includes(index) ? current.filter(value => value !== index) : [...current,index] });
+  }
+
   if (!detail || !model) {
     return <div className="incident-command"><div className="incident-list-toolbar"><div><h2>{workspace === 'cases' ? 'Case Workspace' : 'Incident Command'}</h2><span>{total} {status}</span></div><div><select value={status} onChange={event => setStatus(event.target.value)}><option value="open">Open</option><option value="closed">Closed</option><option value="false_positive">False positive</option></select><button onClick={load}><RefreshCw className={loading ? 'animate-spin' : ''} /></button></div></div><IncidentEmpty /></div>;
   }
@@ -106,7 +121,7 @@ export default function Incidents({ workspace = 'incidents' }) {
         <div className="incident-title"><h1>{detail.title || 'Untitled security incident'}</h1><p>INC-{String(detail.id).padStart(5, '0')} <i /> Detected {fmtTs(detail.first_seen)} <i /> Last updated {fmtTs(detail.last_seen)}</p></div>
         <div className="incident-score"><span>Incident Risk Score <InfoTip text="Calculated from incident severity, alert volume, and correlated activity." /></span><div><strong>{model.score}</strong><small>/100</small></div></div>
         <div className="incident-alert-count"><span>Correlated Alerts</span><strong>{alertCount}</strong><small><b>{highCount} High</b> · {mediumCount} Medium</small></div>
-        <div className="incident-controls"><label>Status<select value={detail.status || 'open'} onChange={event => updateStatus(event.target.value)} disabled={updating}><option value="open">In progress</option><option value="closed">Closed</option><option value="false_positive">False positive</option></select></label><div><button><CircleUserRound />Assign</button><button className="contain" onClick={() => updateStatus('closed')}><LockKeyhole />Contain</button><a href={`/api/reports/incidents/${detail.id}`} target="_blank" rel="noreferrer"><Download />Generate report</a></div></div>
+        <div className="incident-controls"><label>Status<select value={detail.status || 'open'} onChange={event => updateStatus(event.target.value)} disabled={updating}><option value="open">In progress</option><option value="closed">Closed</option><option value="false_positive">False positive</option></select></label><div><button className={owners[detail.id] ? 'assigned' : ''} onClick={assignIncident}><CircleUserRound />{owners[detail.id] || 'Assign'}</button><button className="contain" onClick={() => updateStatus('closed')} disabled={updating}><LockKeyhole />Contain</button><a href={`/api/reports/incidents/${detail.id}`} target="_blank" rel="noreferrer"><Download />Generate report</a></div></div>
       </section>
 
       <section className="incident-metrics">
@@ -118,8 +133,8 @@ export default function Incidents({ workspace = 'incidents' }) {
 
       <div className="incident-body-grid">
         <main className="incident-main-column">
-          <section className="attack-story incident-panel">
-            <div className="incident-panel-title"><h2>ATT&amp;CK Attack Story <InfoTip text="Chronological security events mapped to MITRE ATT&CK stages." /></h2><button>View full graph ↗</button></div>
+          <section className={`attack-story incident-panel ${graphExpanded ? 'is-expanded' : ''}`}>
+            <div className="incident-panel-title"><h2>ATT&amp;CK Attack Story <InfoTip text="Chronological security events mapped to MITRE ATT&CK stages." /></h2><button onClick={() => setGraphExpanded(value => !value)}>{graphExpanded ? 'Restore graph' : 'View full graph ↗'}</button></div>
             <div className="attack-stage-bar">{(model.stages.length ? model.stages : ['unknown']).slice(0,5).map(stage => <span key={stage}>{TACTIC_LABELS[stage] || stage}</span>)}</div>
             <div className="attack-path">
               {(model.alerts.length ? model.alerts.slice(0,6) : [{ rule_desc: detail.title, timestamp: detail.first_seen, mitre_tactics: model.stages }]).map((alert, index) => {
@@ -130,9 +145,9 @@ export default function Incidents({ workspace = 'incidents' }) {
           </section>
 
           <div className="incident-lower-grid">
-            <section className="incident-panel evidence-panel"><div className="incident-panel-title"><h2>Key Evidence</h2><button>View all evidence ↗</button></div><div className="incident-evidence-table"><div className="evidence-head"><span>Time</span><span>Event</span><span>Source</span><span>Details</span><span>Severity</span></div>{model.alerts.slice(0,7).map((alert,index)=><article key={alert.id || index}><time>{fmtTs(alert.timestamp)}</time><strong>{alert.rule_desc || 'Security event'}</strong><span>{alert.agent_name || alert.decoder || 'Elastic'}</span><p>{[alert.src_ip, alert.username, alert.hostname].filter(Boolean).join(' → ') || 'Normalized event evidence'}</p><em className={Number(alert.rule_level) >= 12 ? 'critical' : Number(alert.rule_level) >= 9 ? 'high' : 'medium'}>{Number(alert.rule_level) >= 12 ? 'Critical' : Number(alert.rule_level) >= 9 ? 'High' : 'Medium'}</em></article>)}</div></section>
+            <section className="incident-panel evidence-panel"><div className="incident-panel-title"><h2>Key Evidence</h2><button onClick={() => setShowAllEvidence(value => !value)}>{showAllEvidence ? 'Show key evidence' : 'View all evidence ↗'}</button></div><div className="incident-evidence-table"><div className="evidence-head"><span>Time</span><span>Event</span><span>Source</span><span>Details</span><span>Severity</span></div>{model.alerts.slice(0,showAllEvidence ? model.alerts.length : 7).map((alert,index)=><article key={alert.id || index}><time>{fmtTs(alert.timestamp)}</time><strong>{alert.rule_desc || 'Security event'}</strong><span>{alert.agent_name || alert.decoder || 'Elastic'}</span><p>{[alert.src_ip, alert.username, alert.hostname].filter(Boolean).join(' → ') || 'Normalized event evidence'}</p><em className={Number(alert.rule_level) >= 12 ? 'critical' : Number(alert.rule_level) >= 9 ? 'high' : 'medium'}>{Number(alert.rule_level) >= 12 ? 'Critical' : Number(alert.rule_level) >= 9 ? 'High' : 'Medium'}</em></article>)}</div></section>
 
-            <section className="incident-panel containment-panel"><div className="incident-panel-title"><h2>Recommended Containment</h2></div><div className="containment-list">{(detail.recommended_actions || ['Disable the affected account','Isolate affected hosts','Revoke active sessions','Reset credentials']).slice(0,5).map((action,index)=><article key={index}><span>{index === 0 ? <UserRound /> : index === 1 ? <Monitor /> : <LockKeyhole />}</span><div><strong>{action}</strong><small>{index === 0 ? 'Prevent further unauthorized access' : 'Execute through the approved response playbook'}</small></div><button onClick={() => updateStatus('closed')}>{index === 0 ? 'Disable' : index === 1 ? 'Isolate' : 'Run'}</button></article>)}</div></section>
+            <section className="incident-panel containment-panel"><div className="incident-panel-title"><h2>Recommended Containment</h2><span>{(completedActions[String(detail.id)] || []).length} complete</span></div><div className="containment-list">{(detail.recommended_actions || ['Disable the affected account','Isolate affected hosts','Revoke active sessions','Reset credentials']).slice(0,5).map((action,index)=>{ const done=(completedActions[String(detail.id)] || []).includes(index); return <article key={index} className={done ? 'complete' : ''}><span>{done ? <Check /> : index === 0 ? <UserRound /> : index === 1 ? <Monitor /> : <LockKeyhole />}</span><div><strong>{action}</strong><small>{done ? 'Marked complete in this analyst session' : index === 0 ? 'Prevent further unauthorized access' : 'Execute through the approved response playbook'}</small></div><button onClick={() => toggleContainment(index)}>{done ? 'Undo' : index === 0 ? 'Disable' : index === 1 ? 'Isolate' : 'Run'}</button></article>;})}</div></section>
           </div>
         </main>
 
@@ -144,4 +159,3 @@ export default function Incidents({ workspace = 'incidents' }) {
     </div>
   );
 }
-
