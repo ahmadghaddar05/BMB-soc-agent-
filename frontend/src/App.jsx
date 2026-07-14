@@ -56,7 +56,7 @@ const PAGE_META = {
 function BmbLogo({ compact = false }) {
   return (
     <div className={`bmb-brand ${compact ? 'is-compact' : ''}`} aria-label="BMB">
-      <img className="bmb-logo-original" src="/bmb.png" alt="BMB" />
+      <span className="bmb-logo-original" aria-hidden="true" />
     </div>
   );
 }
