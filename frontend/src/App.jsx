@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, Bell, ChevronLeft, FileText, LayoutDashboard,
-  Menu, Network, Search, Settings, Sparkles, X,
+  AlertTriangle, Bell, Blocks, BookOpenCheck, BrainCircuit, BriefcaseBusiness,
+  ChevronLeft, FileText, Globe2, LayoutDashboard, Menu, Network, Search,
+  Server, Settings, ShieldAlert, Sparkles, X,
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Alerts from './pages/Alerts';
@@ -13,44 +14,47 @@ import Reports from './pages/Reports';
 import ChatWidget from './components/ChatWidget';
 import './index.css';
 
-const NAV_GROUPS = [
-  {
-    label: 'General',
-    items: [
-      { to: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
-      { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
-      { to: '/alerts', icon: Bell, label: 'Alerts' },
-    ],
-  },
-  {
-    label: 'Investigation',
-    items: [
-      { to: '/pivot', icon: Network, label: 'IOC Pivot' },
-      { to: '/reports', icon: FileText, label: 'Reports' },
-    ],
-  },
-  {
-    label: 'System',
-    items: [
-      { to: '/settings', icon: Settings, label: 'Settings' },
-    ],
-  },
+const NAV_ITEMS = [
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
+  { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
+  { to: '/alerts', icon: Bell, label: 'Alerts' },
+  { to: '/ai-triage', icon: BrainCircuit, label: 'AI Triage' },
+  { to: '/threat-intelligence', icon: Globe2, label: 'Threat Intelligence' },
+  { to: '/assets', icon: Server, label: 'Assets' },
+  { to: '/vulnerabilities', icon: ShieldAlert, label: 'Vulnerabilities' },
+  { to: '/investigations', icon: Search, label: 'Investigations' },
+  { to: '/reports', icon: FileText, label: 'Reports' },
+  { to: '/cases', icon: BriefcaseBusiness, label: 'Cases' },
+  { to: '/playbooks', icon: BookOpenCheck, label: 'Playbooks' },
+  { to: '/integrations', icon: Blocks, label: 'Integrations' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 const PAGE_META = {
   '/dashboard': ['BMB AI-SOC', 'Executive Security Overview'],
-  '/alerts': ['Security Alerts', 'Grouped and individual activity'],
-  '/incidents': ['Incidents', 'Correlated investigations'],
-  '/pivot': ['IOC Pivot', 'Search observables and entities'],
+  '/alerts': ['Alert Triage Workspace', 'Investigate and respond to security activity'],
+  '/incidents': ['Incident Command', 'Correlated attack story and containment'],
+  '/ai-triage': ['AI Triage', 'Model-assisted alert prioritization'],
+  '/threat-intelligence': ['Threat Intelligence', 'Indicator and entity intelligence'],
+  '/assets': ['Asset Intelligence', 'Observed hosts, users, and services'],
+  '/vulnerabilities': ['Vulnerabilities', 'Exposure and affected-asset context'],
+  '/investigations': ['Investigations', 'Cross-entity security search'],
   '/reports': ['Reports', 'Security intelligence and evidence'],
+  '/cases': ['Cases', 'Analyst-owned incident workflows'],
+  '/playbooks': ['Playbooks', 'Recommended response procedures'],
+  '/integrations': ['Integrations', 'Collector and enrichment connections'],
   '/settings': ['Settings', 'Collector and AI configuration'],
 };
 
 function BmbLogo({ compact = false }) {
   return (
-    <div className="bmb-brand" aria-label="BMB AI-SOC">
-      <span className="bmb-mark" aria-hidden="true"><i /><i /><i /></span>
-      {!compact && <span className="bmb-wordmark">bmb</span>}
+    <div className="bmb-brand" aria-label="BMB">
+      <span className="bmb-mark" aria-hidden="true">
+        <i className="bmb-loop bmb-loop-top" />
+        <i className="bmb-loop bmb-loop-middle" />
+        <i className="bmb-loop bmb-loop-bottom" />
+      </span>
+      {!compact && <span className="bmb-wordmark"><b>b</b>mb</span>}
     </div>
   );
 }
@@ -62,6 +66,7 @@ function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
   const [title, subtitle] = PAGE_META[location.pathname] || PAGE_META['/dashboard'];
+
   function submitSearch(event) {
     event.preventDefault();
     const value = search.trim();
@@ -70,89 +75,46 @@ function Shell() {
     setMobileOpen(false);
   }
 
-  function openAssistant() {
-    window.dispatchEvent(new CustomEvent('open-soc-assistant'));
-  }
-
   return (
     <div className="app-shell">
       {mobileOpen && <button className="sidebar-scrim" aria-label="Close menu" onClick={() => setMobileOpen(false)} />}
-
       <aside className={`soc-sidebar ${collapsed ? 'is-collapsed' : ''} ${mobileOpen ? 'is-mobile-open' : ''}`}>
         <div className="sidebar-brand-row">
           <BmbLogo compact={collapsed} />
-          <button className="icon-button sidebar-mobile-close" onClick={() => setMobileOpen(false)} aria-label="Close navigation">
-            <X size={18} />
-          </button>
+          <button className="icon-button sidebar-mobile-close" onClick={() => setMobileOpen(false)} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
-        <nav className="sidebar-nav" aria-label="Primary navigation">
-          {NAV_GROUPS.map(group => (
-            <div className="nav-group" key={group.label}>
-              {!collapsed && <p className="nav-group-label">{group.label}</p>}
-              {group.items.map(({ to, icon: Icon, label }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  title={collapsed ? label : undefined}
-                  onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-                >
-                  <Icon className="nav-icon" />
-                  {!collapsed && <span>{label}</span>}
-                </NavLink>
-              ))}
-            </div>
+        <nav className="sidebar-nav sidebar-nav-dense" aria-label="Primary navigation">
+          {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+            <NavLink key={to} to={to} title={collapsed ? label : undefined} onClick={() => setMobileOpen(false)} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+              <Icon className="nav-icon" />
+              {!collapsed && <span>{label}</span>}
+            </NavLink>
           ))}
         </nav>
 
         <div className="sidebar-footer">
-          <div className="agent-status" title="Collector online">
-            <span className="status-orbit"><span /></span>
-            {!collapsed && <div><strong>Agent online</strong><small>Monitoring Elastic</small></div>}
-          </div>
-          <button className="collapse-button" onClick={() => setCollapsed(value => !value)}>
-            <ChevronLeft className={collapsed ? 'rotate-180' : ''} size={16} />
-            {!collapsed && <span>Collapse</span>}
-          </button>
+          {!collapsed && <div className="sidebar-mini-brand"><BmbLogo /><span>AI-SOC</span></div>}
+          <div className="agent-status" title="Collector online"><span className="status-orbit"><span /></span>{!collapsed && <div><strong>Agent online</strong><small>Monitoring Elastic</small></div>}</div>
+          <button className="collapse-button" onClick={() => setCollapsed(value => !value)}><ChevronLeft className={collapsed ? 'rotate-180' : ''} size={16} />{!collapsed && <span>Collapse</span>}</button>
         </div>
       </aside>
 
       <section className="app-workspace">
         <header className="topbar">
           <div className="topbar-title">
-            <button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
-              <Menu size={19} />
-            </button>
-            <div>
-              <h1>{title}</h1>
-              <p>{subtitle}</p>
-            </div>
+            <button className="icon-button mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={19} /></button>
+            <div><h1>{title}</h1><p>{subtitle}</p></div>
           </div>
-
           <form className="global-search" onSubmit={submitSearch}>
             <Search size={16} />
-            <input
-              value={search}
-              onChange={event => setSearch(event.target.value)}
-              placeholder="Search incidents, assets, indicators..."
-              aria-label="Global security search"
-            />
-            <kbd>Enter</kbd>
+            <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search IP, user, device, hash, alert ID..." aria-label="Global security search" />
+            <kbd>⌘K</kbd>
           </form>
-
           <div className="topbar-actions">
-            <button className="ask-ai-button" onClick={openAssistant}>
-              <Sparkles size={15} />
-              <span>Ask AI Analyst</span>
-            </button>
-            <button className="icon-button notification-button" aria-label="Notifications">
-              <Bell size={18} /><span />
-            </button>
-            <div className="analyst-profile">
-              <div><strong>Analyst</strong><small>SOC Director</small></div>
-              <span className="avatar">AM<i /></span>
-            </div>
+            <button className="ask-ai-button" onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant'))}><Sparkles size={15} /><span>Ask AI Analyst</span></button>
+            <button className="icon-button notification-button" aria-label="Notifications"><Bell size={18} /><span /></button>
+            <div className="analyst-profile"><div><strong>Analyst</strong><small>SOC Director</small></div><span className="avatar">AM<i /></span></div>
           </div>
         </header>
 
@@ -161,21 +123,25 @@ function Shell() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/alerts" element={<Alerts />} />
+            <Route path="/ai-triage" element={<Alerts workspace="triage" />} />
+            <Route path="/investigations" element={<Alerts workspace="investigations" />} />
             <Route path="/incidents" element={<Incidents />} />
-            <Route path="/pivot" element={<Pivot />} />
+            <Route path="/cases" element={<Incidents workspace="cases" />} />
+            <Route path="/threat-intelligence" element={<Pivot />} />
+            <Route path="/assets" element={<Pivot />} />
+            <Route path="/vulnerabilities" element={<Pivot />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/playbooks" element={<Reports />} />
+            <Route path="/integrations" element={<SettingsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>
       </section>
-
       <ChatWidget />
     </div>
   );
 }
 
-export default function App() {
-  return <BrowserRouter><Shell /></BrowserRouter>;
-}
+export default function App() { return <BrowserRouter><Shell /></BrowserRouter>; }
 
