@@ -1,0 +1,2506 @@
+[
+  {
+    "samAccountName": "rami.haddad",
+    "userPrincipalName": "rami.haddad@bank.local",
+    "displayName": "Rami Haddad",
+    "department": "branch_ops",
+    "title": "teller",
+    "manager": "michel.hourani",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-02-15T06:33:17.799698+00:00",
+    "lastPasswordSet": "2026-05-17T06:33:17.799785+00:00",
+    "lastLogon": "2026-05-25T02:33:17.799797+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "lina.chamoun",
+    "userPrincipalName": "lina.chamoun@bank.local",
+    "displayName": "Lina Chamoun",
+    "department": "branch_ops",
+    "title": "teller",
+    "manager": "mira.nakhle",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-01-29T06:33:17.799833+00:00",
+    "lastPasswordSet": "2026-01-11T06:33:17.799844+00:00",
+    "lastLogon": "2026-05-24T01:33:17.799854+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "anthony.saliba",
+    "userPrincipalName": "anthony.saliba@bank.local",
+    "displayName": "Anthony Saliba",
+    "department": "lending",
+    "title": "loan_officer",
+    "manager": "netadm1",
+    "memberOf": [
+      "Domain Users",
+      "LoanOfficers",
+      "LoanOrig_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-09-07T06:33:17.799898+00:00",
+    "lastPasswordSet": "2026-01-06T06:33:17.799909+00:00",
+    "lastLogon": "2026-05-25T00:33:17.799918+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "anthony.abou",
+    "userPrincipalName": "anthony.abou@bank.local",
+    "displayName": "Anthony Abou",
+    "department": "lending",
+    "title": "loan_officer",
+    "manager": "sa",
+    "memberOf": [
+      "Domain Users",
+      "LoanOfficers",
+      "LoanOrig_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2026-01-02T06:33:17.799960+00:00",
+    "lastPasswordSet": "2026-01-02T06:33:17.799971+00:00",
+    "lastLogon": "2026-05-25T12:33:17.799980+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "layla.moukarzel",
+    "userPrincipalName": "layla.moukarzel@bank.local",
+    "displayName": "Layla Moukarzel",
+    "department": "private_banking",
+    "title": "relationship_mgr",
+    "manager": "msaliba",
+    "memberOf": [
+      "Domain Users",
+      "PrivateBanking",
+      "Customer360_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-08-04T06:33:17.800025+00:00",
+    "lastPasswordSet": "2026-04-17T06:33:17.800044+00:00",
+    "lastLogon": "2026-05-25T03:33:17.800053+00:00",
+    "logonHours": [
+      8,
+      19
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "michel.hourani",
+    "userPrincipalName": "michel.hourani@bank.local",
+    "displayName": "Michel Hourani",
+    "department": "branch_ops",
+    "title": "branch_manager",
+    "manager": "mira.nakhle",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2023-05-27T06:33:17.800082+00:00",
+    "lastPasswordSet": "2026-02-11T06:33:17.800094+00:00",
+    "lastLogon": "2026-05-24T18:33:17.800102+00:00",
+    "logonHours": [
+      7,
+      20
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "high",
+    "privilegeTier": "manager"
+  },
+  {
+    "samAccountName": "rola.abou",
+    "userPrincipalName": "rola.abou@bank.local",
+    "displayName": "Rola Abou",
+    "department": "compliance",
+    "title": "compliance_analyst",
+    "manager": "administrator",
+    "memberOf": [
+      "Domain Users",
+      "Compliance",
+      "AML_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-12-26T06:33:17.800144+00:00",
+    "lastPasswordSet": "2026-01-03T06:33:17.800156+00:00",
+    "lastLogon": "2026-05-23T07:33:17.800165+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "maya.rizk",
+    "userPrincipalName": "maya.rizk@bank.local",
+    "displayName": "Maya Rizk",
+    "department": "compliance",
+    "title": "aml_analyst",
+    "manager": "sysadm1",
+    "memberOf": [
+      "Domain Users",
+      "Compliance",
+      "AML_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2026-02-02T06:33:17.800205+00:00",
+    "lastPasswordSet": "2025-12-16T06:33:17.800218+00:00",
+    "lastLogon": "2026-05-26T06:33:17.800227+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "omar.ghanem",
+    "userPrincipalName": "omar.ghanem@bank.local",
+    "displayName": "Omar Ghanem",
+    "department": "fraud_ops",
+    "title": "fraud_analyst",
+    "manager": "jzghendy",
+    "memberOf": [
+      "Domain Users",
+      "FraudOps",
+      "FraudRules_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-10-11T06:33:17.800266+00:00",
+    "lastPasswordSet": "2026-03-10T06:33:17.800280+00:00",
+    "lastLogon": "2026-05-25T06:33:17.800289+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "bilal.saad",
+    "userPrincipalName": "bilal.saad@bank.local",
+    "displayName": "Bilal Saad",
+    "department": "treasury",
+    "title": "treasury_dealer",
+    "manager": "rkhoury.adm",
+    "memberOf": [
+      "Domain Users",
+      "Treasury",
+      "TreasuryPos_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-07-07T06:33:17.800331+00:00",
+    "lastPasswordSet": "2026-01-06T06:33:17.800345+00:00",
+    "lastLogon": "2026-05-24T04:33:17.800354+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.13.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "lina.azar",
+    "userPrincipalName": "lina.azar@bank.local",
+    "displayName": "Lina Azar",
+    "department": "back_office",
+    "title": null,
+    "manager": "jzghendy",
+    "memberOf": [
+      "Domain Users",
+      "BackOffice"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2025-08-17T06:33:17.800397+00:00",
+    "lastPasswordSet": "2026-05-11T06:33:17.800410+00:00",
+    "lastLogon": "2026-05-24T22:33:17.800420+00:00",
+    "logonHours": [
+      7,
+      18
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "rola.matar",
+    "userPrincipalName": "rola.matar@bank.local",
+    "displayName": "Rola Matar",
+    "department": "back_office",
+    "title": "operations_clerk",
+    "manager": "jzghendy",
+    "memberOf": [
+      "Domain Users",
+      "BackOffice"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-06-26T06:33:17.800466+00:00",
+    "lastPasswordSet": "2026-05-19T06:33:17.800477+00:00",
+    "lastLogon": "2026-05-23T19:33:17.800486+00:00",
+    "logonHours": [
+      7,
+      18
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "ayman.hourani",
+    "userPrincipalName": "ayman.hourani@bank.local",
+    "displayName": "Ayman Hourani",
+    "department": "payments",
+    "title": "payments_ops",
+    "manager": "netadm1",
+    "memberOf": [
+      "Domain Users",
+      "PaymentsOps",
+      "Payments_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-04-14T06:33:17.800526+00:00",
+    "lastPasswordSet": "2025-12-25T06:33:17.800537+00:00",
+    "lastLogon": "2026-05-24T13:33:17.800545+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.13.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "rami.younan",
+    "userPrincipalName": "rami.younan@bank.local",
+    "displayName": "Rami Younan",
+    "department": "hr",
+    "title": "hr_specialist",
+    "manager": "administrator",
+    "memberOf": [
+      "Domain Users",
+      "HR",
+      "HR_DB_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-10-11T06:33:17.800593+00:00",
+    "lastPasswordSet": "2026-04-28T06:33:17.800604+00:00",
+    "lastLogon": "2026-05-25T23:33:17.800612+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "tarek.younan",
+    "userPrincipalName": "tarek.younan@bank.local",
+    "displayName": "Tarek Younan",
+    "department": "finance",
+    "title": "finance_analyst",
+    "manager": "rkhoury.adm",
+    "memberOf": [
+      "Domain Users",
+      "Finance",
+      "GL_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2025-08-23T06:33:17.800653+00:00",
+    "lastPasswordSet": "2026-05-15T06:33:17.800664+00:00",
+    "lastLogon": "2026-05-24T04:33:17.800673+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.13.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "rana.issa",
+    "userPrincipalName": "rana.issa@bank.local",
+    "displayName": "Rana Issa",
+    "department": "internal_audit",
+    "title": "auditor",
+    "manager": "sysadm1",
+    "memberOf": [
+      "Domain Users",
+      "Audit",
+      "AuditLog_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2025-12-29T06:33:17.800721+00:00",
+    "lastPasswordSet": "2026-04-11T06:33:17.800741+00:00",
+    "lastLogon": "2026-05-23T11:33:17.800753+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "jana.kassis",
+    "userPrincipalName": "jana.kassis@bank.local",
+    "displayName": "Jana Kassis",
+    "department": "it_dev",
+    "title": "developer",
+    "manager": "sysadm2",
+    "memberOf": [
+      "Domain Users",
+      "Developers",
+      "DevOps_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-02-14T06:33:17.800849+00:00",
+    "lastPasswordSet": "2026-02-16T06:33:17.800865+00:00",
+    "lastLogon": "2026-05-25T07:33:17.800875+00:00",
+    "logonHours": [
+      9,
+      22
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "rasha.ghanem",
+    "userPrincipalName": "rasha.ghanem@bank.local",
+    "displayName": "Rasha Ghanem",
+    "department": "it_dev",
+    "title": "developer",
+    "manager": "sa",
+    "memberOf": [
+      "Domain Users",
+      "Developers",
+      "DevOps_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-09-13T06:33:17.800918+00:00",
+    "lastPasswordSet": "2026-02-18T06:33:17.800929+00:00",
+    "lastLogon": "2026-05-24T14:33:17.800938+00:00",
+    "logonHours": [
+      9,
+      22
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "layla.geagea",
+    "userPrincipalName": "layla.geagea@bank.local",
+    "displayName": "Layla Geagea",
+    "department": "it_ops",
+    "title": "dba",
+    "manager": "bilal.tannous",
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-06-20T06:33:17.800971+00:00",
+    "lastPasswordSet": "2026-01-22T06:33:17.800985+00:00",
+    "lastLogon": "2026-05-26T00:33:17.800994+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "manager"
+  },
+  {
+    "samAccountName": "rami.kassis",
+    "userPrincipalName": "rami.kassis@bank.local",
+    "displayName": "Rami Kassis",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": "tala.tannous",
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-05-13T06:33:17.801024+00:00",
+    "lastPasswordSet": "2026-03-06T06:33:17.801035+00:00",
+    "lastLogon": "2026-05-24T00:33:17.801044+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "manager"
+  },
+  {
+    "samAccountName": "sahar.saad",
+    "userPrincipalName": "sahar.saad@bank.local",
+    "displayName": "Sahar Saad",
+    "department": "branch_ops",
+    "title": "teller",
+    "manager": "michel.hourani",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-02-27T06:33:17.801073+00:00",
+    "lastPasswordSet": "2026-04-18T06:33:17.801086+00:00",
+    "lastLogon": "2026-05-25T18:33:17.801096+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "elie.antoun",
+    "userPrincipalName": "elie.antoun@bank.local",
+    "displayName": "Elie Antoun",
+    "department": null,
+    "title": "teller",
+    "manager": "mira.nakhle",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-05-14T06:33:17.801125+00:00",
+    "lastPasswordSet": "2026-04-16T06:33:17.801136+00:00",
+    "lastLogon": "2026-05-26T05:33:17.801144+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "elie.geagea",
+    "userPrincipalName": "elie.geagea@bank.local",
+    "displayName": "Elie Geagea",
+    "department": "lending",
+    "title": "loan_officer",
+    "manager": "sysadm1",
+    "memberOf": [
+      "Domain Users",
+      "LoanOfficers",
+      "LoanOrig_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-03-04T06:33:17.801185+00:00",
+    "lastPasswordSet": "2026-02-21T06:33:17.801199+00:00",
+    "lastLogon": "2026-05-24T16:33:17.801209+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "jad.antoun",
+    "userPrincipalName": "jad.antoun@bank.local",
+    "displayName": "Jad Antoun",
+    "department": "lending",
+    "title": "loan_officer",
+    "manager": "sa",
+    "memberOf": [
+      "Domain Users",
+      "LoanOfficers",
+      "LoanOrig_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-12-28T06:33:17.801252+00:00",
+    "lastPasswordSet": "2026-05-07T06:33:17.801266+00:00",
+    "lastLogon": "2026-05-24T08:33:17.801275+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "tala.issa",
+    "userPrincipalName": "tala.issa@bank.local",
+    "displayName": "Tala Issa",
+    "department": "private_banking",
+    "title": "relationship_mgr",
+    "manager": "root",
+    "memberOf": [
+      "Domain Users",
+      "PrivateBanking",
+      "Customer360_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-04-17T06:33:17.801316+00:00",
+    "lastPasswordSet": "2026-01-19T06:33:17.801330+00:00",
+    "lastLogon": "2026-05-26T03:33:17.801339+00:00",
+    "logonHours": [
+      8,
+      19
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "noha.chamoun",
+    "userPrincipalName": "noha.chamoun@bank.local",
+    "displayName": "Noha Chamoun",
+    "department": "branch_ops",
+    "title": "branch_manager",
+    "manager": "georges.ghanem",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2023-08-27T06:33:17.801371+00:00",
+    "lastPasswordSet": "2025-12-22T06:33:17.801382+00:00",
+    "lastLogon": "2026-05-23T09:33:17.801391+00:00",
+    "logonHours": [
+      7,
+      20
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "high",
+    "privilegeTier": "manager"
+  },
+  {
+    "samAccountName": "bilal.hourani",
+    "userPrincipalName": "bilal.hourani@bank.local",
+    "displayName": "Bilal Hourani",
+    "department": "compliance",
+    "title": "compliance_analyst",
+    "manager": "tabboud.adm",
+    "memberOf": [
+      "Domain Users",
+      "Compliance",
+      "AML_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-05-20T06:33:17.801435+00:00",
+    "lastPasswordSet": "2025-12-20T06:33:17.801447+00:00",
+    "lastLogon": "2026-05-25T09:33:17.801463+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "georges.nakhle",
+    "userPrincipalName": "georges.nakhle@bank.local",
+    "displayName": "Georges Nakhle",
+    "department": "compliance",
+    "title": "aml_analyst",
+    "manager": "tabboud.adm",
+    "memberOf": [
+      "Domain Users",
+      "Compliance",
+      "AML_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2024-10-11T06:33:17.801504+00:00",
+    "lastPasswordSet": "2025-12-22T06:33:17.801516+00:00",
+    "lastLogon": "2026-05-23T14:33:17.801524+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "anthony.moukarzel",
+    "userPrincipalName": "anthony.moukarzel@bank.local",
+    "displayName": "Anthony Moukarzel",
+    "department": "fraud_ops",
+    "title": "fraud_analyst",
+    "manager": "sysadm2",
+    "memberOf": [
+      "Domain Users",
+      "FraudOps",
+      "FraudRules_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2025-06-07T06:33:17.801565+00:00",
+    "lastPasswordSet": "2026-02-06T06:33:17.801576+00:00",
+    "lastLogon": "2026-05-24T01:33:17.801585+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "lara.hourani",
+    "userPrincipalName": "lara.hourani@bank.local",
+    "displayName": "Lara Hourani",
+    "department": "treasury",
+    "title": "treasury_dealer",
+    "manager": "rkhoury.adm",
+    "memberOf": [
+      "Domain Users",
+      "Treasury",
+      "TreasuryPos_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-03-20T06:33:17.801626+00:00",
+    "lastPasswordSet": "2026-04-02T06:33:17.801647+00:00",
+    "lastLogon": "2026-05-24T08:33:17.801658+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.13.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "rasha.naim",
+    "userPrincipalName": "rasha.naim@bank.local",
+    "displayName": "Rasha Naim",
+    "department": "back_office",
+    "title": "operations_clerk",
+    "manager": "secops1",
+    "memberOf": [
+      "Domain Users",
+      "BackOffice"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-07-07T06:33:17.801700+00:00",
+    "lastPasswordSet": "2026-01-09T06:33:17.801713+00:00",
+    "lastLogon": "2026-05-24T21:33:17.801721+00:00",
+    "logonHours": [
+      7,
+      18
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "majd.chamoun",
+    "userPrincipalName": "majd.chamoun@bank.local",
+    "displayName": "Majd Chamoun",
+    "department": "back_office",
+    "title": "operations_clerk",
+    "manager": "sa",
+    "memberOf": [
+      "Domain Users",
+      "BackOffice"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2025-02-17T06:33:17.801755+00:00",
+    "lastPasswordSet": "2026-02-28T06:33:17.801767+00:00",
+    "lastLogon": "2026-05-26T02:33:17.801774+00:00",
+    "logonHours": [
+      7,
+      18
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "rola.khoury",
+    "userPrincipalName": "rola.khoury@bank.local",
+    "displayName": "Rola Khoury",
+    "department": "payments",
+    "title": "payments_ops",
+    "manager": "tabboud.adm",
+    "memberOf": [
+      "Domain Users",
+      "PaymentsOps",
+      "Payments_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2024-12-20T06:33:17.801812+00:00",
+    "lastPasswordSet": "2025-12-27T06:33:17.801826+00:00",
+    "lastLogon": "2026-05-23T06:33:17.801835+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.13.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "nadia.abboud",
+    "userPrincipalName": "nadia.abboud@bank.local",
+    "displayName": "Nadia Abboud",
+    "department": "hr",
+    "title": "hr_specialist",
+    "manager": "root",
+    "memberOf": [
+      "Domain Users",
+      "HR",
+      "HR_DB_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-09-29T06:33:17.801879+00:00",
+    "lastPasswordSet": "2026-02-28T06:33:17.801892+00:00",
+    "lastLogon": "2026-05-25T11:33:17.801902+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "ayman.antoun",
+    "userPrincipalName": "ayman.antoun@bank.local",
+    "displayName": "Ayman Antoun",
+    "department": "finance",
+    "title": "finance_analyst",
+    "manager": "tabboud.adm",
+    "memberOf": [
+      "Domain Users",
+      "Finance",
+      "GL_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-08-22T06:33:17.801938+00:00",
+    "lastPasswordSet": "2026-04-02T06:33:17.801952+00:00",
+    "lastLogon": "2026-05-24T12:33:17.801961+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.13.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "dana.moukarzel",
+    "userPrincipalName": "dana.moukarzel@bank.local",
+    "displayName": "Dana Moukarzel",
+    "department": "internal_audit",
+    "title": "auditor",
+    "manager": "msaliba",
+    "memberOf": [
+      "Domain Users",
+      "Audit",
+      "AuditLog_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-05-08T06:33:17.802000+00:00",
+    "lastPasswordSet": "2026-03-18T06:33:17.802013+00:00",
+    "lastLogon": "2026-05-24T06:33:17.802023+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "yara.ghanem",
+    "userPrincipalName": "yara.ghanem@bank.local",
+    "displayName": "Yara Ghanem",
+    "department": "it_dev",
+    "title": "developer",
+    "manager": "sa",
+    "memberOf": [
+      "Domain Users",
+      "Developers",
+      "DevOps_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-04-07T06:33:17.802096+00:00",
+    "lastPasswordSet": "2026-05-23T06:33:17.802111+00:00",
+    "lastLogon": "2026-05-23T18:33:17.802120+00:00",
+    "logonHours": [
+      9,
+      22
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "nadia.saad",
+    "userPrincipalName": "nadia.saad@bank.local",
+    "displayName": "Nadia Saad",
+    "department": "it_dev",
+    "title": "developer",
+    "manager": "netadm1",
+    "memberOf": [
+      "Domain Users",
+      "Developers",
+      "DevOps_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-10-25T06:33:17.802187+00:00",
+    "lastPasswordSet": "2025-12-22T06:33:17.802205+00:00",
+    "lastLogon": "2026-05-24T04:33:17.802215+00:00",
+    "logonHours": [
+      9,
+      22
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "bilal.tannous",
+    "userPrincipalName": "bilal.tannous@bank.local",
+    "displayName": "Bilal Tannous",
+    "department": "it_ops",
+    "title": null,
+    "manager": "nour.younan",
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2023-09-01T06:33:17.802248+00:00",
+    "lastPasswordSet": "2026-04-04T06:33:17.802261+00:00",
+    "lastLogon": "2026-05-25T07:33:17.802269+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "manager"
+  },
+  {
+    "samAccountName": "nour.younan",
+    "userPrincipalName": "nour.younan@bank.local",
+    "displayName": "Nour Younan",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": "rami.kassis",
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-12-10T06:33:17.802298+00:00",
+    "lastPasswordSet": "2026-05-13T06:33:17.802310+00:00",
+    "lastLogon": "2026-05-25T04:33:17.802317+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "manager"
+  },
+  {
+    "samAccountName": "noha.ghanem",
+    "userPrincipalName": "noha.ghanem@bank.local",
+    "displayName": "Noha Ghanem",
+    "department": "branch_ops",
+    "title": "teller",
+    "manager": "georges.ghanem",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2025-02-24T06:33:17.802344+00:00",
+    "lastPasswordSet": "2026-05-04T06:33:17.802357+00:00",
+    "lastLogon": "2026-05-23T17:33:17.802365+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "rebecca.moukarzel",
+    "userPrincipalName": "rebecca.moukarzel@bank.local",
+    "displayName": "Rebecca Moukarzel",
+    "department": "branch_ops",
+    "title": "teller",
+    "manager": "georges.ghanem",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2024-08-07T06:33:17.802395+00:00",
+    "lastPasswordSet": "2026-01-17T06:33:17.802408+00:00",
+    "lastLogon": "2026-05-24T22:33:17.802417+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "sophie.tannous",
+    "userPrincipalName": "sophie.tannous@bank.local",
+    "displayName": "Sophie Tannous",
+    "department": "lending",
+    "title": "loan_officer",
+    "manager": "administrator",
+    "memberOf": [
+      "Domain Users",
+      "LoanOfficers",
+      "LoanOrig_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2024-11-03T06:33:17.802457+00:00",
+    "lastPasswordSet": "2025-12-10T06:33:17.802472+00:00",
+    "lastLogon": "2026-05-25T15:33:17.802480+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "nadia.tannous",
+    "userPrincipalName": "nadia.tannous@bank.local",
+    "displayName": "Nadia Tannous",
+    "department": "lending",
+    "title": "loan_officer",
+    "manager": "sysadm1",
+    "memberOf": [
+      "Domain Users",
+      "LoanOfficers",
+      "LoanOrig_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2026-02-14T06:33:17.802518+00:00",
+    "lastPasswordSet": "2026-03-15T06:33:17.802538+00:00",
+    "lastLogon": "2026-05-24T22:33:17.802548+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "rita.issa",
+    "userPrincipalName": "rita.issa@bank.local",
+    "displayName": "Rita Issa",
+    "department": "private_banking",
+    "title": "relationship_mgr",
+    "manager": "sa",
+    "memberOf": [
+      "Domain Users",
+      "PrivateBanking",
+      "Customer360_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2025-06-29T06:33:17.802639+00:00",
+    "lastPasswordSet": "2025-12-16T06:33:17.802648+00:00",
+    "lastLogon": "2026-05-24T09:33:17.802653+00:00",
+    "logonHours": [
+      8,
+      19
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "georges.ghanem",
+    "userPrincipalName": "georges.ghanem@bank.local",
+    "displayName": "Georges Ghanem",
+    "department": "branch_ops",
+    "title": "branch_manager",
+    "manager": "mira.nakhle",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-08-29T06:33:17.802668+00:00",
+    "lastPasswordSet": "2026-01-05T06:33:17.802674+00:00",
+    "lastLogon": "2026-05-24T00:33:17.802679+00:00",
+    "logonHours": [
+      7,
+      20
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "high",
+    "privilegeTier": "manager"
+  },
+  {
+    "samAccountName": "habib.tannous",
+    "userPrincipalName": "habib.tannous@bank.local",
+    "displayName": "Habib Tannous",
+    "department": "compliance",
+    "title": "compliance_analyst",
+    "manager": "netadm1",
+    "memberOf": [
+      "Domain Users",
+      "Compliance",
+      "AML_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-02-22T06:33:17.802699+00:00",
+    "lastPasswordSet": "2026-05-18T06:33:17.802705+00:00",
+    "lastLogon": "2026-05-25T13:33:17.802709+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "wassim.saliba",
+    "userPrincipalName": "wassim.saliba@bank.local",
+    "displayName": "Wassim Saliba",
+    "department": "compliance",
+    "title": "aml_analyst",
+    "manager": "jzghendy",
+    "memberOf": [
+      "Domain Users",
+      "Compliance",
+      "AML_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-04-22T06:33:17.802729+00:00",
+    "lastPasswordSet": "2026-02-22T06:33:17.802735+00:00",
+    "lastLogon": "2026-05-25T04:33:17.802739+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "kamal.hourani",
+    "userPrincipalName": "kamal.hourani@bank.local",
+    "displayName": "Kamal Hourani",
+    "department": "fraud_ops",
+    "title": "fraud_analyst",
+    "manager": "winadm1",
+    "memberOf": [
+      "Domain Users",
+      "FraudOps",
+      "FraudRules_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-09-13T06:33:17.802764+00:00",
+    "lastPasswordSet": "2026-05-07T06:33:17.802771+00:00",
+    "lastLogon": "2026-05-25T10:33:17.802775+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "naji.nasr",
+    "userPrincipalName": "naji.nasr@bank.local",
+    "displayName": "Naji Nasr",
+    "department": "treasury",
+    "title": "treasury_dealer",
+    "manager": "sysadm1",
+    "memberOf": [
+      "Domain Users",
+      "Treasury",
+      "TreasuryPos_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-12-10T06:33:17.802795+00:00",
+    "lastPasswordSet": "2026-01-25T06:33:17.802801+00:00",
+    "lastLogon": "2026-05-26T00:33:17.802805+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.13.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "houda.naim",
+    "userPrincipalName": "houda.naim@bank.local",
+    "displayName": "Houda Naim",
+    "department": "back_office",
+    "title": "operations_clerk",
+    "manager": "rkhoury.adm",
+    "memberOf": [
+      "Domain Users",
+      "BackOffice"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-04-14T06:33:17.802825+00:00",
+    "lastPasswordSet": "2026-05-13T06:33:17.802830+00:00",
+    "lastLogon": "2026-05-26T05:33:17.802840+00:00",
+    "logonHours": [
+      7,
+      18
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "fadi.abboud",
+    "userPrincipalName": "fadi.abboud@bank.local",
+    "displayName": "Fadi Abboud",
+    "department": "back_office",
+    "title": "operations_clerk",
+    "manager": "sysadm1",
+    "memberOf": [
+      "Domain Users",
+      "BackOffice"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-08-16T06:33:17.802860+00:00",
+    "lastPasswordSet": "2025-12-14T06:33:17.802866+00:00",
+    "lastLogon": "2026-05-25T01:33:17.802871+00:00",
+    "logonHours": [
+      7,
+      18
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "elie.azar",
+    "userPrincipalName": "elie.azar@bank.local",
+    "displayName": "Elie Azar",
+    "department": "payments",
+    "title": "payments_ops",
+    "manager": "sysadm2",
+    "memberOf": [
+      "Domain Users",
+      "PaymentsOps",
+      "Payments_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-10-03T06:33:17.802890+00:00",
+    "lastPasswordSet": "2026-01-07T06:33:17.802896+00:00",
+    "lastLogon": "2026-05-24T18:33:17.802900+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.13.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "rana.saliba",
+    "userPrincipalName": "rana.saliba@bank.local",
+    "displayName": "Rana Saliba",
+    "department": "hr",
+    "title": "hr_specialist",
+    "manager": "administrator",
+    "memberOf": [
+      "Domain Users",
+      "HR",
+      "HR_DB_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2026-02-04T06:33:17.802921+00:00",
+    "lastPasswordSet": "2026-05-17T06:33:17.802926+00:00",
+    "lastLogon": "2026-05-23T18:33:17.802932+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "sahar.azar",
+    "userPrincipalName": "sahar.azar@bank.local",
+    "displayName": "Sahar Azar",
+    "department": "finance",
+    "title": "finance_analyst",
+    "manager": "administrator",
+    "memberOf": [
+      "Domain Users",
+      "Finance",
+      "GL_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-03-13T06:33:17.802951+00:00",
+    "lastPasswordSet": "2026-03-02T06:33:17.802957+00:00",
+    "lastLogon": "2026-05-24T13:33:17.802961+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.13.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "noha.azar",
+    "userPrincipalName": "noha.azar@bank.local",
+    "displayName": "Noha Azar",
+    "department": "internal_audit",
+    "title": "auditor",
+    "manager": "sa",
+    "memberOf": [
+      "Domain Users",
+      "Audit",
+      "AuditLog_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-08-28T06:33:17.802981+00:00",
+    "lastPasswordSet": "2025-12-24T06:33:17.802986+00:00",
+    "lastLogon": "2026-05-25T22:33:17.802990+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "carla.antoun",
+    "userPrincipalName": "carla.antoun@bank.local",
+    "displayName": "Carla Antoun",
+    "department": "it_dev",
+    "title": "developer",
+    "manager": "sysadm2",
+    "memberOf": [
+      "Domain Users",
+      "Developers",
+      "DevOps_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-12-13T06:33:17.803010+00:00",
+    "lastPasswordSet": "2026-01-29T06:33:17.803016+00:00",
+    "lastLogon": "2026-05-26T04:33:17.803020+00:00",
+    "logonHours": [
+      9,
+      22
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "imad.haddad",
+    "userPrincipalName": "imad.haddad@bank.local",
+    "displayName": "Imad Haddad",
+    "department": "it_dev",
+    "title": "developer",
+    "manager": "rkhoury.adm",
+    "memberOf": [
+      "Domain Users",
+      "Developers",
+      "DevOps_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-12-25T06:33:17.803039+00:00",
+    "lastPasswordSet": "2026-04-04T06:33:17.803051+00:00",
+    "lastLogon": "2026-05-25T08:33:17.803056+00:00",
+    "logonHours": [
+      9,
+      22
+    ],
+    "homeSubnet": "10.11.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "tala.tannous",
+    "userPrincipalName": "tala.tannous@bank.local",
+    "displayName": "Tala Tannous",
+    "department": "it_ops",
+    "title": "dba",
+    "manager": "mira.azar",
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-04-11T06:33:17.803071+00:00",
+    "lastPasswordSet": "2026-02-13T06:33:17.803077+00:00",
+    "lastLogon": "2026-05-24T16:33:17.803088+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "manager"
+  },
+  {
+    "samAccountName": "mira.azar",
+    "userPrincipalName": "mira.azar@bank.local",
+    "displayName": "Mira Azar",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": "tala.tannous",
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-10-07T06:33:17.803104+00:00",
+    "lastPasswordSet": "2025-12-03T06:33:17.803110+00:00",
+    "lastLogon": "2026-05-25T03:33:17.803114+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "manager"
+  },
+  {
+    "samAccountName": "habib.antoun",
+    "userPrincipalName": "habib.antoun@bank.local",
+    "displayName": "Habib Antoun",
+    "department": "branch_ops",
+    "title": "teller",
+    "manager": "michel.hourani",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-07-28T06:33:17.803129+00:00",
+    "lastPasswordSet": "2025-12-29T06:33:17.803135+00:00",
+    "lastLogon": "2026-05-23T12:33:17.803139+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "yara.nakhle",
+    "userPrincipalName": "yara.nakhle@bank.local",
+    "displayName": "Yara Nakhle",
+    "department": "branch_ops",
+    "title": "teller",
+    "manager": "georges.ghanem",
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-12-16T06:33:17.803153+00:00",
+    "lastPasswordSet": "2026-01-29T06:33:17.803158+00:00",
+    "lastLogon": "2026-05-25T11:33:17.803162+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "elie.abboud",
+    "userPrincipalName": "elie.abboud@bank.local",
+    "displayName": "Elie Abboud",
+    "department": "lending",
+    "title": "loan_officer",
+    "manager": "secops1",
+    "memberOf": [
+      "Domain Users",
+      "LoanOfficers",
+      "LoanOrig_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-04-22T06:33:17.803187+00:00",
+    "lastPasswordSet": "2026-01-29T06:33:17.803196+00:00",
+    "lastLogon": "2026-05-24T03:33:17.803200+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "nadia.chamoun",
+    "userPrincipalName": "nadia.chamoun@bank.local",
+    "displayName": "Nadia Chamoun",
+    "department": "lending",
+    "title": "loan_officer",
+    "manager": "root",
+    "memberOf": [
+      "Domain Users",
+      "LoanOfficers",
+      "LoanOrig_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-11-05T06:33:17.803221+00:00",
+    "lastPasswordSet": "2026-02-12T06:33:17.803226+00:00",
+    "lastLogon": "2026-05-24T02:33:17.803230+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "diana.kassis",
+    "userPrincipalName": "diana.kassis@bank.local",
+    "displayName": "Diana Kassis",
+    "department": "private_banking",
+    "title": "relationship_mgr",
+    "manager": "rkhoury.adm",
+    "memberOf": [
+      "Domain Users",
+      "PrivateBanking",
+      "Customer360_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-01-11T06:33:17.803251+00:00",
+    "lastPasswordSet": "2026-02-04T06:33:17.803257+00:00",
+    "lastLogon": "2026-05-24T07:33:17.803261+00:00",
+    "logonHours": [
+      8,
+      19
+    ],
+    "homeSubnet": "10.10.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "mira.nakhle",
+    "userPrincipalName": "mira.nakhle@bank.local",
+    "displayName": "Mira Nakhle",
+    "department": "branch_ops",
+    "title": "branch_manager",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "BranchStaff",
+      "CoreBanking_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2022-05-31T06:33:17.803276+00:00",
+    "lastPasswordSet": "2026-05-01T06:33:17.803282+00:00",
+    "lastLogon": "2026-05-24T08:33:17.803286+00:00",
+    "logonHours": [
+      7,
+      20
+    ],
+    "homeSubnet": "10.80.0.0/16",
+    "criticalityTier": "high",
+    "privilegeTier": "manager"
+  },
+  {
+    "samAccountName": "rana.younan",
+    "userPrincipalName": "rana.younan@bank.local",
+    "displayName": "Rana Younan",
+    "department": "compliance",
+    "title": "compliance_analyst",
+    "manager": "secops1",
+    "memberOf": [
+      "Domain Users",
+      "Compliance",
+      "AML_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-12-06T06:33:17.803308+00:00",
+    "lastPasswordSet": "2026-02-01T06:33:17.803313+00:00",
+    "lastLogon": "2026-05-25T05:33:17.803318+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "omar.kassis",
+    "userPrincipalName": "omar.kassis@bank.local",
+    "displayName": "Omar Kassis",
+    "department": "compliance",
+    "title": "aml_analyst",
+    "manager": "secops1",
+    "memberOf": [
+      "Domain Users",
+      "Compliance",
+      "AML_Read"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2024-08-27T06:33:17.803337+00:00",
+    "lastPasswordSet": "2026-02-16T06:33:17.803343+00:00",
+    "lastLogon": "2026-05-23T23:33:17.803347+00:00",
+    "logonHours": [
+      8,
+      18
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "majd.hourani",
+    "userPrincipalName": "majd.hourani@bank.local",
+    "displayName": "Majd Hourani",
+    "department": "fraud_ops",
+    "title": "fraud_analyst",
+    "manager": "winadm1",
+    "memberOf": [
+      "Domain Users",
+      "FraudOps",
+      "FraudRules_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2024-11-29T06:33:17.803366+00:00",
+    "lastPasswordSet": "2026-03-01T06:33:17.803372+00:00",
+    "lastLogon": "2026-05-26T00:33:17.803376+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.12.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "issam.naim",
+    "userPrincipalName": "issam.naim@bank.local",
+    "displayName": "Issam Naim",
+    "department": "treasury",
+    "title": "treasury_dealer",
+    "manager": "msaliba",
+    "memberOf": [
+      "Domain Users",
+      "Treasury",
+      "TreasuryPos_RW"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2026-01-17T06:33:17.803396+00:00",
+    "lastPasswordSet": "2026-01-11T06:33:17.803402+00:00",
+    "lastLogon": "2026-05-25T15:33:17.803412+00:00",
+    "logonHours": [
+      7,
+      19
+    ],
+    "homeSubnet": "10.13.0.0/16",
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "jzghendy",
+    "userPrincipalName": "jzghendy@bank.local",
+    "displayName": "Jzghendy",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-08-01T06:33:17.803420+00:00",
+    "lastPasswordSet": "2025-11-27T06:33:17.803425+00:00",
+    "lastLogon": "2026-05-24T05:33:17.803430+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "msaliba",
+    "userPrincipalName": "msaliba@bank.local",
+    "displayName": "Msaliba",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2021-09-02T06:33:17.803437+00:00",
+    "lastPasswordSet": "2026-02-08T06:33:17.803442+00:00",
+    "lastLogon": "2026-05-25T14:33:17.803451+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "rkhoury.adm",
+    "userPrincipalName": "rkhoury.adm@bank.local",
+    "displayName": "Rkhoury Adm",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-06-10T06:33:17.803457+00:00",
+    "lastPasswordSet": "2026-05-02T06:33:17.803463+00:00",
+    "lastLogon": "2026-05-25T23:33:17.803467+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "tabboud.adm",
+    "userPrincipalName": "tabboud.adm@bank.local",
+    "displayName": "Tabboud Adm",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-10-26T06:33:17.803473+00:00",
+    "lastPasswordSet": "2026-02-19T06:33:17.803478+00:00",
+    "lastLogon": "2026-05-24T17:33:17.803483+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "sysadm1",
+    "userPrincipalName": "sysadm1@bank.local",
+    "displayName": "Sysadm1",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2021-08-09T06:33:17.803489+00:00",
+    "lastPasswordSet": "2026-05-08T06:33:17.803494+00:00",
+    "lastLogon": "2026-05-23T20:33:17.803498+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "sysadm2",
+    "userPrincipalName": "sysadm2@bank.local",
+    "displayName": "Sysadm2",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-10-06T06:33:17.803504+00:00",
+    "lastPasswordSet": "2026-01-07T06:33:17.803509+00:00",
+    "lastLogon": "2026-05-25T19:33:17.803513+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "netadm1",
+    "userPrincipalName": "netadm1@bank.local",
+    "displayName": "Netadm1",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2023-05-04T06:33:17.803519+00:00",
+    "lastPasswordSet": "2025-12-29T06:33:17.803525+00:00",
+    "lastLogon": "2026-05-23T12:33:17.803529+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "winadm1",
+    "userPrincipalName": "winadm1@bank.local",
+    "displayName": "Winadm1",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-12-20T06:33:17.803536+00:00",
+    "lastPasswordSet": "2026-01-10T06:33:17.803541+00:00",
+    "lastLogon": "2026-05-24T16:33:17.803545+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "dbadm1",
+    "userPrincipalName": "dbadm1@bank.local",
+    "displayName": "Dbadm1",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2021-08-14T06:33:17.803551+00:00",
+    "lastPasswordSet": "2026-02-23T06:33:17.803557+00:00",
+    "lastLogon": "2026-05-24T02:33:17.803561+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "secops1",
+    "userPrincipalName": "secops1@bank.local",
+    "displayName": "Secops1",
+    "department": "it_ops",
+    "title": "sysadmin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ITOps",
+      "Domain Admins",
+      "DB_Admins",
+      "Server_Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2022-08-01T06:33:17.803567+00:00",
+    "lastPasswordSet": "2026-04-27T06:33:17.803572+00:00",
+    "lastLogon": "2026-05-26T03:33:17.803576+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.50.0.0/24",
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "svc_sql",
+    "userPrincipalName": "svc_sql@bank.local",
+    "displayName": "svc_sql",
+    "department": "infrastructure",
+    "title": "service_account",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ServiceAccounts"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2020-09-14T06:33:17.803583+00:00",
+    "lastPasswordSet": "2026-02-25T06:33:17.803588+00:00",
+    "lastLogon": "2026-05-25T10:33:17.803593+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.60.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "service"
+  },
+  {
+    "samAccountName": "svc_mysql",
+    "userPrincipalName": "svc_mysql@bank.local",
+    "displayName": "svc_mysql",
+    "department": "infrastructure",
+    "title": "service_account",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ServiceAccounts"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2021-04-03T06:33:17.803599+00:00",
+    "lastPasswordSet": "2025-12-30T06:33:17.803605+00:00",
+    "lastLogon": "2026-05-25T05:33:17.803609+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.60.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "service"
+  },
+  {
+    "samAccountName": "svc_backup",
+    "userPrincipalName": "svc_backup@bank.local",
+    "displayName": "svc_backup",
+    "department": "infrastructure",
+    "title": "service_account",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ServiceAccounts"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2020-07-31T06:33:17.803615+00:00",
+    "lastPasswordSet": "2026-02-20T06:33:17.803620+00:00",
+    "lastLogon": "2026-05-25T19:33:17.803625+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.60.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "service"
+  },
+  {
+    "samAccountName": "svc_iis",
+    "userPrincipalName": "svc_iis@bank.local",
+    "displayName": "svc_iis",
+    "department": "infrastructure",
+    "title": "service_account",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ServiceAccounts"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2021-12-28T06:33:17.803631+00:00",
+    "lastPasswordSet": "2026-03-11T06:33:17.803636+00:00",
+    "lastLogon": "2026-05-26T02:33:17.803640+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.60.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "service"
+  },
+  {
+    "samAccountName": "svc_swift",
+    "userPrincipalName": "svc_swift@bank.local",
+    "displayName": "svc_swift",
+    "department": "infrastructure",
+    "title": "service_account",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ServiceAccounts"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2022-04-22T06:33:17.803656+00:00",
+    "lastPasswordSet": "2026-04-15T06:33:17.803662+00:00",
+    "lastLogon": "2026-05-25T01:33:17.803667+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.60.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "service"
+  },
+  {
+    "samAccountName": "svc_corebank",
+    "userPrincipalName": "svc_corebank@bank.local",
+    "displayName": "svc_corebank",
+    "department": "infrastructure",
+    "title": "service_account",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ServiceAccounts"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2022-05-14T06:33:17.803673+00:00",
+    "lastPasswordSet": "2025-12-07T06:33:17.803682+00:00",
+    "lastLogon": "2026-05-24T17:33:17.803687+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.60.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "service"
+  },
+  {
+    "samAccountName": "svc_cards",
+    "userPrincipalName": "svc_cards@bank.local",
+    "displayName": "svc_cards",
+    "department": "infrastructure",
+    "title": "service_account",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ServiceAccounts"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2020-08-26T06:33:17.803693+00:00",
+    "lastPasswordSet": "2026-03-21T06:33:17.803703+00:00",
+    "lastLogon": "2026-05-25T19:33:17.803707+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.60.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "service"
+  },
+  {
+    "samAccountName": "svc_scanner",
+    "userPrincipalName": "svc_scanner@bank.local",
+    "displayName": "svc_scanner",
+    "department": "infrastructure",
+    "title": "service_account",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ServiceAccounts"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2020-11-05T06:33:17.803713+00:00",
+    "lastPasswordSet": "2026-03-07T06:33:17.803719+00:00",
+    "lastLogon": "2026-05-24T18:33:17.803723+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.60.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "service"
+  },
+  {
+    "samAccountName": "svc_monitor",
+    "userPrincipalName": "svc_monitor@bank.local",
+    "displayName": "svc_monitor",
+    "department": "infrastructure",
+    "title": "service_account",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ServiceAccounts"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2021-12-13T06:33:17.803729+00:00",
+    "lastPasswordSet": "2026-05-01T06:33:17.803734+00:00",
+    "lastLogon": "2026-05-25T10:33:17.803738+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.60.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "service"
+  },
+  {
+    "samAccountName": "svc_replication",
+    "userPrincipalName": "svc_replication@bank.local",
+    "displayName": "svc_replication",
+    "department": "infrastructure",
+    "title": null,
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "ServiceAccounts"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2021-05-12T06:33:17.803744+00:00",
+    "lastPasswordSet": "2026-02-10T06:33:17.803749+00:00",
+    "lastLogon": "2026-05-26T04:33:17.803754+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": "10.60.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "service"
+  },
+  {
+    "samAccountName": "vendor_temenos",
+    "userPrincipalName": "vendor_temenos@bank.local",
+    "displayName": "Temenos T24 Support",
+    "department": "external",
+    "title": null,
+    "manager": null,
+    "memberOf": [
+      "Vendors",
+      "ContractorVPN"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2025-08-13T06:33:17.803761+00:00",
+    "lastPasswordSet": "2026-02-24T06:33:17.803766+00:00",
+    "lastLogon": "2026-05-26T06:33:17.803771+00:00",
+    "logonHours": [
+      8,
+      20
+    ],
+    "homeSubnet": "10.70.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "vendor"
+  },
+  {
+    "samAccountName": "vendor_swift",
+    "userPrincipalName": "vendor_swift@bank.local",
+    "displayName": "SWIFT Field Engineer",
+    "department": "external",
+    "title": "vendor",
+    "manager": null,
+    "memberOf": [
+      "Vendors",
+      "ContractorVPN"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2025-06-23T06:33:17.803778+00:00",
+    "lastPasswordSet": "2026-04-30T06:33:17.803783+00:00",
+    "lastLogon": "2026-05-23T17:33:17.803787+00:00",
+    "logonHours": [
+      8,
+      20
+    ],
+    "homeSubnet": "10.70.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "vendor"
+  },
+  {
+    "samAccountName": "vendor_fiserv",
+    "userPrincipalName": "vendor_fiserv@bank.local",
+    "displayName": "Fiserv Cards Integration",
+    "department": null,
+    "title": "vendor",
+    "manager": null,
+    "memberOf": [
+      "Vendors",
+      "ContractorVPN"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2024-09-29T06:33:17.803794+00:00",
+    "lastPasswordSet": "2026-02-22T06:33:17.803799+00:00",
+    "lastLogon": "2026-05-25T16:33:17.803803+00:00",
+    "logonHours": [
+      8,
+      20
+    ],
+    "homeSubnet": "10.70.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "vendor"
+  },
+  {
+    "samAccountName": "vendor_msft",
+    "userPrincipalName": "vendor_msft@bank.local",
+    "displayName": "Microsoft Premier Support",
+    "department": "external",
+    "title": "vendor",
+    "manager": null,
+    "memberOf": [
+      "Vendors",
+      "ContractorVPN"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": false,
+    "whenCreated": "2024-07-07T06:33:17.803812+00:00",
+    "lastPasswordSet": "2026-05-22T06:33:17.803818+00:00",
+    "lastLogon": "2026-05-24T11:33:17.803823+00:00",
+    "logonHours": [
+      8,
+      20
+    ],
+    "homeSubnet": "10.70.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "vendor"
+  },
+  {
+    "samAccountName": "vendor_consult",
+    "userPrincipalName": "vendor_consult@bank.local",
+    "displayName": "External Consultant",
+    "department": "external",
+    "title": "vendor",
+    "manager": null,
+    "memberOf": [
+      "Vendors",
+      "ContractorVPN"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-02-08T06:33:17.803829+00:00",
+    "lastPasswordSet": "2026-04-06T06:33:17.803834+00:00",
+    "lastLogon": "2026-05-23T08:33:17.803839+00:00",
+    "logonHours": [
+      8,
+      20
+    ],
+    "homeSubnet": "10.70.0.0/24",
+    "criticalityTier": "high",
+    "privilegeTier": "vendor"
+  },
+  {
+    "samAccountName": "administrator",
+    "userPrincipalName": "administrator@bank.local",
+    "displayName": "Administrator",
+    "department": "system",
+    "title": "builtin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "Domain Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-11-29T06:33:17.803846+00:00",
+    "lastPasswordSet": "2026-01-11T06:33:17.803851+00:00",
+    "lastLogon": "2026-05-24T22:33:17.803856+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": null,
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "guest",
+    "userPrincipalName": "guest@bank.local",
+    "displayName": "Guest",
+    "department": "system",
+    "title": "builtin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-11-18T06:33:17.803878+00:00",
+    "lastPasswordSet": "2026-01-08T06:33:17.803883+00:00",
+    "lastLogon": "2026-05-24T08:33:17.803888+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": null,
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  },
+  {
+    "samAccountName": "sa",
+    "userPrincipalName": "sa@bank.local",
+    "displayName": "Sa",
+    "department": "system",
+    "title": "builtin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "Domain Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2022-03-09T06:33:17.803896+00:00",
+    "lastPasswordSet": "2025-11-27T06:33:17.803901+00:00",
+    "lastLogon": "2026-05-24T09:33:17.803905+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": null,
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "root",
+    "userPrincipalName": "root@bank.local",
+    "displayName": "Root",
+    "department": "system",
+    "title": "builtin",
+    "manager": null,
+    "memberOf": [
+      "Domain Users",
+      "Domain Admins"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2023-04-03T06:33:17.803915+00:00",
+    "lastPasswordSet": "2026-03-29T06:33:17.803924+00:00",
+    "lastLogon": "2026-05-25T08:33:17.803933+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": null,
+    "criticalityTier": "critical",
+    "privilegeTier": "admin"
+  },
+  {
+    "samAccountName": "kerberos",
+    "userPrincipalName": "kerberos@bank.local",
+    "displayName": "Kerberos",
+    "department": "system",
+    "title": "builtin",
+    "manager": "root",
+    "memberOf": [
+      "Domain Users"
+    ],
+    "accountEnabled": true,
+    "mfaRegistered": true,
+    "whenCreated": "2025-07-30T06:33:17.803967+00:00",
+    "lastPasswordSet": "2026-01-11T06:33:17.803977+00:00",
+    "lastLogon": "2026-05-23T17:33:17.803990+00:00",
+    "logonHours": [
+      0,
+      24
+    ],
+    "homeSubnet": null,
+    "criticalityTier": "medium",
+    "privilegeTier": "user"
+  }
+]

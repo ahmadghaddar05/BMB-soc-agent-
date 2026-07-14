@@ -1,0 +1,19 @@
+{
+  "name": "soc-api",
+  "version": "1.0.0",
+  "description": "SOC Agent API \u2014 fetch, enrich, triage, correlate",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "node-fetch": "^3.3.2",
+    "node-cron": "^3.0.3",
+    "cors": "^2.8.5",
+    "morgan": "^1.10.0",
+    "pdfkit": "^0.15.0"
+  }
+}

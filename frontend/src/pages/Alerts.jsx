@@ -1,0 +1,455 @@
+import { useEffect, useState, useCallback } from 'react';
+import { api, fmtTs, sevClass, verdictClass, verdictLabel, statusClass } from '../lib/api';
+import { RefreshCw, ChevronDown, ChevronUp, Search, Filter } from 'lucide-react';
+
+const ENRICH_LABELS = {
+  pending: 'Pending', enriched: 'Enriched',
+  enrichment_failed: 'Enrich Failed', skipped: 'Skipped',
+};
+const TRIAGE_LABELS = {
+  pending: 'Pending', triaged: 'Triaged',
+  triage_failed: 'Triage Failed', skipped: 'Skipped',
+};
+
+function AlertRow({ a }) {
+  const [open, setOpen] = useState(false);
+  const verdict = a.verdict ? (typeof a.verdict === 'string' ? JSON.parse(a.verdict) : a.verdict) : null;
+  const enrichment = a.enrichment ? (typeof a.enrichment === 'string' ? JSON.parse(a.enrichment) : a.enrichment) : null;
+
+  const sourceSeverity =
+    a.source_severity ||
+    (
+      a.rule_level >= 12 ? 'critical' :
+      a.rule_level >= 9  ? 'high' :
+      a.rule_level >= 6  ? 'medium' :
+      'low'
+    );
+
+  return (
+    <>
+      <tr className="table-row cursor-pointer" onClick={() => setOpen(o => !o)}>
+        <td className="td font-mono text-xs text-gray-500 w-8">{open?<ChevronUp className="w-3 h-3"/>:<ChevronDown className="w-3 h-3"/>}</td>
+        <td className="td">
+          <div className="flex flex-col items-start gap-1">
+            <span className={`badge ${sevClass(sourceSeverity)}`}>
+              {sourceSeverity}
+            </span>
+
+            {a.risk_score !== null &&
+             a.risk_score !== undefined && (
+              <span className="text-[10px] text-gray-500">
+                Risk {a.risk_score}
+              </span>
+            )}
+          </div>
+        </td>
+        <td className="td text-gray-200 max-w-xs" title={a.rule_desc}>
+          <span className="truncate">{a.rule_desc}</span>
+          {a.occurrence_count > 1 && (
+            <span className="badge badge-info ml-2">
+              {a.occurrence_count}x
+            </span>
+          )}
+        </td>
+        <td className="td font-mono text-xs text-blue-400">{a.src_ip || '—'}</td>
+        <td className="td text-xs text-gray-300">{a.username || '—'}</td>
+        <td className="td text-xs text-gray-400">{a.agent_name || a.hostname?.split('.')[0] || '—'}</td>
+        <td className="td">
+          <span className={`badge ${statusClass(a.enrichment_status)}`}>{ENRICH_LABELS[a.enrichment_status]||a.enrichment_status}</span>
+        </td>
+        <td className="td">
+          {verdict
+            ? <><span className={`badge ${sevClass(verdict.severity)}`}>{verdict.severity}</span>
+               <span className={`badge ml-1 ${verdictClass(verdict.verdict)}`}>{verdictLabel(verdict.verdict)}</span></>
+            : <span className={`badge ${statusClass(a.triage_status)}`}>{TRIAGE_LABELS[a.triage_status]||a.triage_status}</span>}
+        </td>
+        <td className="td font-mono text-xs text-gray-500">{fmtTs(a.timestamp)}</td>
+      </tr>
+
+      {open && (
+        <tr className="bg-dark-700/40">
+          <td colSpan={9} className="px-6 py-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Alert detail */}
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs text-gray-500 mb-1">
+                    {a.group_key ? 'Representative Alert ID' : 'Alert ID'}
+                  </div>
+
+                  <code className="text-xs text-gray-300 break-all">
+                    {a.id}
+                  </code>
+                </div>
+
+                {a.occurrence_count > 1 && (
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">
+                      Grouped Activity
+                    </div>
+
+                    <div className="flex gap-2 flex-wrap">
+                      <span className="badge badge-info">
+                        {a.occurrence_count} occurrences
+                      </span>
+
+                      <span className="text-xs text-gray-400">
+                        {fmtTs(a.first_seen)} → {fmtTs(a.last_seen)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {a.event_dataset && (
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">
+                      Elastic Dataset
+                    </div>
+
+                    <code className="text-xs text-blue-300">
+                      {a.event_dataset}
+                    </code>
+                  </div>
+                )}
+
+                {a.workflow_status && (
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">
+                      Elastic Workflow
+                    </div>
+
+                    <span className="badge badge-blue">
+                      {a.workflow_status}
+                    </span>
+                  </div>
+                )}
+                {a.process && <div><div className="text-xs text-gray-500 mb-1">Process</div>
+                  <code className="text-xs text-orange-300">{a.process}</code></div>}
+                {a.target_db && <div><div className="text-xs text-gray-500 mb-1">Target DB</div>
+                  <span className="badge badge-critical">{a.target_db}</span></div>}
+                {a.triage_error && <div className="text-xs text-red-400 bg-red-900/20 rounded p-2">
+                  Triage error: {a.triage_error}</div>}
+                {a.auto_closed && <div className="text-xs text-gray-400 bg-dark-600 rounded p-2">
+                  Auto-closed: {a.auto_close_reason}</div>}
+                {(a.mitre_techniques?.length > 0 || a.mitre_tactics?.length > 0) && (
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">MITRE ATT&CK</div>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {(a.mitre_techniques || []).map(t => (
+                        <a key={t} href={`https://attack.mitre.org/techniques/${t.replace('.', '/')}/`}
+                           target="_blank" rel="noreferrer"
+                           className="badge badge-blue font-mono hover:underline">{t}</a>
+                      ))}
+                      {(a.mitre_tactics || []).map(t => (
+                        <span key={t} className="badge badge-info">{t.replace(/_/g,' ')}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Verdict + enrichment */}
+              {verdict && (
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">AI Verdict</div>
+                  <div className="flex gap-2 flex-wrap">
+                    <span className={`badge ${sevClass(verdict.severity)}`}>{verdict.severity}</span>
+                    <span className={`badge ${verdictClass(verdict.verdict)}`}>{verdictLabel(verdict.verdict)}</span>
+                    <span className="badge badge-info">conf {(verdict.confidence*100).toFixed(0)}%</span>
+                    {verdict.attack_stage && <span className="badge badge-blue">{verdict.attack_stage.replace(/_/g,' ')}</span>}
+                  </div>
+                  <p className="text-xs text-gray-300 mt-2">{verdict.narrative}</p>
+                  {verdict.key_findings?.length > 0 && (
+                    <ul className="text-xs text-gray-400 list-disc list-inside space-y-0.5">
+                      {verdict.key_findings.map((f,i) => <li key={i}>{f}</li>)}
+                    </ul>
+                  )}
+                  {verdict.recommended_actions?.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-500 mb-1">Recommended Actions</div>
+                      <ul className="text-xs text-yellow-300 list-disc list-inside space-y-0.5">
+                        {verdict.recommended_actions.map((a,i) => <li key={i}>{a}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {(verdict.triage_source || verdict.cluster_size > 1) && (
+                    <div className="text-[10px] text-gray-500 mt-1">
+                      {verdict.triage_source && <span>source: {verdict.triage_source}</span>}
+                      {verdict.cluster_size > 1 && <span> · applied to {verdict.cluster_size} clustered alerts</span>}
+                    </div>
+                  )}
+                  {verdict.investigation?.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-500 mb-1">Investigation trace ({verdict.investigation.length} step{verdict.investigation.length>1?'s':''})</div>
+                      <ol className="text-[11px] text-gray-400 space-y-1">
+                        {verdict.investigation.map((st,i) => (
+                          <li key={i} className="bg-dark-900 rounded px-2 py-1">
+                            <span className="text-blue-400 font-mono">{st.tool}</span>
+                            <span className="text-gray-600"> ({JSON.stringify(st.args)})</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Enrichment summary */}
+              {enrichment && (
+                <div className="lg:col-span-2 mt-2 border-t border-dark-600 pt-3">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Enrichment Context</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    {enrichment.user && (
+                      <div className="card-sm">
+                        <div className="text-gray-500 mb-1">AD User</div>
+                        <div className="text-gray-200">{enrichment.user.displayName || a.username}</div>
+                        <div className="text-gray-400">{enrichment.user.privilegeTier}</div>
+                        {!enrichment.user.mfaRegistered && <div className="text-yellow-400">No MFA</div>}
+                      </div>
+                    )}
+                    {enrichment.src_threat_intel?.found && (
+                      <div className="card-sm border-red-800">
+                        <div className="text-gray-500 mb-1">Threat Intel</div>
+                        <div className="text-red-400 font-medium">{enrichment.src_threat_intel.severity?.toUpperCase()}</div>
+                        <div className="text-gray-400">{enrichment.src_threat_intel.categories?.join(', ')}</div>
+                      </div>
+                    )}
+                    {enrichment.dst_asset && (
+                      <div className="card-sm">
+                        <div className="text-gray-500 mb-1">Target Asset</div>
+                        <div className="text-gray-200">{enrichment.dst_asset.hostname?.split('.')[0]}</div>
+                        <div className="text-gray-400">{enrichment.dst_asset.criticality}</div>
+                        {enrichment.dst_asset.trust_level === 'crown_jewel' && <div className="text-red-400">Crown Jewel</div>}
+                      </div>
+                    )}
+                    {enrichment.edr_recent?.total > 0 && (
+                      <div className="card-sm">
+                        <div className="text-gray-500 mb-1">EDR (48h)</div>
+                        <div className="text-orange-400">{enrichment.edr_recent.total} detections</div>
+                        {enrichment.edr_recent.by_severity?.critical > 0 && (
+                          <div className="text-red-400">{enrichment.edr_recent.by_severity.critical} critical</div>)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+export default function Alerts() {
+  const [alerts, setAlerts]       = useState([]);
+  const [total,  setTotal]        = useState(0);
+  const [page,   setPage]         = useState(1);
+  const [loading,setLoading]      = useState(false);
+  const [viewMode,setViewMode]    = useState('grouped');
+  const [filters,setFilters]      = useState({
+    triage_status:'', enrichment_status:'', severity:'',
+    src_ip:'', username:'', hostname:'', search:'',
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+
+    try {
+      const q = new URLSearchParams({
+        page,
+        limit: 50,
+      });
+
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) {
+          q.set(key, value);
+        }
+      });
+
+      const grouped = viewMode === 'grouped';
+
+      const data = await api(
+        `${grouped ? '/alert-groups' : '/alerts'}?${q}`
+      );
+
+      if (grouped) {
+        const activities = (data.groups || []).map(group => ({
+          ...group,
+          id: group.representative_alert_id,
+          timestamp: group.last_seen,
+          agent_name: group.hostname,
+        }));
+
+        setAlerts(activities);
+      } else {
+        setAlerts(data.alerts || []);
+      }
+
+      setTotal(data.total || 0);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, filters, viewMode]);
+
+  useEffect(() => { load(); }, [load]);
+  const pages = Math.ceil(total / 50);
+
+  return (
+    <div className="p-6 space-y-4">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">
+            {viewMode === 'grouped'
+              ? 'Grouped Activities'
+              : 'Individual Alerts'}
+          </h1>
+
+          <p className="text-sm text-gray-500">
+            {total.toLocaleString()}
+            {viewMode === 'grouped'
+              ? ' distinct activities'
+              : ' individual alerts'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            className={
+              viewMode === 'grouped'
+                ? 'btn-primary'
+                : 'btn-secondary'
+            }
+            onClick={() => {
+              setPage(1);
+              setViewMode('grouped');
+            }}
+          >
+            Grouped
+          </button>
+
+          <button
+            className={
+              viewMode === 'individual'
+                ? 'btn-primary'
+                : 'btn-secondary'
+            }
+            onClick={() => {
+              setPage(1);
+              setViewMode('individual');
+            }}
+          >
+            Individual
+          </button>
+
+          <button onClick={load} className="btn-ghost">
+            <RefreshCw
+              className={`w-4 h-4 ${
+                loading ? 'animate-spin' : ''
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="card">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div>
+            <label className="label"><Filter className="w-3 h-3 inline mr-1"/>Triage</label>
+            <select className="select" value={filters.triage_status}
+              onChange={e=>setFilters(f=>({...f,triage_status:e.target.value}))}>
+              <option value="">All</option>
+              <option value="triaged">Triaged</option>
+              <option value="pending">Pending</option>
+              <option value="triage_failed">Failed</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Enrichment</label>
+            <select className="select" value={filters.enrichment_status}
+              onChange={e=>setFilters(f=>({...f,enrichment_status:e.target.value}))}>
+              <option value="">All</option>
+              <option value="enriched">Enriched</option>
+              <option value="pending">Pending</option>
+              <option value="enrichment_failed">Failed</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Severity</label>
+            <select className="select" value={filters.severity}
+              onChange={e=>setFilters(f=>({...f,severity:e.target.value}))}>
+              <option value="">All</option>
+              {['critical','high','medium','low','informational'].map(s=>(
+                <option key={s} value={s}>{s}</option>))}
+            </select>
+          </div>
+          <div>
+            <label className="label"><Search className="w-3 h-3 inline mr-1"/>Source IP</label>
+            <input className="input" placeholder="e.g. 194.165.16.71" value={filters.src_ip}
+              onChange={e=>setFilters(f=>({...f,src_ip:e.target.value}))} />
+          </div>
+          <div>
+            <label className="label">Username</label>
+            <input className="input" placeholder="e.g. administrator" value={filters.username}
+              onChange={e=>setFilters(f=>({...f,username:e.target.value}))} />
+          </div>
+          <div>
+            <label className="label">Search</label>
+            <input className="input" placeholder="Rule desc / log" value={filters.search}
+              onChange={e=>setFilters(f=>({...f,search:e.target.value}))} />
+          </div>
+        </div>
+        <div className="flex gap-2 mt-3">
+          <button className="btn-primary" onClick={() => { setPage(1); load(); }}>Apply</button>
+          <button className="btn-secondary" onClick={() => {
+            setFilters({triage_status:'',enrichment_status:'',severity:'',src_ip:'',username:'',hostname:'',search:''});
+            setPage(1);
+          }}>Clear</button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="card p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr className="bg-dark-700 border-b border-dark-600">
+              <th className="th w-8"></th>
+              <th className="th">Severity / Risk</th>
+              <th className="th">Rule</th>
+              <th className="th">Src IP</th>
+              <th className="th">User</th>
+              <th className="th">Agent</th>
+              <th className="th">Enrichment</th>
+              <th className="th">Triage / Verdict</th>
+              <th className="th">Time</th>
+            </tr></thead>
+            <tbody>
+              {alerts.map(a => (
+                <AlertRow
+                  key={a.group_key || a.id}
+                  a={a}
+                />
+              ))}
+              {!loading && !alerts.length && (
+                <tr><td colSpan={9} className="td text-center text-gray-600 py-12">No alerts found</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {/* Pagination */}
+        {pages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-dark-600">
+            <span className="text-sm text-gray-500">Page {page} of {pages}</span>
+            <div className="flex gap-2">
+              <button className="btn-secondary" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>← Prev</button>
+              <button className="btn-secondary" disabled={page>=pages} onClick={()=>setPage(p=>p+1)}>Next →</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

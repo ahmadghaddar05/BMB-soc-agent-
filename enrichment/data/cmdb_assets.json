@@ -1,0 +1,498 @@
+[
+  {
+    "ci_id": "CI01000",
+    "hostname": "DC01.bank.local",
+    "ip_address": "10.20.0.22",
+    "ci_type": "domain_controller",
+    "operating_system": "Windows Server 2022",
+    "network_zone": "dc_vlan",
+    "trust_level": "restricted",
+    "criticality": "critical",
+    "owner": "dbadm1",
+    "internet_facing": false,
+    "installed_apps": [
+      "AD",
+      "DNS",
+      "Kerberos"
+    ],
+    "patch_compliance": "behind_3mo",
+    "environment": "uat",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01001",
+    "hostname": "DC02.bank.local",
+    "ip_address": "10.20.0.21",
+    "ci_type": "domain_controller",
+    "operating_system": "Windows Server 2022",
+    "network_zone": "dc_vlan",
+    "trust_level": "restricted",
+    "criticality": "critical",
+    "owner": "secops1",
+    "internet_facing": false,
+    "installed_apps": [
+      "AD",
+      "DNS",
+      "Kerberos"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01002",
+    "hostname": "COREBANK01.bank.local",
+    "ip_address": "10.20.3.13",
+    "ci_type": "core_banking_app",
+    "operating_system": "RHEL 8",
+    "network_zone": "core_banking_vlan",
+    "trust_level": "crown_jewel",
+    "criticality": "crown_jewel",
+    "owner": "tabboud.adm",
+    "internet_facing": false,
+    "installed_apps": [
+      "Temenos T24",
+      "Java",
+      "Tomcat"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "uat",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01003",
+    "hostname": "COREBANK02.bank.local",
+    "ip_address": "10.20.3.14",
+    "ci_type": "core_banking_app",
+    "operating_system": "RHEL 8",
+    "network_zone": "core_banking_vlan",
+    "trust_level": "crown_jewel",
+    "criticality": "crown_jewel",
+    "owner": "rkhoury.adm",
+    "internet_facing": false,
+    "installed_apps": [
+      "Temenos T24",
+      "Java",
+      "Tomcat"
+    ],
+    "patch_compliance": "behind_1mo",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01004",
+    "hostname": "T24-APP01.bank.local",
+    "ip_address": "10.20.3.15",
+    "ci_type": "core_banking_app",
+    "operating_system": "RHEL 8",
+    "network_zone": "core_banking_vlan",
+    "trust_level": "crown_jewel",
+    "criticality": "crown_jewel",
+    "owner": "jzghendy",
+    "internet_facing": false,
+    "installed_apps": [
+      "Temenos T24",
+      "Java",
+      "Tomcat"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01005",
+    "hostname": "CARDS-SW01.bank.local",
+    "ip_address": "10.20.3.30",
+    "ci_type": "card_switch",
+    "operating_system": "RHEL 8",
+    "network_zone": "core_banking_vlan",
+    "trust_level": "crown_jewel",
+    "criticality": "crown_jewel",
+    "owner": "winadm1",
+    "internet_facing": false,
+    "installed_apps": [
+      "BASE24"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "uat",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01006",
+    "hostname": "SWIFT-GW01.bank.local",
+    "ip_address": "10.20.4.13",
+    "ci_type": "swift_gateway",
+    "operating_system": "RHEL 8",
+    "network_zone": "swift_vlan",
+    "trust_level": "crown_jewel",
+    "criticality": "crown_jewel",
+    "owner": "rkhoury.adm",
+    "internet_facing": false,
+    "installed_apps": [
+      "SWIFT Alliance"
+    ],
+    "patch_compliance": "behind_1mo",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01007",
+    "hostname": "LOAN-APP01.bank.local",
+    "ip_address": "10.20.3.52",
+    "ci_type": "application_server",
+    "operating_system": "Windows Server 2019",
+    "network_zone": "core_banking_vlan",
+    "trust_level": "crown_jewel",
+    "criticality": "high",
+    "owner": "jzghendy",
+    "internet_facing": false,
+    "installed_apps": [
+      "LoanOrig"
+    ],
+    "patch_compliance": "behind_3mo",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01008",
+    "hostname": "SQL01.bank.local",
+    "ip_address": "10.20.1.14",
+    "ci_type": "database_server",
+    "operating_system": "Windows Server 2019",
+    "network_zone": "db_vlan",
+    "trust_level": "restricted",
+    "criticality": "critical",
+    "owner": "dbadm1",
+    "internet_facing": false,
+    "installed_apps": [
+      "MSSQL 2019"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01009",
+    "hostname": "SQL02.bank.local",
+    "ip_address": "10.20.1.20",
+    "ci_type": "database_server",
+    "operating_system": "Windows Server 2019",
+    "network_zone": "db_vlan",
+    "trust_level": "restricted",
+    "criticality": "critical",
+    "owner": "jzghendy",
+    "internet_facing": false,
+    "installed_apps": [
+      "MSSQL 2019"
+    ],
+    "patch_compliance": "behind_1mo",
+    "environment": "uat",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01010",
+    "hostname": "MYSQL01.bank.local",
+    "ip_address": "10.20.1.26",
+    "ci_type": "database_server",
+    "operating_system": "Ubuntu 22.04 LTS",
+    "network_zone": "db_vlan",
+    "trust_level": "restricted",
+    "criticality": "critical",
+    "owner": null,
+    "internet_facing": false,
+    "installed_apps": [
+      "MySQL 8.0"
+    ],
+    "patch_compliance": "behind_1mo",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01011",
+    "hostname": "IBANK-WEB01.bank.local",
+    "ip_address": "10.20.2.21",
+    "ci_type": "web_server",
+    "operating_system": "Ubuntu 22.04 LTS",
+    "network_zone": "web_dmz",
+    "trust_level": "dmz",
+    "criticality": "high",
+    "owner": "dbadm1",
+    "internet_facing": true,
+    "installed_apps": [
+      "Apache",
+      "Internet Banking"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01012",
+    "hostname": "IBANK-WEB02.bank.local",
+    "ip_address": "10.20.2.29",
+    "ci_type": "web_server",
+    "operating_system": "Ubuntu 22.04 LTS",
+    "network_zone": "web_dmz",
+    "trust_level": "dmz",
+    "criticality": "high",
+    "owner": "netadm1",
+    "internet_facing": true,
+    "installed_apps": [
+      "Apache",
+      "Internet Banking"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01013",
+    "hostname": "MOBILE-API01.bank.local",
+    "ip_address": "10.20.2.17",
+    "ci_type": "api_gateway",
+    "operating_system": "Ubuntu 22.04 LTS",
+    "network_zone": "web_dmz",
+    "trust_level": "dmz",
+    "criticality": "high",
+    "owner": "administrator",
+    "internet_facing": true,
+    "installed_apps": [
+      "Nginx",
+      "Mobile API"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "uat",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01014",
+    "hostname": "FILE01.bank.local",
+    "ip_address": "10.20.5.28",
+    "ci_type": "file_server",
+    "operating_system": "Windows Server 2019",
+    "network_zone": "infra_vlan",
+    "trust_level": "restricted",
+    "criticality": "medium",
+    "owner": "rkhoury.adm",
+    "internet_facing": false,
+    "installed_apps": [
+      "SMB",
+      "DFS"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01015",
+    "hostname": "MAIL01.bank.local",
+    "ip_address": "10.20.5.29",
+    "ci_type": "mail_server",
+    "operating_system": "Windows Server 2019",
+    "network_zone": "infra_vlan",
+    "trust_level": "restricted",
+    "criticality": "high",
+    "owner": "tabboud.adm",
+    "internet_facing": false,
+    "installed_apps": [
+      "Exchange 2019"
+    ],
+    "patch_compliance": "behind_1mo",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01016",
+    "hostname": "BACKUP01.bank.local",
+    "ip_address": "10.20.5.16",
+    "ci_type": "backup_server",
+    "operating_system": "Windows Server 2019",
+    "network_zone": "infra_vlan",
+    "trust_level": "restricted",
+    "criticality": "high",
+    "owner": "sysadm2",
+    "internet_facing": false,
+    "installed_apps": [
+      "Veeam"
+    ],
+    "patch_compliance": "behind_1mo",
+    "environment": "production",
+    "support_group": "IT Operations",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01017",
+    "hostname": "WS-BRANCH-12.bank.local",
+    "ip_address": "10.12.74.94",
+    "ci_type": "workstation",
+    "operating_system": "Windows 11",
+    "network_zone": "corporate_user_vlan",
+    "trust_level": "internal",
+    "criticality": "low",
+    "owner": "noha.ghanem",
+    "internet_facing": false,
+    "installed_apps": [
+      "Windows 11",
+      "Office 365"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "production",
+    "support_group": "End User Computing",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01018",
+    "hostname": "WS-BRANCH-04.bank.local",
+    "ip_address": "10.11.177.197",
+    "ci_type": "workstation",
+    "operating_system": "Windows 11",
+    "network_zone": "corporate_user_vlan",
+    "trust_level": "internal",
+    "criticality": "low",
+    "owner": "yara.nakhle",
+    "internet_facing": false,
+    "installed_apps": [
+      "Windows 11",
+      "Office 365"
+    ],
+    "patch_compliance": "behind_3mo",
+    "environment": "production",
+    "support_group": "End User Computing",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01019",
+    "hostname": "WS-FIN-04.bank.local",
+    "ip_address": "10.11.193.213",
+    "ci_type": "workstation",
+    "operating_system": "Windows 11",
+    "network_zone": "corporate_user_vlan",
+    "trust_level": "internal",
+    "criticality": "low",
+    "owner": "sahar.azar",
+    "internet_facing": false,
+    "installed_apps": [
+      "Windows 11",
+      "Office 365"
+    ],
+    "patch_compliance": "behind_3mo",
+    "environment": "uat",
+    "support_group": "End User Computing",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01020",
+    "hostname": "WS-HR-09.bank.local",
+    "ip_address": "10.13.223.43",
+    "ci_type": "workstation",
+    "operating_system": "Windows 11",
+    "network_zone": "corporate_user_vlan",
+    "trust_level": "internal",
+    "criticality": "low",
+    "owner": "rana.saliba",
+    "internet_facing": false,
+    "installed_apps": [
+      "Windows 11",
+      "Office 365"
+    ],
+    "patch_compliance": "behind_3mo",
+    "environment": "production",
+    "support_group": "End User Computing",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01021",
+    "hostname": "WS-LOAN-22.bank.local",
+    "ip_address": "10.20.3.63",
+    "ci_type": "application_server",
+    "operating_system": "Windows Server 2019",
+    "network_zone": "core_banking_vlan",
+    "trust_level": "crown_jewel",
+    "criticality": "high",
+    "owner": "jad.antoun",
+    "internet_facing": false,
+    "installed_apps": [
+      "LoanOrig"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "production",
+    "support_group": "End User Computing",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01022",
+    "hostname": "WS-IT-17.bank.local",
+    "ip_address": "10.10.108.128",
+    "ci_type": "workstation",
+    "operating_system": "Windows 11",
+    "network_zone": "corporate_user_vlan",
+    "trust_level": "internal",
+    "criticality": "low",
+    "owner": "rami.kassis",
+    "internet_facing": false,
+    "installed_apps": [
+      "Windows 11",
+      "Office 365"
+    ],
+    "patch_compliance": "behind_3mo",
+    "environment": "production",
+    "support_group": "End User Computing",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01023",
+    "hostname": "WS-COMPL-08.bank.local",
+    "ip_address": "10.11.113.133",
+    "ci_type": "workstation",
+    "operating_system": "Windows 11",
+    "network_zone": "corporate_user_vlan",
+    "trust_level": "internal",
+    "criticality": "low",
+    "owner": "habib.tannous",
+    "internet_facing": false,
+    "installed_apps": [
+      "Windows 11",
+      "Office 365"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "uat",
+    "support_group": "End User Computing",
+    "lifecycle_state": "active"
+  },
+  {
+    "ci_id": "CI01024",
+    "hostname": "WS-TREAS-03.bank.local",
+    "ip_address": "10.11.193.214",
+    "ci_type": "workstation",
+    "operating_system": "Windows 11",
+    "network_zone": "corporate_user_vlan",
+    "trust_level": "internal",
+    "criticality": "low",
+    "owner": "lara.hourani",
+    "internet_facing": false,
+    "installed_apps": [
+      "Windows 11",
+      "Office 365"
+    ],
+    "patch_compliance": "compliant",
+    "environment": "production",
+    "support_group": "End User Computing",
+    "lifecycle_state": "active"
+  }
+]

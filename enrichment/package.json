@@ -1,0 +1,13 @@
+{
+  "name": "soc-enrichment",
+  "version": "1.0.0",
+  "description": "SOC Agent enrichment gateway - AD, CMDB, EDR, TIP, Vuln",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
