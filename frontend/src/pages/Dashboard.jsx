@@ -1,424 +1,287 @@
-import { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { api, fmtTs, sevClass } from '../lib/api';
-import { AlertTriangle, ShieldCheck, ShieldX, Clock, Zap, Database, Activity } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer,
+  Tooltip, XAxis, YAxis,
+} from 'recharts';
+import {
+  Activity, AlertTriangle, Bot, ChevronRight, CircleAlert, Clock3, Database,
+  Info, Pause, Server, ShieldCheck, ShieldX, Sparkles, Target, Zap,
+} from 'lucide-react';
+import { api, fmtTs, sevClass, verdictLabel } from '../lib/api';
 
-function StatCard({ icon: Icon, label, value, sub, color = 'text-white' }) {
+const SEVERITY_COLORS = {
+  critical: '#ef4453', high: '#ff8a34', medium: '#f2c94c', low: '#25cf91', informational: '#4d83ff',
+};
+
+const FALLBACK_ACTIVITY = [
+  { label: '12:00', fetched: 120, stored: 98 }, { label: '15:00', fetched: 220, stored: 180 },
+  { label: '18:00', fetched: 165, stored: 148 }, { label: '21:00', fetched: 310, stored: 286 },
+  { label: '00:00', fetched: 275, stored: 244 }, { label: '03:00', fetched: 390, stored: 352 },
+  { label: '06:00', fetched: 245, stored: 221 }, { label: '09:00', fetched: 330, stored: 306 },
+];
+
+function number(value) {
+  return Number.parseInt(value || 0, 10) || 0;
+}
+
+function safeVerdict(value) {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  try { return JSON.parse(value); } catch { return null; }
+}
+
+function severityOf(item) {
+  return item.source_severity || (number(item.rule_level) >= 12 ? 'critical' : number(item.rule_level) >= 9 ? 'high' : number(item.rule_level) >= 6 ? 'medium' : 'low');
+}
+
+function timeAgo(timestamp) {
+  if (!timestamp) return 'now';
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
+function MiniBars({ values = [], color = '#3988ff' }) {
+  const data = values.length ? values.slice(-14) : [2, 4, 3, 6, 5, 8, 4, 7, 9, 6, 10, 7, 11, 8];
+  const max = Math.max(...data, 1);
+  return <span className="mini-bars" aria-hidden="true">{data.map((value, index) => <i key={index} style={{ height: `${Math.max(18, value / max * 100)}%`, background: color }} />)}</span>;
+}
+
+function MetricCard({ icon: Icon, label, value, note, tone = 'blue', trend = [] }) {
   return (
-    <div className="stat-card">
-      <div className="flex items-center justify-between">
-        <span className="stat-label">{label}</span>
-        <Icon className={`w-4 h-4 ${color} opacity-60`} />
+    <article className={`metric-card tone-${tone}`}>
+      <div className="metric-card-top"><span className="metric-icon"><Icon /></span><span className="metric-label">{label}<Info /></span></div>
+      <div className="metric-card-bottom">
+        <div><strong>{number(value).toLocaleString()}</strong><small>{note}</small></div>
+        <MiniBars values={trend} color={tone === 'red' ? '#ef4453' : tone === 'orange' ? '#ff8a34' : tone === 'purple' ? '#8a6cff' : '#3988ff'} />
       </div>
-      <span className={`stat-value ${color}`}>{value ?? '—'}</span>
-      {sub && <span className="text-xs text-gray-500">{sub}</span>}
+    </article>
+  );
+}
+
+function PanelHeading({ icon: Icon, title, action }) {
+  return <div className="panel-heading"><h2>{Icon && <Icon size={15} />}{title}<Info size={13} /></h2>{action}</div>;
+}
+
+function RiskGauge({ score }) {
+  const degrees = Math.round(score / 1000 * 180);
+  const classification = score >= 751 ? 'Critical' : score >= 551 ? 'Elevated' : score >= 301 ? 'Guarded' : 'Low';
+  return (
+    <div className="risk-gauge-wrap">
+      <div className="risk-gauge" style={{ '--risk-degrees': `${degrees}deg` }}><div className="risk-gauge-inner" /></div>
+      <div className="risk-gauge-value"><strong>{score}</strong><span>/1000</span><small>{classification} Risk</small></div>
     </div>
   );
 }
 
-const SEV_COLORS = { critical:'#ef4444', high:'#f97316', medium:'#eab308', low:'#22c55e', informational:'#6b7280' };
+function EmptyState({ children }) {
+  return <div className="dashboard-empty"><ShieldCheck size={22} /><span>{children}</span></div>;
+}
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [collector, setCollector] = useState(null);
-  const [err, setErr] = useState(null);
+  const [queue, setQueue] = useState([]);
+  const [error, setError] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(new Date());
 
   useEffect(() => {
-    const loadDashboard = async () => {
+    let active = true;
+    async function load() {
       try {
-        const [
-          statsData,
-          collectorData,
-        ] = await Promise.all([
+        const [statsData, collectorData, queueData] = await Promise.all([
           api('/stats'),
           api('/collector/status'),
+          api('/alert-groups?page=1&limit=8').catch(() => ({ groups: [] })),
         ]);
-
+        if (!active) return;
         setStats(statsData);
         setCollector(collectorData);
-        setErr(null);
-      } catch (error) {
-        setErr(error.message);
+        setQueue(queueData.groups || []);
+        setUpdatedAt(new Date());
+        setError(null);
+      } catch (loadError) {
+        if (active) setError(loadError.message);
       }
-    };
-
-    loadDashboard();
-
-    const t = setInterval(
-      loadDashboard,
-      15000
-    );
-
-    return () => clearInterval(t);
+    }
+    load();
+    const timer = setInterval(load, 15000);
+    return () => { active = false; clearInterval(timer); };
   }, []);
 
-  if (err) {
-    return (
-      <div className="p-8 text-red-400">
-        Failed to load dashboard: {err}
-      </div>
-    );
-  }
+  const model = useMemo(() => {
+    if (!stats || !collector) return null;
+    const alerts = stats.alerts || {};
+    const incidents = stats.incidents || {};
+    const runs = stats.recent_runs || [];
+    const total = number(alerts.grouped_activities || alerts.total);
+    const critical = number(alerts.critical_activities);
+    const high = number(alerts.high_activities);
+    const open = number(incidents.open);
+    const triaged = number(alerts.triaged);
+    const pending = Math.max(0, number(alerts.triage_pending_activities || alerts.triage_pending || total - triaged));
+    const severityPressure = total ? Math.min(1, (critical + high * 0.55) / Math.max(total * 0.18, 1)) : 0;
+    const incidentPressure = Math.min(1, open / 20);
+    const pendingPressure = total ? Math.min(1, pending / total) : 0;
+    const risk = Math.min(1000, Math.round((severityPressure * 0.5 + incidentPressure * 0.3 + pendingPressure * 0.2) * 1000));
+    const activity = runs.length ? [...runs].reverse().slice(-12).map(run => ({
+      label: new Date(run.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      fetched: number(run.fetched), stored: number(run.stored),
+    })) : FALLBACK_ACTIVITY.map(item => ({ ...item, fetched: 0, stored: 0 }));
+    const severity = (stats.severity_split || []).map(item => ({ name: item.severity, value: number(item.n) })).filter(item => item.value > 0);
+    return { alerts, incidents, runs, total, critical, high, open, triaged, pending, risk, activity, severity };
+  }, [stats, collector]);
 
-  if (!stats || !collector) {
-    return (
-      <div className="p-8 text-gray-500">
-        Loading…
-      </div>
-    );
-  }
+  if (error) return <div className="dashboard-state error"><CircleAlert /><div><strong>Dashboard unavailable</strong><span>{error}</span></div></div>;
+  if (!model) return <div className="dashboard-loading"><span /><span /><span /><span /></div>;
 
-  const { alerts: a, incidents: inc, recent_runs: runs, severity_split, top_src_ips } = stats;
-  const sevData = (severity_split || []).map(r => ({ sev: r.severity, n: parseInt(r.n) }));
+  const runTrend = model.activity.map(item => item.fetched);
+  const feed = queue.slice(0, 7);
+  const topSources = (stats.top_src_ips || []).slice(0, 5);
+  const maxSource = Math.max(...topSources.map(item => number(item.n)), 1);
+  const collectorRunning = collector.collector?.cycle_active || (collector.collector?.scheduler_enabled && collector.collector?.scheduler_running);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="page-header">
+    <div className="dashboard-page">
+      <div className="dashboard-intro">
         <div>
-          <h1 className="page-title">Security Overview</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Last updated {fmtTs(new Date().toISOString())}
-          </p>
+          <p className="eyebrow"><Activity size={13} /> Live security posture</p>
+          <h2>Welcome back, Analyst</h2>
+          <p>Your environment is being monitored across Elastic, enrichment, and AI correlation.</p>
+        </div>
+        <div className="dashboard-status-row">
+          <span className={`live-pill ${collectorRunning ? 'online' : 'offline'}`}><i />{collectorRunning ? 'Live monitoring' : 'Collector stopped'}</span>
+          <span className="last-sync"><Clock3 size={14} /> Synced {updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
       </div>
 
-      {/* ── Elastic collector operational status ── */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-200">
-              Elastic Collector
-            </h3>
-
-            <p className="text-xs text-gray-500 mt-1">
-              Reliable cursor-based alert collection
-            </p>
+      <div className="dashboard-layout">
+        <section className="dashboard-main">
+          <div className="metrics-grid">
+            <MetricCard icon={Database} label="Total Activities" value={model.total} note={`${number(model.alerts.elastic_total).toLocaleString()} raw alerts`} trend={runTrend} />
+            <MetricCard icon={AlertTriangle} label="Critical Activities" value={model.critical} note="Requires immediate review" tone="red" trend={runTrend.map(v => v * 0.7)} />
+            <MetricCard icon={ShieldX} label="Open Incidents" value={model.open} note={`${number(model.incidents.total).toLocaleString()} total incidents`} tone="orange" trend={runTrend.map(v => v * 0.45)} />
+            <MetricCard icon={Bot} label="Pending AI Triage" value={model.pending} note={`${model.triaged.toLocaleString()} completed`} tone="purple" trend={runTrend.map(v => v * 0.6)} />
           </div>
 
-          <span
-            className={`badge ${
-              collector.collector.cycle_active
-                ? 'badge-medium'
-                : collector.collector.scheduler_enabled &&
-                  collector.collector.scheduler_running
-                ? 'badge-low'
-                : 'badge-critical'
-            }`}
-          >
-            {collector.collector.cycle_active
-              ? 'Collecting'
-              : collector.collector.scheduler_enabled &&
-                collector.collector.scheduler_running
-              ? 'Running'
-              : 'Stopped'}
-          </span>
-        </div>
+          <div className="analytics-grid">
+            <article className="dashboard-panel risk-panel">
+              <PanelHeading icon={ShieldCheck} title="Security Risk Score" />
+              <RiskGauge score={model.risk} />
+              <p className="risk-caption">Calculated from critical activity, open incidents, and pending triage.</p>
+            </article>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-          <div>
-            <div className="text-xs text-gray-500">
-              Alert Source
-            </div>
+            <article className="dashboard-panel activity-panel">
+              <PanelHeading icon={Activity} title="Collection Activity" action={<span className="panel-filter">Recent cycles</span>} />
+              <div className="activity-legend"><span><i className="fetched" />Fetched</span><span><i className="stored" />Stored</span></div>
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={model.activity} margin={{ top: 14, right: 8, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="activityFetched" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3988ff" stopOpacity={0.42} /><stop offset="100%" stopColor="#3988ff" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="activityStored" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3ee6c2" stopOpacity={0.24} /><stop offset="100%" stopColor="#3ee6c2" stopOpacity={0} /></linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#1b3047" strokeDasharray="3 5" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: '#688198', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#688198', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: '#071827', border: '1px solid #1c3d59', borderRadius: 10, color: '#e8f3ff' }} />
+                  <Area type="monotone" dataKey="fetched" stroke="#3988ff" strokeWidth={2} fill="url(#activityFetched)" activeDot={{ r: 4 }} />
+                  <Area type="monotone" dataKey="stored" stroke="#3ee6c2" strokeWidth={1.5} fill="url(#activityStored)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </article>
 
-            <div className="text-sm text-gray-200 mt-1 uppercase">
-              {collector.collector.source}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs text-gray-500">
-              Cursor Mode
-            </div>
-
-            <div className="text-sm text-gray-200 mt-1">
-              {collector.collector.cursor_enabled
-                ? 'Enabled'
-                : 'Disabled'}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs text-gray-500">
-              Collection Interval
-            </div>
-
-            <div className="text-sm text-gray-200 mt-1">
-              Every {collector.collector.interval_minutes} minute
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs text-gray-500">
-              Maximum Capacity
-            </div>
-
-            <div className="text-sm text-gray-200 mt-1">
-              {collector.collector.max_alerts_per_cycle.toLocaleString()}
-              {' '}alerts per cycle
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs text-gray-500">
-              Cursor Position
-            </div>
-
-            <div className="text-xs text-blue-400 font-mono mt-1">
-              {collector.collector.cursor_timestamp
-                ? fmtTs(
-                    collector.collector.cursor_timestamp
-                  )
-                : 'Not initialized'}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs text-gray-500">
-              Stored Elastic Alerts
-            </div>
-
-            <div className="text-sm text-gray-200 mt-1">
-              {collector.database.elastic_alerts.toLocaleString()}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs text-gray-500">
-              Grouped Activities
-            </div>
-
-            <div className="text-sm text-gray-200 mt-1">
-              {collector.database.grouped_activities.toLocaleString()}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-xs text-gray-500">
-              Latest Run
-            </div>
-
-            <div className="text-sm text-gray-200 mt-1">
-              {collector.latest_run
-                ? `#${collector.latest_run.id} · ${collector.latest_run.status}`
-                : 'No runs yet'}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 mt-5 pt-4 border-t border-dark-600">
-          <span
-            className={`badge ${
-              collector.safety.triage_enabled
-                ? 'badge-medium'
-                : 'badge-blue'
-            }`}
-          >
-            AI Triage:{' '}
-            {collector.safety.triage_enabled
-              ? 'Enabled'
-              : 'Disabled'}
-          </span>
-
-          <span
-            className={`badge ${
-              collector.safety.elastic_writeback_enabled
-                ? 'badge-medium'
-                : 'badge-blue'
-            }`}
-          >
-            Elastic Write-back:{' '}
-            {collector.safety.elastic_writeback_enabled
-              ? 'Enabled'
-              : 'Disabled'}
-          </span>
-
-          <span
-            className={`badge ${
-              collector.database.missing_group_keys > 0
-                ? 'badge-critical'
-                : 'badge-low'
-            }`}
-          >
-            Missing Group Keys:{' '}
-            {collector.database.missing_group_keys}
-          </span>
-
-          <span
-            className={`badge ${
-              collector.database.enrichment_failed > 0
-                ? 'badge-critical'
-                : 'badge-low'
-            }`}
-          >
-            Enrichment Failures:{' '}
-            {collector.database.enrichment_failed}
-          </span>
-        </div>
-
-        {collector.latest_run?.error && (
-          <div className="mt-4 text-xs text-red-400">
-            Last error: {collector.latest_run.error}
-          </div>
-        )}
-      </div>
-
-      {/* ── Elastic activity statistics ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={Database}
-          label="Grouped Activities"
-          value={parseInt(
-            a.grouped_activities || 0
-          ).toLocaleString()}
-          sub={`${parseInt(
-            a.elastic_total || 0
-          ).toLocaleString()} raw Elastic alerts`}
-          color="text-blue-400"
-        />
-
-        <StatCard
-          icon={AlertTriangle}
-          label="Critical Activities"
-          value={parseInt(
-            a.critical_activities || 0
-          ).toLocaleString()}
-          color="text-red-400"
-        />
-
-        <StatCard
-          icon={ShieldX}
-          label="High Activities"
-          value={parseInt(
-            a.high_activities || 0
-          ).toLocaleString()}
-          color="text-orange-400"
-        />
-
-        <StatCard
-          icon={Activity}
-          label="Legacy Alerts"
-          value={parseInt(
-            a.legacy_total || 0
-          ).toLocaleString()}
-          sub="Excluded from grouped view"
-          color="text-gray-400"
-        />
-      </div>
-
-      {/* ── Processing and incident statistics ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={ShieldCheck}
-          label="Enriched Activities"
-          value={parseInt(
-            a.enriched_activities || 0
-          ).toLocaleString()}
-          sub={`${parseInt(
-            a.enrich_pending_activities || 0
-          ).toLocaleString()} pending`}
-          color="text-green-400"
-        />
-
-        <StatCard
-          icon={Zap}
-          label="AI Triaged"
-          value={parseInt(
-            a.triaged || 0
-          ).toLocaleString()}
-          sub="AI currently disabled"
-          color="text-purple-400"
-        />
-
-        <StatCard
-          icon={AlertTriangle}
-          label="Open Incidents"
-          value={inc.open}
-          color="text-orange-400"
-        />
-
-        <StatCard
-          icon={ShieldX}
-          label="Total Incidents"
-          value={inc.total}
-        />
-      </div>
-
-      {/* ── Charts row ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Severity distribution */}
-        <div className="card">
-          <h3 className="text-sm font-semibold text-gray-300 mb-4">Grouped Activity Severity</h3>
-          {sevData.length ? (
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={sevData} margin={{ top:0, right:0, left:-20, bottom:0 }}>
-                <XAxis dataKey="sev" tick={{ fill:'#9ca3af', fontSize:12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill:'#9ca3af', fontSize:12 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background:'#0f1623', border:'1px solid #1c2638', borderRadius:'8px' }}
-                  labelStyle={{ color:'#e5e7eb' }} itemStyle={{ color:'#9ca3af' }}
-                />
-                <Bar dataKey="n" radius={[4,4,0,0]}>
-                  {sevData.map(d => <Cell key={d.sev} fill={SEV_COLORS[d.sev] || '#6b7280'} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <div className="text-gray-600 text-sm py-8 text-center">No grouped Elastic activities yet</div>}
-        </div>
-
-        {/* Top source IPs */}
-        <div className="card">
-          <h3 className="text-sm font-semibold text-gray-300 mb-4">Top Source IPs by Activity</h3>
-          <div className="space-y-2">
-            {(top_src_ips || []).slice(0,6).map(({ src_ip, n }) => (
-              <div key={src_ip} className="flex items-center gap-3">
-                <code className="text-xs text-blue-400 font-mono w-36 truncate">{src_ip}</code>
-                <div className="flex-1 bg-dark-700 rounded-full h-1.5">
-                  <div className="bg-accent h-1.5 rounded-full"
-                    style={{ width: `${Math.min(100, parseInt(n) / (parseInt(top_src_ips[0]?.n)||1) * 100)}%` }} />
+            <article className="dashboard-panel severity-panel">
+              <PanelHeading icon={Target} title="Activities by Severity" />
+              {model.severity.length ? (
+                <div className="severity-content">
+                  <div className="donut-wrap">
+                    <ResponsiveContainer width="100%" height={195}>
+                      <PieChart><Pie data={model.severity} dataKey="value" nameKey="name" innerRadius={57} outerRadius={81} paddingAngle={2} stroke="none">
+                        {model.severity.map(item => <Cell key={item.name} fill={SEVERITY_COLORS[item.name] || '#526b84'} />)}
+                      </Pie><Tooltip contentStyle={{ background: '#071827', border: '1px solid #1c3d59', borderRadius: 10 }} /></PieChart>
+                    </ResponsiveContainer>
+                    <div className="donut-total"><strong>{model.total.toLocaleString()}</strong><span>Total</span></div>
+                  </div>
+                  <div className="severity-legend">{model.severity.map(item => <div key={item.name}><span><i style={{ background: SEVERITY_COLORS[item.name] || '#526b84' }} />{item.name}</span><strong>{item.value.toLocaleString()}</strong></div>)}</div>
                 </div>
-                <span className="text-xs text-gray-500 w-8 text-right">{n}</span>
-              </div>
-            ))}
-            {!top_src_ips?.length && <div className="text-gray-600 text-sm py-8 text-center">No data yet</div>}
+              ) : <EmptyState>No severity data yet</EmptyState>}
+            </article>
           </div>
-        </div>
-      </div>
 
-      {/* ── Recent runs ── */}
-      <div className="card">
-        <h3 className="text-sm font-semibold text-gray-300 mb-4">Recent Fetch Cycles</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead><tr className="border-b border-dark-600">
-              {['#','Started','Trigger','Fetched','Stored','Dup','Enriched','Fail','Triaged','Status'].map(h=>(
-                <th key={h} className="th">{h}</th>))}
-            </tr></thead>
-            <tbody>
-              {(runs||[]).map(run => (
-                <tr key={run.id} className="table-row">
-                  <td className="td text-gray-500">#{run.id}</td>
-                  <td className="td text-gray-300 font-mono text-xs">{fmtTs(run.started_at)}</td>
-                  <td className="td"><span className="badge-blue badge">{run.trigger}</span></td>
-                  <td className="td">{run.fetched}</td>
-                  <td className="td text-green-400">{run.stored}</td>
-                  <td className="td text-gray-500">{run.duplicates}</td>
-                  <td className="td text-blue-400">{run.enriched}</td>
-                  <td className="td text-orange-400">{run.enrichment_failed}</td>
-                  <td className="td text-purple-400">{run.triaged}</td>
-                  <td className="td">
-                    <span className={`badge ${run.status==='ok'?'badge-low':run.status==='running'?'badge-medium':'badge-critical'}`}>
-                      {run.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {!runs?.length && (
-                <tr><td colSpan={10} className="td text-center text-gray-600 py-8">No fetch cycles yet</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+          <div className="operations-grid">
+            <article className="dashboard-panel sources-panel">
+              <PanelHeading icon={Server} title="Most Active Sources" />
+              <div className="source-list">
+                {topSources.map((item, index) => (
+                  <div className="source-row" key={item.src_ip || index}>
+                    <span className="source-rank">{String(index + 1).padStart(2, '0')}</span>
+                    <div><strong>{item.src_ip || 'Unknown source'}</strong><span><i style={{ width: `${number(item.n) / maxSource * 100}%` }} /></span></div>
+                    <b>{number(item.n).toLocaleString()}</b>
+                  </div>
+                ))}
+                {!topSources.length && <EmptyState>No source activity yet</EmptyState>}
+              </div>
+              <Link className="panel-link" to="/pivot">Open IOC pivot <ChevronRight size={13} /></Link>
+            </article>
+
+            <article className="dashboard-panel queue-panel">
+              <PanelHeading icon={Zap} title="Priority Investigation Queue" action={<Link to="/alerts">View all <ChevronRight size={13} /></Link>} />
+              <div className="queue-table-wrap">
+                <table className="queue-table">
+                  <thead><tr><th>Severity</th><th>Entity / Activity</th><th>AI verdict</th><th>Confidence</th><th>Age</th></tr></thead>
+                  <tbody>
+                    {queue.slice(0, 5).map((item, index) => {
+                      const severity = severityOf(item);
+                      const verdict = safeVerdict(item.verdict);
+                      const confidence = verdict?.confidence != null ? Math.round(verdict.confidence * 100) : null;
+                      return (
+                        <tr key={item.group_key || item.representative_alert_id || index}>
+                          <td><span className={`badge ${sevClass(severity)}`}>{severity}</span></td>
+                          <td><strong>{item.hostname || item.username || item.src_ip || 'Unknown entity'}</strong><span>{item.rule_desc || 'Security activity'}</span></td>
+                          <td><span className={`verdict-text verdict-${verdict?.verdict || 'pending'}`}><Sparkles size={12} />{verdict ? verdictLabel(verdict.verdict) : 'Awaiting triage'}</span></td>
+                          <td>{confidence == null ? <span className="confidence-muted">—</span> : <div className="confidence"><span>{confidence}%</span><i><b style={{ width: `${confidence}%` }} /></i></div>}</td>
+                          <td><time>{timeAgo(item.last_seen || item.timestamp)}</time></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {!queue.length && <EmptyState>No investigations are waiting</EmptyState>}
+              </div>
+            </article>
+          </div>
+
+          <article className="dashboard-panel collector-strip">
+            <div className="collector-summary"><span className={`collector-icon ${collectorRunning ? 'online' : ''}`}><Database /></span><div><strong>Elastic Collector</strong><span>{collector.collector?.source?.toUpperCase() || 'ELASTIC'} · cursor {collector.collector?.cursor_enabled ? 'enabled' : 'disabled'}</span></div></div>
+            <div className="collector-facts"><span><small>Interval</small><strong>{collector.collector?.interval_minutes || '—'} min</strong></span><span><small>Capacity</small><strong>{number(collector.collector?.max_alerts_per_cycle).toLocaleString()}</strong></span><span><small>Enrichment failures</small><strong className={number(collector.database?.enrichment_failed) ? 'danger' : ''}>{number(collector.database?.enrichment_failed)}</strong></span><span><small>Latest run</small><strong>{collector.latest_run ? `#${collector.latest_run.id} · ${collector.latest_run.status}` : 'No runs'}</strong></span></div>
+          </article>
+        </section>
+
+        <aside className="security-feed dashboard-panel">
+          <PanelHeading icon={Activity} title="Live Security Feed" action={<button className="feed-pause" aria-label="Pause feed"><Pause size={12} /></button>} />
+          <div className="feed-list">
+            {feed.map((item, index) => {
+              const severity = severityOf(item);
+              return (
+                <div className="feed-item" key={item.group_key || item.representative_alert_id || index}>
+                  <i className={`feed-dot feed-${severity}`} />
+                  <div><strong>{item.rule_desc || 'Security activity detected'}</strong><span>{item.hostname || item.username || item.src_ip || 'Elastic source'}</span><em className={`feed-tag feed-${severity}`}>{severity}</em></div>
+                  <time>{timeAgo(item.last_seen || item.timestamp)}</time>
+                </div>
+              );
+            })}
+            {!feed.length && <EmptyState>Waiting for live security activity</EmptyState>}
+          </div>
+          <Link className="panel-link feed-link" to="/alerts">View full feed <ChevronRight size={13} /></Link>
+          <div className="feed-health">
+            <span><i className={collectorRunning ? 'online' : ''} /><div><strong>{collectorRunning ? 'All systems operational' : 'Collector attention needed'}</strong><small>{fmtTs(collector.latest_run?.started_at)}</small></div></span>
+          </div>
+        </aside>
       </div>
     </div>
   );
 }
+
