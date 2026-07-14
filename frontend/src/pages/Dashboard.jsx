@@ -6,9 +6,10 @@ import {
 } from 'recharts';
 import {
   Activity, AlertTriangle, Bot, ChevronRight, CircleAlert, Clock3, Database,
-  Info, Pause, Server, ShieldCheck, ShieldX, Sparkles, Target, Zap,
+  Pause, Server, ShieldCheck, ShieldX, Sparkles, Target, Zap,
 } from 'lucide-react';
 import { api, fmtTs, sevClass, verdictLabel } from '../lib/api';
+import InfoTip from '../components/InfoTip';
 
 const SEVERITY_COLORS = {
   critical: '#ef4453', high: '#ff8a34', medium: '#f2c94c', low: '#25cf91', informational: '#4d83ff',
@@ -50,10 +51,10 @@ function MiniBars({ values = [], color = '#3988ff' }) {
   return <span className="mini-bars" aria-hidden="true">{data.map((value, index) => <i key={index} style={{ height: `${Math.max(18, value / max * 100)}%`, background: color }} />)}</span>;
 }
 
-function MetricCard({ icon: Icon, label, value, note, tone = 'blue', trend = [] }) {
+function MetricCard({ icon: Icon, label, value, note, help, tone = 'blue', trend = [] }) {
   return (
     <article className={`metric-card tone-${tone}`}>
-      <div className="metric-card-top"><span className="metric-icon"><Icon /></span><span className="metric-label">{label}<Info /></span></div>
+      <div className="metric-card-top"><span className="metric-icon"><Icon /></span><span className="metric-label">{label}<InfoTip text={help || note} align="right" /></span></div>
       <div className="metric-card-bottom">
         <div><strong>{number(value).toLocaleString()}</strong><small>{note}</small></div>
         <MiniBars values={trend} color={tone === 'red' ? '#ef4453' : tone === 'orange' ? '#ff8a34' : tone === 'purple' ? '#8a6cff' : '#3988ff'} />
@@ -62,8 +63,18 @@ function MetricCard({ icon: Icon, label, value, note, tone = 'blue', trend = [] 
   );
 }
 
-function PanelHeading({ icon: Icon, title, action }) {
-  return <div className="panel-heading"><h2>{Icon && <Icon size={15} />}{title}<Info size={13} /></h2>{action}</div>;
+function PanelHeading({ icon: Icon, title, help, action }) {
+  return <div className="panel-heading"><h2>{Icon && <Icon size={15} />}{title}<InfoTip text={help || `About ${title}`} align="left" /></h2>{action}</div>;
+}
+
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="chart-tooltip">
+      {label && <strong>{label}</strong>}
+      {payload.map(item => <span key={item.dataKey || item.name}><i style={{ background: item.color || item.payload?.fill }} />{item.name}: <b>{number(item.value).toLocaleString()}</b></span>)}
+    </div>
+  );
 }
 
 function RiskGauge({ score }) {
@@ -161,21 +172,21 @@ export default function Dashboard() {
       <div className="dashboard-layout">
         <section className="dashboard-main">
           <div className="metrics-grid">
-            <MetricCard icon={Database} label="Total Activities" value={model.total} note={`${number(model.alerts.elastic_total).toLocaleString()} raw alerts`} trend={runTrend} />
-            <MetricCard icon={AlertTriangle} label="Critical Activities" value={model.critical} note="Requires immediate review" tone="red" trend={runTrend.map(v => v * 0.7)} />
-            <MetricCard icon={ShieldX} label="Open Incidents" value={model.open} note={`${number(model.incidents.total).toLocaleString()} total incidents`} tone="orange" trend={runTrend.map(v => v * 0.45)} />
-            <MetricCard icon={Bot} label="Pending AI Triage" value={model.pending} note={`${model.triaged.toLocaleString()} completed`} tone="purple" trend={runTrend.map(v => v * 0.6)} />
+            <MetricCard icon={Database} label="Total Activities" value={model.total} note={`${number(model.alerts.elastic_total).toLocaleString()} raw alerts`} help="Distinct grouped security activities collected from Elastic." trend={runTrend} />
+            <MetricCard icon={AlertTriangle} label="Critical Activities" value={model.critical} note="Requires immediate review" help="Activities rated critical by their source severity or risk score." tone="red" trend={runTrend.map(v => v * 0.7)} />
+            <MetricCard icon={ShieldX} label="Open Incidents" value={model.open} note={`${number(model.incidents.total).toLocaleString()} total incidents`} help="Correlated investigations that have not yet been closed." tone="orange" trend={runTrend.map(v => v * 0.45)} />
+            <MetricCard icon={Bot} label="Pending AI Triage" value={model.pending} note={`${model.triaged.toLocaleString()} completed`} help="Activities waiting for AI-assisted classification and investigation." tone="purple" trend={runTrend.map(v => v * 0.6)} />
           </div>
 
           <div className="analytics-grid">
             <article className="dashboard-panel risk-panel">
-              <PanelHeading icon={ShieldCheck} title="Security Risk Score" />
+              <PanelHeading icon={ShieldCheck} title="Security Risk Score" help="A 0–1000 posture score calculated from critical activity, open incidents, and triage backlog." />
               <RiskGauge score={model.risk} />
               <p className="risk-caption">Calculated from critical activity, open incidents, and pending triage.</p>
             </article>
 
             <article className="dashboard-panel activity-panel">
-              <PanelHeading icon={Activity} title="Collection Activity" action={<span className="panel-filter">Recent cycles</span>} />
+              <PanelHeading icon={Activity} title="Collection Activity" help="Alerts fetched and stored during the most recent Elastic collection cycles." action={<span className="panel-filter">Recent cycles</span>} />
               <div className="activity-legend"><span><i className="fetched" />Fetched</span><span><i className="stored" />Stored</span></div>
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={model.activity} margin={{ top: 14, right: 8, left: -20, bottom: 0 }}>
@@ -186,7 +197,7 @@ export default function Dashboard() {
                   <CartesianGrid stroke="#1b3047" strokeDasharray="3 5" vertical={false} />
                   <XAxis dataKey="label" tick={{ fill: '#688198', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: '#688198', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: '#071827', border: '1px solid #1c3d59', borderRadius: 10, color: '#e8f3ff' }} />
+                  <Tooltip content={<ChartTooltip />} />
                   <Area type="monotone" dataKey="fetched" stroke="#3988ff" strokeWidth={2} fill="url(#activityFetched)" activeDot={{ r: 4 }} />
                   <Area type="monotone" dataKey="stored" stroke="#3ee6c2" strokeWidth={1.5} fill="url(#activityStored)" />
                 </AreaChart>
@@ -194,14 +205,14 @@ export default function Dashboard() {
             </article>
 
             <article className="dashboard-panel severity-panel">
-              <PanelHeading icon={Target} title="Activities by Severity" />
+              <PanelHeading icon={Target} title="Activities by Severity" help="Current grouped activities split by source severity." />
               {model.severity.length ? (
                 <div className="severity-content">
                   <div className="donut-wrap">
-                    <ResponsiveContainer width="100%" height={195}>
-                      <PieChart><Pie data={model.severity} dataKey="value" nameKey="name" innerRadius={57} outerRadius={81} paddingAngle={2} stroke="none">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart><Pie data={model.severity} dataKey="value" nameKey="name" innerRadius={48} outerRadius={67} paddingAngle={2} stroke="none">
                         {model.severity.map(item => <Cell key={item.name} fill={SEVERITY_COLORS[item.name] || '#526b84'} />)}
-                      </Pie><Tooltip contentStyle={{ background: '#071827', border: '1px solid #1c3d59', borderRadius: 10 }} /></PieChart>
+                      </Pie><Tooltip content={<ChartTooltip />} /></PieChart>
                     </ResponsiveContainer>
                     <div className="donut-total"><strong>{model.total.toLocaleString()}</strong><span>Total</span></div>
                   </div>
@@ -213,7 +224,7 @@ export default function Dashboard() {
 
           <div className="operations-grid">
             <article className="dashboard-panel sources-panel">
-              <PanelHeading icon={Server} title="Most Active Sources" />
+              <PanelHeading icon={Server} title="Most Active Sources" help="Source IPs associated with the largest number of grouped activities." />
               <div className="source-list">
                 {topSources.map((item, index) => (
                   <div className="source-row" key={item.src_ip || index}>
@@ -228,7 +239,7 @@ export default function Dashboard() {
             </article>
 
             <article className="dashboard-panel queue-panel">
-              <PanelHeading icon={Zap} title="Priority Investigation Queue" action={<Link to="/alerts">View all <ChevronRight size={13} /></Link>} />
+              <PanelHeading icon={Zap} title="Priority Investigation Queue" help="The newest high-priority activities available for analyst review." action={<Link to="/alerts">View all <ChevronRight size={13} /></Link>} />
               <div className="queue-table-wrap">
                 <table className="queue-table">
                   <thead><tr><th>Severity</th><th>Entity / Activity</th><th>AI verdict</th><th>Confidence</th><th>Age</th></tr></thead>
@@ -261,7 +272,7 @@ export default function Dashboard() {
         </section>
 
         <aside className="security-feed dashboard-panel">
-          <PanelHeading icon={Activity} title="Live Security Feed" action={<button className="feed-pause" aria-label="Pause feed"><Pause size={12} /></button>} />
+          <PanelHeading icon={Activity} title="Live Security Feed" help="Newest grouped activities received from Elastic." action={<button className="feed-pause" aria-label="Pause feed"><Pause size={12} /></button>} />
           <div className="feed-list">
             {feed.map((item, index) => {
               const severity = severityOf(item);
