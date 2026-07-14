@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Ban, BellRing, Bot, Copy, Database, Globe2, Network, Plus, Radar, Search, ShieldAlert, Star, UserRound } from 'lucide-react';
 import { api, fmtTs, sevClass } from '../lib/api';
@@ -18,19 +18,17 @@ function classifyObservable(value, alerts = []) {
 }
 
 function GraphNode({ className, icon: Icon, label, value }) {
-  return <article className={`intel-node ${className}`}><Icon /><span>{label}</span><strong>{value}</strong></article>;
+  return <article className={`relation-node ${className}`}><Icon /><span>{label}</span><strong>{value}</strong></article>;
 }
 
 export default function ThreatIntelligence() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(SAMPLE_IOC);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [watchlist, setWatchlist] = useState(() => readLocal('bmb-threat-watchlist', []));
   const [blocked, setBlocked] = useState(() => readLocal('bmb-blocked-observables', []));
-
-  useEffect(() => { if (!result && !query) setQuery(SAMPLE_IOC); }, [result, query]);
 
   async function search(event) {
     event?.preventDefault();
@@ -73,7 +71,7 @@ export default function ThreatIntelligence() {
   return <div className="module-page intel-page">
     <div className="module-hero compact"><div><span className="eyebrow"><Radar />Observable intelligence</span><h2>Threat Intelligence</h2><p>Pivot across alerts, incidents, enrichment sources, identities, and hosts.</p></div><span className="live-pill"><i />Intelligence connected</span></div>
 
-    <form className="intel-search" onSubmit={search}><Search /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search any IOC: IP, domain, hash, URL, email, username…" /><button disabled={loading}>{loading ? 'Searching…' : 'Investigate IOC'}</button></form>
+    <form className="intel-search" onSubmit={search}><Search /><input value={query} onChange={e => { setQuery(e.target.value); if (!e.target.value.trim()) { setResult(null); setError(''); } }} placeholder="Search any IOC: IP, domain, hash, URL, email, username…" /><button disabled={loading || !query.trim()}>{loading ? 'Searching…' : 'Investigate IOC'}</button></form>
     {error && <div className="module-notice danger">{error}</div>}
 
     {!model ? <section className="intel-welcome"><Globe2 /><h3>Start an intelligence pivot</h3><p>Search an observable to build its relationship map and find related security activity.</p><div>{watchlist.slice(0,6).map(item => <button key={item} onClick={() => setQuery(item)}>{item}</button>)}</div></section> : <>
@@ -83,14 +81,13 @@ export default function ThreatIntelligence() {
         <div className="intel-actions"><button className={isWatched ? 'active' : ''} onClick={() => toggleList('bmb-threat-watchlist', watchlist, setWatchlist)}><Star />{isWatched ? 'Watching' : 'Add to watchlist'}</button><button className={isBlocked ? 'danger active' : 'danger'} onClick={() => toggleList('bmb-blocked-observables', blocked, setBlocked)}><Ban />{isBlocked ? 'Remove block' : 'Block indicator'}</button><button onClick={() => copyText(indicator)}><Copy />Copy</button><button onClick={() => navigate(`/investigations?search=${encodeURIComponent(indicator)}`)}><Plus />Open investigation</button><button onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant'))}><Bot />Ask AI</button></div>
       </section>
 
-      <section className="module-panel relationship-panel"><div className="panel-heading"><div><Network /><span><strong>Entity relationship graph</strong><small>Observed links from stored alert evidence</small></span></div><span className="legend"><i className="observed" />Observed <i className="triggered" />Triggered alert <i className="correlated" />Correlated incident</span></div>
-        <div className="intel-graph"><div className="graph-lines"><i className="line l1"/><i className="line l2"/><i className="line l3"/><i className="line l4"/><i className="line l5"/></div>
-          <GraphNode className="node-user" icon={UserRound} label="User" value={model.primary.username || 'No identity'} />
-          <GraphNode className="node-process" icon={Database} label="Process" value={model.primary.process || 'Observed event'} />
-          <GraphNode className="node-ioc" icon={ObservableIcon} label={model.observableType.label} value={indicator} />
-          <GraphNode className="node-host" icon={Database} label="Host" value={model.primary.hostname || 'No host'} />
-          <GraphNode className="node-alert" icon={ShieldAlert} label="Related alerts" value={`${result.alert_count} matched`} />
-          <GraphNode className="node-incident" icon={AlertTriangle} label="Incidents" value={`${result.incident_count} correlated`} />
+      <section className="module-panel relationship-panel"><div className="panel-heading"><div><Network /><span><strong>Entity relationship graph</strong><small>How stored evidence connects to this observable and its security outcomes</small></span></div><span className="legend"><i className="observed" />Evidence link <i className="triggered" />Alert match <i className="correlated" />Incident correlation</span></div>
+        <div className="relation-flow">
+          <div className="relation-group"><small>Observed evidence</small>{model.primary.username && <GraphNode icon={UserRound} label="User" value={model.primary.username} />}{model.primary.process && <GraphNode icon={Database} label="Process" value={model.primary.process} />}{model.primary.hostname && <GraphNode icon={Database} label="Host" value={model.primary.hostname} />}{!model.primary.username && !model.primary.process && !model.primary.hostname && <GraphNode icon={BellRing} label="Elastic evidence" value={`${result.alert_count} matching records`} />}</div>
+          <div className="relation-connector observed"><span>contains</span></div>
+          <div className="relation-focus"><small>Investigated observable</small><GraphNode icon={ObservableIcon} label={model.observableType.label} value={indicator} /></div>
+          <div className="relation-connector triggered"><span>matched by</span></div>
+          <div className="relation-group outcomes"><small>Security outcomes</small><GraphNode className="alert" icon={ShieldAlert} label="Related alerts" value={`${result.alert_count} matched`} /><GraphNode className="incident" icon={AlertTriangle} label="Correlated incidents" value={`${result.incident_count} found`} /></div>
         </div>
       </section>
 

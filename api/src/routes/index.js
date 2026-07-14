@@ -760,7 +760,7 @@ r.post('/chat', async (req, res) => {
 // ────────────────────────────────────────────────────────────────────────────
 r.get('/stats', async (_, res) => {
   try {
-    const [alertStats, incidentStats, recentRuns, severitySplit, topSrcIps] = await Promise.all([
+    const [alertStats, incidentStats, recentRuns, severitySplit, topSrcIps, alertActivity] = await Promise.all([
       db.getAlertStats(),
       db.query(`SELECT status, COUNT(*) AS n FROM incidents GROUP BY status`),
       db.query(`SELECT * FROM fetch_runs ORDER BY id DESC LIMIT 5`),
@@ -795,6 +795,33 @@ r.get('/stats', async (_, res) => {
         ORDER BY n DESC
         LIMIT 10
       `),
+
+      db.query(`
+        WITH buckets AS (
+          SELECT generate_series(
+            date_trunc('hour', NOW()) - interval '23 hours',
+            date_trunc('hour', NOW()),
+            interval '1 hour'
+          ) AS bucket
+        ),
+        activity AS (
+          SELECT
+            date_trunc('hour', timestamp) AS bucket,
+            COUNT(*)::int AS raw_alerts,
+            COUNT(DISTINCT group_key)::int AS activities
+          FROM alerts
+          WHERE source_system = 'elastic'
+            AND timestamp >= NOW() - interval '24 hours'
+          GROUP BY 1
+        )
+        SELECT
+          buckets.bucket,
+          COALESCE(activity.raw_alerts, 0)::int AS raw_alerts,
+          COALESCE(activity.activities, 0)::int AS activities
+        FROM buckets
+        LEFT JOIN activity USING (bucket)
+        ORDER BY buckets.bucket
+      `),
     ]);
 
     const incByStatus = Object.fromEntries(incidentStats.rows.map(r => [r.status, parseInt(r.n)]));
@@ -810,6 +837,7 @@ r.get('/stats', async (_, res) => {
       recent_runs:    recentRuns.rows,
       severity_split: severitySplit.rows,
       top_src_ips:    topSrcIps.rows,
+      alert_activity: alertActivity.rows,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

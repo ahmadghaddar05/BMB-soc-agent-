@@ -140,10 +140,10 @@ export default function Dashboard() {
     const incidentPressure = Math.min(1, open / 20);
     const pendingPressure = total ? Math.min(1, pending / total) : 0;
     const risk = Math.min(1000, Math.round((severityPressure * 0.5 + incidentPressure * 0.3 + pendingPressure * 0.2) * 1000));
-    const activity = runs.length ? [...runs].reverse().slice(-12).map(run => ({
-      label: new Date(run.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      fetched: number(run.fetched), stored: number(run.stored),
-    })) : FALLBACK_ACTIVITY.map(item => ({ ...item, fetched: 0, stored: 0 }));
+    const activity = (stats.alert_activity || []).map(item => ({
+      label: new Date(item.bucket).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      activities: number(item.activities), raw_alerts: number(item.raw_alerts),
+    }));
     const severity = (stats.severity_split || []).map(item => ({ name: item.severity, value: number(item.n) })).filter(item => item.value > 0);
     return { alerts, incidents, runs, total, critical, high, open, triaged, pending, risk, activity, severity };
   }, [stats, collector]);
@@ -151,7 +151,7 @@ export default function Dashboard() {
   if (error) return <div className="dashboard-state error"><CircleAlert /><div><strong>Dashboard unavailable</strong><span>{error}</span></div></div>;
   if (!model) return <div className="dashboard-loading"><span /><span /><span /><span /></div>;
 
-  const runTrend = model.activity.map(item => item.fetched);
+  const runTrend = model.activity.map(item => item.activities);
   const liveFeed = queue.slice(0, 7);
   const feed = feedPaused ? frozenFeed : liveFeed;
   const topSources = (stats.top_src_ips || []).slice(0, 5);
@@ -189,8 +189,8 @@ export default function Dashboard() {
             </article>
 
             <article className="dashboard-panel activity-panel">
-              <PanelHeading icon={Activity} title="Collection Activity" help="Alerts fetched and stored during the most recent Elastic collection cycles." action={<span className="panel-filter">Recent cycles</span>} />
-              <div className="activity-legend"><span><i className="fetched" />Fetched</span><span><i className="stored" />Stored</span></div>
+              <PanelHeading icon={Activity} title="Alert Activity" help="Real Elastic alert volume grouped by hour. This is independent of the collector's fixed batch size." action={<span className="panel-filter">Last 24 hours</span>} />
+              <div className="activity-legend"><span><i className="fetched" />Grouped activities</span><span><i className="stored" />Raw alerts</span></div>
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={model.activity} margin={{ top: 14, right: 8, left: -20, bottom: 0 }}>
                   <defs>
@@ -201,8 +201,8 @@ export default function Dashboard() {
                   <XAxis dataKey="label" tick={{ fill: '#688198', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: '#688198', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<ChartTooltip />} />
-                  <Area type="monotone" dataKey="fetched" stroke="#3988ff" strokeWidth={2} fill="url(#activityFetched)" activeDot={{ r: 4 }} />
-                  <Area type="monotone" dataKey="stored" stroke="#3ee6c2" strokeWidth={1.5} fill="url(#activityStored)" />
+                  <Area type="monotone" dataKey="activities" name="Grouped activities" stroke="#3988ff" strokeWidth={2} fill="url(#activityFetched)" activeDot={{ r: 4 }} />
+                  <Area type="monotone" dataKey="raw_alerts" name="Raw alerts" stroke="#3ee6c2" strokeWidth={1.5} fill="url(#activityStored)" />
                 </AreaChart>
               </ResponsiveContainer>
             </article>
