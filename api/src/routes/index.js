@@ -336,6 +336,8 @@ r.get('/alert-groups', async (req, res) => {
       src_ip,
       username,
       hostname,
+      from,
+      to,
       search,
     } = req.query;
 
@@ -409,9 +411,19 @@ r.get('/alert-groups', async (req, res) => {
       params.push(`%${hostname}%`);
     }
 
+    if (from) {
+      conditions.push(`timestamp >= ${i++}`);
+      params.push(from);
+    }
+
+    if (to) {
+      conditions.push(`timestamp <= ${i++}`);
+      params.push(to);
+    }
+
     if (search) {
       conditions.push(
-        `(rule_desc ILIKE $${i} ` +
+        `(rule_desc ILIKE ${i} ` +
         `OR alert_reason ILIKE $${i})`
       );
       params.push(`%${search}%`);
