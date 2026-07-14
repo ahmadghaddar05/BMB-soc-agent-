@@ -273,9 +273,10 @@
 }
 
 /* Distinct SOC module workspaces */
-.bmb-brand { height:46px; display:flex; align-items:center; overflow:visible; }
-.bmb-logo-full { width:120px; height:44px; display:block; object-fit:contain; object-position:left center; }
-.bmb-logo-symbol { width:38px; height:44px; display:block; object-fit:contain; }
+.bmb-brand { position:relative; width:120px; height:44px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.bmb-logo-original { width:187px; height:177px; max-width:none; flex:none; display:block; object-fit:contain; }
+.bmb-brand.is-compact { width:38px; justify-content:flex-start; }
+.bmb-brand.is-compact .bmb-logo-original { transform:translateX(-34px); }
 .module-page { min-height:100%; padding:15px 18px 24px; color:#91aabd; background:radial-gradient(circle at 50% -20%,rgba(13,74,121,.12),transparent 40%); }
 .module-hero { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:13px; }
 .module-hero h2 { margin:4px 0 3px; color:#e7f2f9; font-size:19px; letter-spacing:-.02em; }
@@ -319,7 +320,7 @@
 
 @media(max-width:1150px){.intel-card-grid{grid-template-columns:1fr 1fr}.integration-grid{grid-template-columns:1fr 1fr}.intel-summary{grid-template-columns:45px 1fr}.intel-summary dl{grid-column:1/-1}.node-user{left:2%}.node-alert,.node-incident{right:2%}}
 @media(max-width:900px){.module-metrics{grid-template-columns:1fr 1fr}.asset-layout,.vuln-layout,.investigation-layout,.playbook-layout,.case-management-layout{grid-template-columns:1fr}.integration-grid{grid-template-columns:1fr}.intel-graph{overflow-x:auto;min-width:690px}.relationship-panel{overflow:auto}.integration-card{min-height:0}}
-@media(max-width:640px){.module-page{padding:10px}.module-hero{align-items:flex-start;flex-direction:column}.module-metrics,.intel-card-grid{grid-template-columns:1fr}.intel-summary{grid-template-columns:1fr}.intel-summary dl{grid-template-columns:1fr 1fr}.intel-summary dl div{padding:7px;border-left:0;border-top:1px solid #17364d}.intel-actions{overflow-x:auto}.panel-heading{align-items:flex-start;flex-direction:column;padding-block:8px}.segmented{width:100%;overflow:auto}.asset-facts{grid-template-columns:1fr 1fr}.case-form{grid-template-columns:1fr}.run-strip{grid-template-columns:1fr 1fr}.bmb-logo-full{width:105px}}
+@media(max-width:640px){.module-page{padding:10px}.module-hero{align-items:flex-start;flex-direction:column}.module-metrics,.intel-card-grid{grid-template-columns:1fr}.intel-summary{grid-template-columns:1fr}.intel-summary dl{grid-template-columns:1fr 1fr}.intel-summary dl div{padding:7px;border-left:0;border-top:1px solid #17364d}.intel-actions{overflow-x:auto}.panel-heading{align-items:flex-start;flex-direction:column;padding-block:8px}.segmented{width:100%;overflow:auto}.asset-facts{grid-template-columns:1fr 1fr}.case-form{grid-template-columns:1fr}.run-strip{grid-template-columns:1fr 1fr}}
 
 /* Functional control states */
 .notification-popover{position:absolute;z-index:50;top:58px;right:72px;width:260px;padding:7px;border:1px solid #1b4058;border-radius:7px;background:#071827;box-shadow:0 18px 50px rgba(0,0,0,.45)}.notification-popover>div{height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 6px;color:#bdd0dc;font-size:9px;border-bottom:1px solid #17364d}.notification-popover>div button{width:24px;height:24px;display:grid;place-items:center;color:#638095;border:0;background:transparent}.notification-popover>div svg{width:12px}.notification-popover>button{width:100%;min-height:49px;display:grid;grid-template-columns:23px 1fr;align-items:center;gap:7px;text-align:left;color:#ff6875;border:0;border-bottom:1px solid #143148;background:transparent}.notification-popover>button:last-child{color:#44a9ef;border-bottom:0}.notification-popover>button>svg{width:15px}.notification-popover strong,.notification-popover small{display:block}.notification-popover>button strong{color:#9fb6c6;font-size:7px}.notification-popover>button small{margin-top:3px;color:#4d6d82;font-size:6px}
