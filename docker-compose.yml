@@ -68,6 +68,11 @@ services:
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+      # Hermes AI Analyst (API key remains backend-only)
+      HERMES_API_URL: ${HERMES_API_URL:-http://host.docker.internal:8643/v1}
+      HERMES_API_KEY: ${HERMES_API_KEY:-}
+      HERMES_MODEL: ${HERMES_MODEL:-hermes-agent}
+      HERMES_TIMEOUT_MS: ${HERMES_TIMEOUT_MS:-180000}
       # Scheduler defaults
       SCHEDULER_INTERVAL_MINUTES: ${SCHEDULER_INTERVAL_MINUTES:-5}
       SCHEDULER_LOOKBACK_MINUTES: ${SCHEDULER_LOOKBACK_MINUTES:-15}
