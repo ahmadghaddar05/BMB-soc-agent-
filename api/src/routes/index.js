@@ -4,6 +4,7 @@ const db = require('../db');
 const scheduler = require('../workers/scheduler');
 const { runCycle, enrichPending, triagePending, correlatePending } = require('../workers/pipeline');
 const { chatAgent } = require('../services/llm');
+const { chatHermes } = require('../services/hermes');
 const reports = require('../services/reports');
 
 const r = Router();
@@ -753,8 +754,11 @@ r.post('/chat', async (req, res) => {
     const { message, history } = req.body || {};
     if (!message || typeof message !== 'string')
       return res.status(400).json({ error: 'message (string) required' });
-    const settings = await db.getAllSettings();
-    const result = await chatAgent(message, history || [], settings);
+    const useHermes = Boolean(process.env.HERMES_API_KEY);
+    const settings = useHermes ? null : await db.getAllSettings();
+    const result = useHermes
+      ? await chatHermes(message, history || [])
+      : await chatAgent(message, history || [], settings);
     res.json(result);
   } catch (e) { res.status(500).json({ error: e instanceof Error ? e.message : String(e) }); }
 });
