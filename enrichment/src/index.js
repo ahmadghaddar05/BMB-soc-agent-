@@ -222,4 +222,8 @@ app.post('/enrich', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`[enrichment] listening on :${PORT}`));
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`[enrichment] listening on :${PORT}`));
+}
+
+module.exports = { app };

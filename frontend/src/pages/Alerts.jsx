@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle, Bot, Check, ChevronDown, Clock3, Copy, Filter, ListFilter, Maximize2,
   Monitor, MoreVertical, Network, Pin, PlayCircle, RefreshCw, Save, Search,
-  Shield, ShieldCheck, Sparkles, User, X, Zap,
+  Shield, ShieldAlert, ShieldCheck, Sparkles, User, X, Zap,
 } from 'lucide-react';
 import { api, fmtTs, sevClass, verdictLabel } from '../lib/api';
 import InfoTip from '../components/InfoTip';
@@ -116,7 +116,7 @@ function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, on
       <div className="detail-actions">
         <button className="detail-action primary" onClick={onInvestigate}><PlayCircle />Investigate</button>
         <button className="detail-action" onClick={onRetriage} disabled={busy}><Sparkles />{busy ? 'Queuing…' : 'Re-run AI'}</button>
-        <button className={`detail-action ${escalated ? 'is-complete' : ''}`} onClick={onEscalate}><ShieldCheck />{escalated ? 'Escalated' : 'Escalate'}</button>
+        <button className={`detail-action ${escalated ? 'is-complete' : ''}`} onClick={onEscalate}><ShieldCheck />{escalated ? 'Marked locally' : 'Mark escalation locally'}</button>
       </div>
       <div className="detail-tabs">{['overview','evidence','entities','response'].map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}</button>)}</div>
 
@@ -137,7 +137,7 @@ function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, on
 
         {tab === 'evidence' && <StructuredEvent alert={alert} />}
         {tab === 'entities' && <section className="entity-grid tab-section"><article><User /><span>Affected identity</span><strong>{alert.username || 'Unknown'}</strong></article><article><Monitor /><span>Affected host</span><strong>{alert.hostname || alert.agent_name || 'Unknown'}</strong></article><article><Network /><span>Source address</span><strong>{alert.src_ip || 'Unknown'}</strong></article><article><Network /><span>Destination address</span><strong>{alert.dst_ip || 'Unknown'}</strong></article></section>}
-        {tab === 'response' && <section className="detail-section tab-section"><div className="detail-section-title"><h3>Response Checklist</h3><span>{completedActions.length}/{actions.length} complete</span></div><ul className="response-list">{actions.map((item,index)=><li key={index} className={completedActions.includes(index) ? 'complete' : ''}><button onClick={() => setCompletedActions(current => current.includes(index) ? current.filter(value => value !== index) : [...current,index])}><Check /></button><span>{item}</span></li>)}</ul></section>}
+        {tab === 'response' && <section className="detail-section tab-section"><div className="detail-section-title"><h3>Response Review Checklist</h3><span>{completedActions.length}/{actions.length} acknowledged</span></div><div className="module-notice"><ShieldAlert />Session-only review notes. No response action is executed by this checklist.</div><ul className="response-list">{actions.map((item,index)=><li key={index} className={completedActions.includes(index) ? 'complete' : ''}><button aria-label="Toggle local review acknowledgement" onClick={() => setCompletedActions(current => current.includes(index) ? current.filter(value => value !== index) : [...current,index])}><Check /></button><span>{item}</span></li>)}</ul></section>}
       </div>
     </aside>
   );
@@ -188,6 +188,8 @@ export default function Alerts({ workspace = 'alerts' }) {
       setAlerts(rows);
       setTotal(data.total || 0);
       setSelected(current => rows.find(row => row.id === current?.id) || rows[0] || null);
+    } catch {
+      setAlerts([]); setTotal(0); setSelected(null); setDetail(null);
     } finally { setLoading(false); }
   }, [filters, page, viewMode]);
 
@@ -226,7 +228,7 @@ export default function Alerts({ workspace = 'alerts' }) {
       <div className="workspace-toolbar">
         <div className="workspace-heading"><div><h2>{title}</h2><span className="workspace-chip">AI-SOC</span></div><p>{total.toLocaleString()} activities available for review</p></div>
         <div className="toolbar-search"><Search /><input value={filters.search} onChange={event => setFilters(current => ({ ...current, search: event.target.value }))} placeholder="Search IP, user, device, hash, alert ID..." /></div>
-        <div className="toolbar-status"><span><i />Live agents</span><small>Monitoring</small></div>
+        <div className="toolbar-status"><span><i />Workspace active</span><small>API-backed alerts</small></div>
       </div>
 
       {notice && <div className="workspace-notice">{notice}</div>}
@@ -256,7 +258,7 @@ export default function Alerts({ workspace = 'alerts' }) {
           </div>
           <div className="workspace-pagination"><span>{total ? `${(page - 1) * 20 + 1}–${Math.min(page * 20, total)} of ${total.toLocaleString()}` : '0 alerts'}</span><div><button disabled={page <= 1} onClick={() => setPage(value => value - 1)}>‹</button><b>{page}</b><button disabled={page >= pages} onClick={() => setPage(value => value + 1)}>›</button></div><select><option>20 / page</option></select></div>
         </section>
-        <AlertDetail alert={detail || selected} onClose={() => { setSelected(null); setDetail(null); setExpanded(false); }} onRetriage={retriage} busy={retriaging} expanded={expanded} onExpand={() => setExpanded(value => !value)} pinned={pinnedIds.includes((detail || selected)?.id)} onPin={() => persistList('bmb-pinned-alerts',setPinnedIds,pinnedIds,(detail || selected)?.id)} escalated={escalatedIds.includes((detail || selected)?.id)} onEscalate={() => { const id=(detail || selected)?.id; persistList('bmb-escalated-alerts',setEscalatedIds,escalatedIds,id); setNotice(escalatedIds.includes(id) ? 'Alert removed from escalation queue.' : 'Alert added to the analyst escalation queue.'); }} onInvestigate={() => navigate(`/investigations?search=${encodeURIComponent((detail || selected)?.id || entity(detail || selected))}`)} />
+        <AlertDetail alert={detail || selected} onClose={() => { setSelected(null); setDetail(null); setExpanded(false); }} onRetriage={retriage} busy={retriaging} expanded={expanded} onExpand={() => setExpanded(value => !value)} pinned={pinnedIds.includes((detail || selected)?.id)} onPin={() => persistList('bmb-pinned-alerts',setPinnedIds,pinnedIds,(detail || selected)?.id)} escalated={escalatedIds.includes((detail || selected)?.id)} onEscalate={() => { const id=(detail || selected)?.id; persistList('bmb-escalated-alerts',setEscalatedIds,escalatedIds,id); setNotice(escalatedIds.includes(id) ? 'Local escalation marker removed.' : 'Marked for escalation in this browser only; no external workflow was triggered.'); }} onInvestigate={() => navigate(`/investigations?search=${encodeURIComponent((detail || selected)?.id || entity(detail || selected))}`)} />
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../lib/api';
-import { MessageSquare, X, Send, Bot, User, Loader2 } from 'lucide-react';
+import { MessageSquare, X, Send, Bot, User, Loader2, Square, RotateCcw } from 'lucide-react';
 
 const SUGGESTIONS = [
   'What are the most critical alerts to investigate right now?',
@@ -15,10 +15,17 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: "Hi — I'm your BMB AI analyst. Ask me about alerts, incidents, or what to investigate next." },
   ]);
+  const [conversationId, setConversationId] = useState(() => {
+    try { return window.sessionStorage.getItem('bmb-soc-conversation-id'); }
+    catch { return null; }
+  });
   const scrollRef = useRef(null);
+  const abortRef = useRef(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    if (typeof scrollRef.current?.scrollTo === 'function') {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
   }, [messages, open]);
 
   useEffect(() => {
@@ -27,21 +34,49 @@ export default function ChatWidget() {
     return () => window.removeEventListener('open-soc-assistant', openAssistant);
   }, []);
 
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   async function send(text) {
     const q = (text ?? input).trim();
     if (!q || busy) return;
     setInput('');
-    const history = messages.filter(m => m.role === 'user' || m.role === 'assistant');
     setMessages(m => [...m, { role: 'user', content: q }]);
     setBusy(true);
+    const controller = new window.AbortController();
+    abortRef.current = controller;
     try {
-      const res = await api('/chat', { method: 'POST', body: JSON.stringify({ message: q, history }) });
-      setMessages(m => [...m, { role: 'assistant', content: res.answer, tools: res.tools_used }]);
+      const res = await api('/chat', {
+        method: 'POST', signal: controller.signal,
+        body: JSON.stringify({ message: q, ...(conversationId ? { conversation_id: conversationId } : {}) }),
+      });
+      setConversationId(res.conversation_id);
+      try { window.sessionStorage.setItem('bmb-soc-conversation-id', res.conversation_id); } catch { /* optional */ }
+      setMessages(m => [...m, {
+        role: 'assistant', content: res.answer, tools: res.tools_used,
+        citations: res.citations, confidence: res.confidence, limitations: res.limitations,
+      }]);
     } catch (e) {
-      setMessages(m => [...m, { role: 'assistant', content: `Error: ${e.message}`, error: true }]);
+      const cancelled = e?.name === 'AbortError';
+      setMessages(m => [...m, {
+        role: 'assistant', content: cancelled ? 'Request cancelled.' : `Error: ${e.message}`, error: true,
+      }]);
     } finally {
-      setBusy(false);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setBusy(false);
+      }
     }
+  }
+
+  function stop() {
+    abortRef.current?.abort();
+  }
+
+  function newConversation() {
+    stop();
+    setConversationId(null);
+    try { window.sessionStorage.removeItem('bmb-soc-conversation-id'); } catch { /* optional */ }
+    setMessages([{ role: 'assistant', content: "Hi - I'm your BMB AI analyst. Ask me about alerts, incidents, or what to investigate next." }]);
   }
 
   function onKey(e) {
@@ -98,6 +133,11 @@ export default function ChatWidget() {
                       queried: {m.tools.map(t => t.tool).join(', ')}
                     </div>
                   )}
+                  {m.citations?.length > 0 && (
+                    <div className="mt-1.5 pt-1.5 border-t border-dark-600 text-[10px] text-gray-400">
+                      evidence: {m.citations.map(citation => `${citation.type}:${citation.id}`).join(', ')}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -127,6 +167,11 @@ export default function ChatWidget() {
 
           {/* Input */}
           <div className="flex items-end gap-2 p-3 border-t border-dark-600">
+            <button onClick={newConversation} disabled={busy}
+              aria-label="Start a new conversation" title="New conversation"
+              className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-dark-700 text-gray-400 hover:text-white disabled:opacity-40">
+              <RotateCcw className="w-4 h-4" />
+            </button>
             <textarea
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -135,10 +180,17 @@ export default function ChatWidget() {
               placeholder="Ask about alerts, incidents, what to investigate…"
               className="flex-1 resize-none rounded-lg bg-dark-900 border border-dark-600 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent max-h-28"
             />
-            <button onClick={() => send()} disabled={busy || !input.trim()}
-              className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-accent text-white disabled:opacity-40">
-              <Send className="w-4 h-4" />
-            </button>
+            {busy ? (
+              <button onClick={stop} aria-label="Stop Hermes request" title="Stop"
+                className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-red-700 text-white">
+                <Square className="w-4 h-4" />
+              </button>
+            ) : (
+              <button onClick={() => send()} disabled={!input.trim()} aria-label="Send to Hermes"
+                className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-accent text-white disabled:opacity-40">
+                <Send className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       )}

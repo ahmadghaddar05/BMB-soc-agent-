@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const http = require('http');
 const https = require('https');
 const { URL } = require('url');
 const {
@@ -56,9 +57,12 @@ function severityToLegacyLevel(severity) {
 
 function readCaCertificate() {
   const caPath = process.env.ELASTIC_CA_CERT;
+  const verifyTls = process.env.ELASTIC_VERIFY_TLS !== 'false';
+
+  if (!verifyTls) return undefined;
 
   if (!caPath) {
-    throw new Error('ELASTIC_CA_CERT is not configured');
+    throw new Error('ELASTIC_CA_CERT is required when ELASTIC_VERIFY_TLS is enabled');
   }
 
   if (!fs.existsSync(caPath)) {
@@ -70,27 +74,30 @@ function readCaCertificate() {
   return fs.readFileSync(caPath);
 }
 
-function requestJson(urlString, body) {
+function requestJson(urlString, body, { method = 'POST' } = {}) {
   return new Promise((resolve, reject) => {
     const target = new URL(urlString);
-    const payload = JSON.stringify(body);
+    const client = target.protocol === 'https:' ? https : http;
+    const payload = body == null ? '' : JSON.stringify(body);
+    const ca = target.protocol === 'https:' ? readCaCertificate() : undefined;
 
-    const request = https.request(
+    const request = client.request(
       {
         hostname: target.hostname,
-        port: target.port || 443,
+        port: target.port || (target.protocol === 'https:' ? 443 : 80),
         path: `${target.pathname}${target.search}`,
-        method: 'POST',
-        ca: readCaCertificate(),
-        rejectUnauthorized:
-          process.env.ELASTIC_VERIFY_TLS !== 'false',
+        method,
+        ...(target.protocol === 'https:' && ca ? { ca } : {}),
+        ...(target.protocol === 'https:' ? {
+          rejectUnauthorized: process.env.ELASTIC_VERIFY_TLS !== 'false',
+        } : {}),
         timeout: 30000,
         headers: {
           Authorization:
             `ApiKey ${process.env.ELASTIC_API_KEY}`,
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
+          ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
         },
       },
       response => {
@@ -144,7 +151,7 @@ function requestJson(urlString, body) {
     });
 
     request.on('error', reject);
-    request.end(payload);
+    request.end(payload || undefined);
   });
 }
 
@@ -292,7 +299,6 @@ function validateConfiguration() {
   const required = [
     'ELASTICSEARCH_URL',
     'ELASTIC_API_KEY',
-    'ELASTIC_CA_CERT',
   ];
 
   for (const key of required) {
@@ -300,6 +306,19 @@ function validateConfiguration() {
       throw new Error(`${key} is not configured`);
     }
   }
+}
+
+async function checkHealth() {
+  validateConfiguration();
+  const baseUrl = process.env.ELASTICSEARCH_URL.replace(/\/$/, '');
+  const started = Date.now();
+  const response = await requestJson(`${baseUrl}/`, null, { method: 'GET' });
+  return {
+    status: 'online', configured: true, reachable: true,
+    latency_ms: Date.now() - started,
+    cluster_name: response.cluster_name || null,
+    version: response.version?.number || null,
+  };
 }
 
 async function searchAlerts({
@@ -766,4 +785,6 @@ module.exports = {
   searchAlertsCursor,
   fetchAlerts,
   normalizeAlert,
+  checkHealth,
+  validateConfiguration,
 };

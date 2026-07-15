@@ -13,6 +13,8 @@ pool.on('error', (err) => console.error('[db] idle client error:', err));
 // ── Query helpers ─────────────────────────────────────────────────────────
 const db = {
   query: (text, params) => pool.query(text, params),
+  connect: () => pool.connect(),
+  end: () => pool.end(),
 
   async getSetting(key, fallback = null) {
     const r = await pool.query('SELECT value FROM settings WHERE key=$1', [key]);
@@ -139,13 +141,24 @@ const db = {
     await pool.query(
       `UPDATE fetch_runs SET status=$2, fetched=$3, stored=$4, duplicates=$5,
          enriched=$6, enrichment_failed=$7, triaged=$8, triage_failed=$9,
-         incidents_created=$10, error=$11, finished_at=NOW()
+         incidents_created=$10, error=$11,
+         llm_calls=$12, llm_tokens=$13, prompt_tokens=$14,
+         completion_tokens=$15, cache_hits=$16, agentic_escalations=$17,
+         correlation_calls=$18, correlation_tokens=$19,
+         token_budget_exhausted=$20,
+         duration_ms=GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000)),
+         finished_at=NOW()
        WHERE id=$1`,
       [id, status,
        stats.fetched     || 0, stats.stored        || 0, stats.duplicates     || 0,
        stats.enriched    || 0, stats.enrichment_failed || 0,
        stats.triaged     || 0, stats.triage_failed  || 0,
-       stats.incidents_created || 0, error]
+       stats.incidents_created || 0, error,
+       stats.llm_calls || 0, stats.llm_tokens || 0,
+       stats.prompt_tokens || 0, stats.completion_tokens || 0,
+       stats.cache_hits || 0, stats.agentic_escalations || 0,
+       stats.correlation_calls || 0, stats.correlation_tokens || 0,
+       Boolean(stats.token_budget_exhausted)]
     );
   },
 };

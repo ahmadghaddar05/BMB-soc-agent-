@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, Bot, Check, ChevronDown, CircleUserRound, Clock3, Download,
   FileText, Fingerprint, Link2, LockKeyhole, Monitor, Network, RefreshCw,
-  Server, Shield, ShieldCheck, Sparkles, Target, UserRound, Users, X,
+  Server, Shield, ShieldAlert, ShieldCheck, Sparkles, Target, UserRound, Users, X,
 } from 'lucide-react';
 import { api, fmtTs, sevClass } from '../lib/api';
 import InfoTip from '../components/InfoTip';
@@ -64,6 +64,8 @@ export default function Incidents({ workspace = 'incidents' }) {
       setIncidents(rows);
       setTotal(data.total || 0);
       setSelectedId(current => rows.some(item => String(item.id) === String(current)) ? current : rows[0]?.id || null);
+    } catch {
+      setIncidents([]); setTotal(0); setSelectedId(null);
     } finally { setLoading(false); }
   }, [status]);
 
@@ -121,7 +123,7 @@ export default function Incidents({ workspace = 'incidents' }) {
         <div className="incident-title"><h1>{detail.title || 'Untitled security incident'}</h1><p>INC-{String(detail.id).padStart(5, '0')} <i /> Detected {fmtTs(detail.first_seen)} <i /> Last updated {fmtTs(detail.last_seen)}</p></div>
         <div className="incident-score"><span>Incident Risk Score <InfoTip text="Calculated from incident severity, alert volume, and correlated activity." /></span><div><strong>{model.score}</strong><small>/100</small></div></div>
         <div className="incident-alert-count"><span>Correlated Alerts</span><strong>{alertCount}</strong><small><b>{highCount} High</b> · {mediumCount} Medium</small></div>
-        <div className="incident-controls"><label>Status<select value={detail.status || 'open'} onChange={event => updateStatus(event.target.value)} disabled={updating}><option value="open">In progress</option><option value="closed">Closed</option><option value="false_positive">False positive</option></select></label><div><button className={owners[detail.id] ? 'assigned' : ''} onClick={assignIncident}><CircleUserRound />{owners[detail.id] || 'Assign'}</button><button className="contain" onClick={() => updateStatus('closed')} disabled={updating}><LockKeyhole />Contain</button><a href={`/api/reports/incidents/${detail.id}`} target="_blank" rel="noreferrer"><Download />Generate report</a></div></div>
+        <div className="incident-controls"><label>Status<select value={detail.status || 'open'} onChange={event => updateStatus(event.target.value)} disabled={updating}><option value="open">In progress</option><option value="closed">Closed</option><option value="false_positive">False positive</option></select></label><div><button className={owners[detail.id] ? 'assigned' : ''} onClick={assignIncident}><CircleUserRound />{owners[detail.id] || 'Assign locally'}</button><button className="contain" onClick={() => updateStatus('closed')} disabled={updating}><LockKeyhole />Close incident record</button><a href={`/api/reports/incidents/${detail.id}`} target="_blank" rel="noreferrer"><Download />Generate report</a></div></div>
       </section>
 
       <section className="incident-metrics">
@@ -147,7 +149,7 @@ export default function Incidents({ workspace = 'incidents' }) {
           <div className="incident-lower-grid">
             <section className="incident-panel evidence-panel"><div className="incident-panel-title"><h2>Key Evidence</h2><button onClick={() => setShowAllEvidence(value => !value)}>{showAllEvidence ? 'Show key evidence' : 'View all evidence ↗'}</button></div><div className="incident-evidence-table"><div className="evidence-head"><span>Time</span><span>Event</span><span>Source</span><span>Details</span><span>Severity</span></div>{model.alerts.slice(0,showAllEvidence ? model.alerts.length : 7).map((alert,index)=><article key={alert.id || index}><time>{fmtTs(alert.timestamp)}</time><strong>{alert.rule_desc || 'Security event'}</strong><span>{alert.agent_name || alert.decoder || 'Elastic'}</span><p>{[alert.src_ip, alert.username, alert.hostname].filter(Boolean).join(' → ') || 'Normalized event evidence'}</p><em className={Number(alert.rule_level) >= 12 ? 'critical' : Number(alert.rule_level) >= 9 ? 'high' : 'medium'}>{Number(alert.rule_level) >= 12 ? 'Critical' : Number(alert.rule_level) >= 9 ? 'High' : 'Medium'}</em></article>)}</div></section>
 
-            <section className="incident-panel containment-panel"><div className="incident-panel-title"><h2>Recommended Containment</h2><span>{(completedActions[String(detail.id)] || []).length} complete</span></div><div className="containment-list">{(detail.recommended_actions || ['Disable the affected account','Isolate affected hosts','Revoke active sessions','Reset credentials']).slice(0,5).map((action,index)=>{ const done=(completedActions[String(detail.id)] || []).includes(index); return <article key={index} className={done ? 'complete' : ''}><span>{done ? <Check /> : index === 0 ? <UserRound /> : index === 1 ? <Monitor /> : <LockKeyhole />}</span><div><strong>{action}</strong><small>{done ? 'Marked complete in this analyst session' : index === 0 ? 'Prevent further unauthorized access' : 'Execute through the approved response playbook'}</small></div><button onClick={() => toggleContainment(index)}>{done ? 'Undo' : index === 0 ? 'Disable' : index === 1 ? 'Isolate' : 'Run'}</button></article>;})}</div></section>
+            <section className="incident-panel containment-panel"><div className="incident-panel-title"><h2>Recommended Containment</h2><span>{(completedActions[String(detail.id)] || []).length} acknowledged</span></div><div className="module-notice"><ShieldAlert />Planning only — these controls record local review and do not execute containment.</div><div className="containment-list">{(detail.recommended_actions || ['Disable the affected account','Isolate affected hosts','Revoke active sessions','Reset credentials']).slice(0,5).map((action,index)=>{ const done=(completedActions[String(detail.id)] || []).includes(index); return <article key={index} className={done ? 'complete' : ''}><span>{done ? <Check /> : index === 0 ? <UserRound /> : index === 1 ? <Monitor /> : <LockKeyhole />}</span><div><strong>{action}</strong><small>{done ? 'Acknowledged in this analyst session; no action was executed' : 'Review recommendation before using an approved response system'}</small></div><button onClick={() => toggleContainment(index)}>{done ? 'Undo review' : 'Acknowledge'}</button></article>;})}</div></section>
           </div>
         </main>
 

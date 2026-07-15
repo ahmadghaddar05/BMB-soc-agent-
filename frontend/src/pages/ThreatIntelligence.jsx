@@ -28,7 +28,6 @@ export default function ThreatIntelligence() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [watchlist, setWatchlist] = useState(() => readLocal('bmb-threat-watchlist', []));
-  const [blocked, setBlocked] = useState(() => readLocal('bmb-blocked-observables', []));
 
   async function search(event) {
     event?.preventDefault();
@@ -65,7 +64,6 @@ export default function ThreatIntelligence() {
 
   const indicator = result?.indicator || query.trim();
   const isWatched = watchlist.includes(indicator);
-  const isBlocked = blocked.includes(indicator);
   const ObservableIcon = model?.observableType.kind === 'identity' ? UserRound : Globe2;
 
   return <div className="module-page intel-page">
@@ -78,7 +76,7 @@ export default function ThreatIntelligence() {
       <section className="intel-summary module-panel">
         <div className="observable-icon"><ObservableIcon /></div><div className="observable-title"><small>{model.observableType.label}</small><strong>{indicator}</strong><span>Last searched now</span></div>
         <dl><div><dt>Reputation</dt><dd className={`reputation-${model.reputation}`}>{model.reputation}</dd></div><div><dt>Confidence</dt><dd>{model.confidence || '—'}{model.confidence ? '%' : ''}</dd></div><div><dt>Alerts</dt><dd>{result.alert_count}</dd></div><div><dt>Incidents</dt><dd>{result.incident_count}</dd></div></dl>
-        <div className="intel-actions"><button className={isWatched ? 'active' : ''} onClick={() => toggleList('bmb-threat-watchlist', watchlist, setWatchlist)}><Star />{isWatched ? 'Watching' : 'Add to watchlist'}</button><button className={isBlocked ? 'danger active' : 'danger'} onClick={() => toggleList('bmb-blocked-observables', blocked, setBlocked)}><Ban />{isBlocked ? 'Remove block' : 'Block indicator'}</button><button onClick={() => copyText(indicator)}><Copy />Copy</button><button onClick={() => navigate(`/investigations?search=${encodeURIComponent(indicator)}`)}><Plus />Open investigation</button><button onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant'))}><Bot />Ask AI</button></div>
+        <div className="intel-actions"><button className={isWatched ? 'active' : ''} onClick={() => toggleList('bmb-threat-watchlist', watchlist, setWatchlist)}><Star />{isWatched ? 'Saved locally' : 'Save locally'}</button><button className="danger" disabled title="A response integration and approval workflow are required before blocking"><Ban />Blocking unavailable</button><button onClick={() => copyText(indicator)}><Copy />Copy</button><button onClick={() => navigate(`/investigations?search=${encodeURIComponent(indicator)}`)}><Plus />Open investigation</button><button onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant'))}><Bot />Ask AI</button></div>
       </section>
 
       <section className="module-panel relationship-panel"><div className="panel-heading"><div><Network /><span><strong>Entity relationship graph</strong><small>How stored evidence connects to this observable and its security outcomes</small></span></div><span className="legend"><i className="observed" />Evidence link <i className="triggered" />Alert match <i className="correlated" />Incident correlation</span></div>

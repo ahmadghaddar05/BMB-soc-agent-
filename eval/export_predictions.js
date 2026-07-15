@@ -3,9 +3,12 @@
 //   node eval/export_predictions.js [http://localhost:3000] > preds.json
 
 const BASE = (process.argv[2] || 'http://localhost:3000').replace(/\/$/, '');
+const API_KEY = process.env.SOC_API_KEY || '';
 
 async function getJSON(path) {
-  const res = await fetch(`${BASE}/api${path}`);
+  const res = await fetch(`${BASE}/api${path}`, {
+    headers: API_KEY ? { Authorization:`Bearer ${API_KEY}` } : {},
+  });
   if (!res.ok) throw new Error(`GET ${path} -> HTTP ${res.status}`);
   return res.json();
 }
@@ -41,11 +44,11 @@ async function main() {
     })),
     efficiency: {
       rawAlerts:  parseInt(stats.alerts.total) || alerts.length,
-      llmCalls:   sum('triaged'),     // refine with cache_hits if you persist them per-run
+      llmCalls:   sum('llm_calls'),
       autoClosed: parseInt(stats.alerts.auto_closed) || 0,
       incidents:  stats.incidents?.total || 0,
-      tokens:     0,   // fill from your own token logging if enabled
-      totalMs:    0,
+      tokens:     sum('llm_tokens'),
+      totalMs:    sum('duration_ms'),
     },
   };
   process.stdout.write(JSON.stringify(out, null, 2));

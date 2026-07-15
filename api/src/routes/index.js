@@ -2,17 +2,128 @@
 const { Router } = require('express');
 const db = require('../db');
 const scheduler = require('../workers/scheduler');
-const { runCycle, enrichPending, triagePending, correlatePending } = require('../workers/pipeline');
-const { chatAgent } = require('../services/llm');
+const { runCycle, enrichPending, triagePending, retriageAlert, correlatePending } = require('../workers/pipeline');
 const { chatHermes } = require('../services/hermes');
+const { HermesError, publicHermesError } = require('../services/hermes/errors');
+const { runtimeConfig } = require('../config');
+const { dependencyHealth } = require('../services/health');
 const reports = require('../services/reports');
 
 const r = Router();
+
+const SEVERITIES = new Set(['critical','high','medium','low','informational']);
+const VERDICTS = new Set(['true_positive','false_positive','needs_investigation','benign_anomaly']);
+const TRIAGE_STATUSES = new Set(['pending','triaged','triage_failed','skipped']);
+const ENRICHMENT_STATUSES = new Set(['pending','enriched','enrichment_failed','skipped']);
+
+function pagination(query, { defaultLimit = 50, maxLimit = 200 } = {}) {
+  const page = Number(query.page ?? 1);
+  const limit = Number(query.limit ?? defaultLimit);
+  if (!Number.isInteger(page) || page < 1) return { error: 'page must be a positive integer' };
+  if (!Number.isInteger(limit) || limit < 1 || limit > maxLimit) {
+    return { error: `limit must be an integer between 1 and ${maxLimit}` };
+  }
+  return { page, limit, offset: (page - 1) * limit };
+}
+
+function optionalEnum(value, values, name) {
+  if (value == null || value === '') return null;
+  return values.has(value) ? null : `${name} has an unsupported value`;
+}
+
+function optionalDate(value, name) {
+  if (!value) return null;
+  return Number.isFinite(new Date(value).getTime()) ? null : `${name} must be a valid timestamp`;
+}
+
+function optionalText(value, name, maxLength = 500) {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string') return `${name} must be a string`;
+  return value.length <= maxLength ? null : `${name} must be at most ${maxLength} characters`;
+}
+
+function optionalInteger(value, name, min, max) {
+  if (value == null || value === '') return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= min && number <= max
+    ? null
+    : `${name} must be an integer between ${min} and ${max}`;
+}
+
+function dateRangeError(from, to) {
+  const invalid = optionalDate(from, 'from') || optionalDate(to, 'to');
+  if (invalid) return invalid;
+  if (from && to && new Date(from).getTime() > new Date(to).getTime()) return 'from must not be later than to';
+  return null;
+}
+
+function positiveRecordId(value, name) {
+  return optionalInteger(value, name, 1, Number.MAX_SAFE_INTEGER);
+}
+
+const SETTING_KEYS = new Set([
+  'scheduler_enabled','interval_minutes','lookback_minutes','min_level','limit',
+  'llm_provider','groq_model','ollama_model','triage_mode','triage_enabled',
+  'autoclose_enabled','autoclose_confidence','autoclose_max_severity','autoclose_verdicts',
+  'correlation_enabled','correlation_lookback_hours','correlation_max_alerts',
+  'correlation_new_alerts_per_cycle','correlation_initial_alerts',
+  'correlation_context_pool','correlation_entity_window_hours','correlation_token_budget',
+  'caching_enabled','triage_cache_ttl_hours','triage_token_budget',
+  'agentic_max_iterations','hybrid_agentic_min_rule_level',
+  'hybrid_agentic_confidence_below','anthropic_model',
+  'incident_promote_enabled','incident_promote_verdicts','incident_promote_min_severity',
+]);
+
+const BOOLEAN_SETTINGS = new Set([
+  'scheduler_enabled','triage_enabled','autoclose_enabled','correlation_enabled',
+  'caching_enabled','incident_promote_enabled',
+]);
+
+const INTEGER_SETTING_LIMITS = {
+  interval_minutes:[1,1440], lookback_minutes:[1,10080], min_level:[0,20], limit:[1,5000],
+  correlation_lookback_hours:[1,168], correlation_max_alerts:[2,80],
+  correlation_new_alerts_per_cycle:[1,50], correlation_initial_alerts:[2,40],
+  correlation_context_pool:[10,300], correlation_entity_window_hours:[1,48],
+  correlation_token_budget:[6000,100000], triage_cache_ttl_hours:[1,720],
+  triage_token_budget:[10000,500000], agentic_max_iterations:[2,4],
+  hybrid_agentic_min_rule_level:[1,20],
+};
+
+function validateSetting(key, value) {
+  if (value == null || (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean')) {
+    return `${key} must be a scalar value`;
+  }
+  const text = String(value);
+  if (text.length > 500) return `${key} is too long`;
+  if (BOOLEAN_SETTINGS.has(key) && !['true','false'].includes(text)) return `${key} must be true or false`;
+  if (INTEGER_SETTING_LIMITS[key]) {
+    const number = Number(text);
+    const [min,max] = INTEGER_SETTING_LIMITS[key];
+    if (!Number.isInteger(number) || number < min || number > max) return `${key} must be an integer between ${min} and ${max}`;
+  }
+  if (key === 'llm_provider' && !['groq','anthropic','ollama'].includes(text)) return 'llm_provider is unsupported';
+  if (key === 'triage_mode' && !['pipeline','agentic','hybrid'].includes(text)) return 'triage_mode is unsupported';
+  if (key === 'autoclose_max_severity' && !SEVERITIES.has(text)) return 'autoclose_max_severity is unsupported';
+  if (key === 'incident_promote_min_severity' && !SEVERITIES.has(text)) return 'incident_promote_min_severity is unsupported';
+  if (['autoclose_confidence','hybrid_agentic_confidence_below'].includes(key)) {
+    const number = Number(text);
+    if (!Number.isFinite(number) || number < 0 || number > 1) return `${key} must be between 0 and 1`;
+  }
+  if (key === 'autoclose_enabled' && text !== 'false') return 'automatic closure is disabled in Phase 1';
+  return null;
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Health
 // ────────────────────────────────────────────────────────────────────────────
 r.get('/health', (_, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
+
+r.get('/health/dependencies', async (_, res) => {
+  try {
+    const health = await dependencyHealth();
+    res.json(health);
+  } catch (e) { res.status(503).json({ error: e.message }); }
+});
 
 // ────────────────────────────────────────────────────────────────────────────
 // Settings
@@ -27,19 +138,16 @@ r.get('/settings', async (_, res) => {
 
 r.put('/settings', async (req, res) => {
   try {
-    const allowed = [
-      'scheduler_enabled','interval_minutes','lookback_minutes','min_level','limit',
-      'llm_provider','groq_model','ollama_model','triage_mode','triage_enabled',
-      'autoclose_enabled','autoclose_confidence','autoclose_max_severity','autoclose_verdicts',
-      'correlation_enabled','correlation_lookback_hours','correlation_max_alerts',
-      'correlation_new_alerts_per_cycle','correlation_initial_alerts',
-      'correlation_context_pool','correlation_entity_window_hours','correlation_token_budget',
-      'caching_enabled','triage_cache_ttl_hours','triage_token_budget',
-      'agentic_max_iterations','hybrid_agentic_min_rule_level',
-      'hybrid_agentic_confidence_below','anthropic_model',
-      'incident_promote_enabled','incident_promote_verdicts','incident_promote_min_severity',
-    ];
-    const updates = Object.entries(req.body).filter(([k]) => allowed.includes(k));
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'settings body must be an object' });
+    }
+    const entries = Object.entries(req.body);
+    if (!entries.length) return res.status(400).json({ error: 'at least one setting is required' });
+    const unknown = entries.filter(([key]) => !SETTING_KEYS.has(key)).map(([key]) => key);
+    if (unknown.length) return res.status(400).json({ error: `Unsupported settings: ${unknown.join(', ')}` });
+    const validationErrors = entries.map(([key,value]) => validateSetting(key,value)).filter(Boolean);
+    if (validationErrors.length) return res.status(400).json({ error: validationErrors.join('; ') });
+    const updates = entries;
     for (const [k, v] of updates) await db.setSetting(k, v);
 
     // If scheduler settings changed, restart the cron
@@ -148,7 +256,7 @@ r.get('/collector/status', async (_, res) => {
     res.json({
       collector: {
         source:
-          settings.alert_source || 'mock',
+          process.env.ALERT_SOURCE || settings.alert_source || 'mock',
 
         scheduler_enabled:
           settings.scheduler_enabled === 'true',
@@ -285,7 +393,24 @@ r.get('/alerts', async (req, res) => {
       from, to, search,
     } = req.query;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const paging = pagination({ page, limit }, { defaultLimit: 50, maxLimit: 200 });
+    if (paging.error) return res.status(400).json({ error: paging.error });
+    const enumError = optionalEnum(severity, SEVERITIES, 'severity') ||
+      optionalEnum(verdict, VERDICTS, 'verdict') ||
+      optionalEnum(triage_status, TRIAGE_STATUSES, 'triage_status') ||
+      optionalEnum(enrichment_status, ENRICHMENT_STATUSES, 'enrichment_status');
+    if (enumError) return res.status(400).json({ error: enumError });
+    const dateError = dateRangeError(from, to);
+    if (dateError) return res.status(400).json({ error: dateError });
+    const numberError = optionalInteger(level_min, 'level_min', 0, 20) || optionalInteger(level_max, 'level_max', 0, 20);
+    if (numberError) return res.status(400).json({ error: numberError });
+    if (level_min !== undefined && level_max !== undefined && Number(level_min) > Number(level_max)) {
+      return res.status(400).json({ error: 'level_min must not exceed level_max' });
+    }
+    const textError = optionalText(search, 'search') || optionalText(src_ip, 'src_ip', 255) ||
+      optionalText(username, 'username', 255) || optionalText(hostname, 'hostname', 255);
+    if (textError) return res.status(400).json({ error: textError });
+    const { offset } = paging;
     const conditions = ['1=1'];
     const params = [];
     let i = 1;
@@ -297,12 +422,12 @@ r.get('/alerts', async (req, res) => {
     if (src_ip)             { conditions.push(`src_ip=$${i++}`);                          params.push(src_ip); }
     if (username)           { conditions.push(`username ILIKE $${i++}`);                  params.push(`%${username}%`); }
     if (hostname)           { conditions.push(`hostname ILIKE $${i++}`);                  params.push(`%${hostname}%`); }
-    if (level_min)          { conditions.push(`rule_level>=$${i++}`);                     params.push(parseInt(level_min)); }
-    if (level_max)          { conditions.push(`rule_level<=$${i++}`);                     params.push(parseInt(level_max)); }
+    if (level_min !== undefined && level_min !== '') { conditions.push(`rule_level>=$${i++}`); params.push(Number(level_min)); }
+    if (level_max !== undefined && level_max !== '') { conditions.push(`rule_level<=$${i++}`); params.push(Number(level_max)); }
     if (from)               { conditions.push(`timestamp>=$${i++}`);                      params.push(from); }
     if (to)                 { conditions.push(`timestamp<=$${i++}`);                      params.push(to); }
-    if (search)             { conditions.push(`(rule_desc ILIKE $${i++} OR full_log ILIKE $${i++})`);
-                              params.push(`%${search}%`, `%${search}%`); i++; }
+    if (search)             { conditions.push(`(id ILIKE $${i} OR rule_desc ILIKE $${i} OR COALESCE(full_log,'') ILIKE $${i} OR COALESCE(src_ip,'') ILIKE $${i} OR COALESCE(username,'') ILIKE $${i} OR COALESCE(hostname,'') ILIKE $${i})`);
+                              params.push(`%${search}%`); i++; }
 
     const where = conditions.join(' AND ');
 
@@ -316,12 +441,12 @@ r.get('/alerts', async (req, res) => {
          FROM alerts WHERE ${where}
          ORDER BY timestamp DESC
          LIMIT $${i} OFFSET $${i+1}`,
-        [...params, parseInt(limit), offset]
+        [...params, paging.limit, offset]
       ),
       db.query(`SELECT COUNT(*) AS n FROM alerts WHERE ${where}`, params),
     ]);
 
-    res.json({ alerts: rows.rows, total: parseInt(count.rows[0].n), page: parseInt(page), limit: parseInt(limit) });
+    res.json({ alerts: rows.rows, total: parseInt(count.rows[0].n), page: paging.page, limit: paging.limit });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -346,15 +471,20 @@ r.get('/alert-groups', async (req, res) => {
       search,
     } = req.query;
 
-    const safePage = Math.max(
-      parseInt(page, 10) || 1,
-      1
-    );
+    const paging = pagination({ page, limit }, { defaultLimit: 50, maxLimit: 100 });
+    if (paging.error) return res.status(400).json({ error: paging.error });
+    const enumError = optionalEnum(severity, SEVERITIES, 'severity') ||
+      optionalEnum(triage_status, TRIAGE_STATUSES, 'triage_status') ||
+      optionalEnum(enrichment_status, ENRICHMENT_STATUSES, 'enrichment_status');
+    if (enumError) return res.status(400).json({ error: enumError });
+    const rangeError = dateRangeError(from, to);
+    if (rangeError) return res.status(400).json({ error: rangeError });
+    const textError = optionalText(dataset, 'dataset', 255) || optionalText(src_ip, 'src_ip', 255) ||
+      optionalText(username, 'username', 255) || optionalText(hostname, 'hostname', 255) || optionalText(search, 'search');
+    if (textError) return res.status(400).json({ error: textError });
 
-    const safeLimit = Math.min(
-      Math.max(parseInt(limit, 10) || 50, 1),
-      100
-    );
+    const safePage = paging.page;
+    const safeLimit = paging.limit;
 
     const offset =
       (safePage - 1) * safeLimit;
@@ -600,13 +730,10 @@ r.get('/alerts/:id', async (req, res) => {
 // Re-triage a single alert
 r.post('/alerts/:id/retriage', async (req, res) => {
   try {
-    await db.query(
-      `UPDATE alerts SET triage_status='pending', triage_error=NULL, verdict=NULL WHERE id=$1`,
-      [req.params.id]
-    );
     const settings = await db.getAllSettings();
-    const { triaged, failed } = await triagePending(settings, 1);
-    res.json({ triaged, failed });
+    const result = await retriageAlert(req.params.id, settings);
+    if (!result) return res.status(404).json({ error: 'Alert not found' });
+    res.json(result);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -616,7 +743,12 @@ r.post('/alerts/:id/retriage', async (req, res) => {
 r.get('/incidents', async (req, res) => {
   try {
     const { status = 'open', severity, page = 1, limit = 20 } = req.query;
-    const offset = (parseInt(page)-1)*parseInt(limit);
+    const paging = pagination({ page, limit }, { defaultLimit: 20, maxLimit: 100 });
+    if (paging.error) return res.status(400).json({ error: paging.error });
+    if (status && !['open','closed','false_positive'].includes(status)) return res.status(400).json({ error: 'status has an unsupported value' });
+    const severityError = optionalEnum(severity, SEVERITIES, 'severity');
+    if (severityError) return res.status(400).json({ error: severityError });
+    const { offset } = paging;
     const conditions = ['1=1'];
     const params = [];
     let i = 1;
@@ -631,7 +763,7 @@ r.get('/incidents', async (req, res) => {
                                 WHEN 'medium' THEN 2 ELSE 3 END,
                   last_seen DESC
          LIMIT $${i} OFFSET $${i+1}`,
-        [...params, parseInt(limit), offset]
+        [...params, paging.limit, offset]
       ),
       db.query(`SELECT COUNT(*) AS n FROM incidents WHERE ${where}`, params),
     ]);
@@ -641,6 +773,8 @@ r.get('/incidents', async (req, res) => {
 
 r.get('/incidents/:id', async (req, res) => {
   try {
+    const idError = positiveRecordId(req.params.id, 'incident id');
+    if (idError) return res.status(400).json({ error: idError });
     const r = await db.query('SELECT * FROM incidents WHERE id=$1', [req.params.id]);
     if (!r.rows.length) return res.status(404).json({ error: 'Incident not found' });
     const inc = r.rows[0];
@@ -654,6 +788,8 @@ r.get('/incidents/:id', async (req, res) => {
 
 r.patch('/incidents/:id', async (req, res) => {
   try {
+    const idError = positiveRecordId(req.params.id, 'incident id');
+    if (idError) return res.status(400).json({ error: idError });
     const { status } = req.body;
     if (!['open','closed','false_positive'].includes(status))
       return res.status(400).json({ error: 'Invalid status' });
@@ -661,6 +797,7 @@ r.patch('/incidents/:id', async (req, res) => {
       `UPDATE incidents SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *`,
       [status, req.params.id]
     );
+    if (!r.rows.length) return res.status(404).json({ error: 'Incident not found' });
     res.json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -672,6 +809,8 @@ r.get('/pivot', async (req, res) => {
   try {
     const { indicator } = req.query;
     if (!indicator) return res.status(400).json({ error: 'indicator required' });
+    const indicatorError = optionalText(indicator, 'indicator', 500);
+    if (indicatorError) return res.status(400).json({ error: indicatorError });
 
     const [alerts, incidents] = await Promise.all([
       db.query(
@@ -723,7 +862,9 @@ const stamp = () => new Date().toISOString().slice(0,10);
 
 r.get('/reports/alerts', async (req, res) => {
   try {
-    const hours = req.query.hours ? parseInt(req.query.hours) : null;
+    const hoursError = optionalInteger(req.query.hours, 'hours', 1, 8760);
+    if (hoursError) return res.status(400).json({ error: hoursError });
+    const hours = req.query.hours ? Number(req.query.hours) : null;
     const detailed = req.query.detailed === 'true' || req.query.type === 'detailed';
     const buf = detailed ? await reports.alertsDetailed(hours) : await reports.alertsSummary(hours);
     sendPdf(res, buf, `alerts-${detailed?'detailed':'summary'}-${stamp()}.pdf`);
@@ -740,6 +881,8 @@ r.get('/reports/incidents', async (req, res) => {
 
 r.get('/reports/incidents/:id', async (req, res) => {
   try {
+    const idError = positiveRecordId(req.params.id, 'incident id');
+    if (idError) return res.status(400).json({ error: idError });
     const buf = await reports.singleIncident(req.params.id);
     if (!buf) return res.status(404).json({ error: 'incident not found' });
     sendPdf(res, buf, `incident-${req.params.id}-${stamp()}.pdf`);
@@ -750,17 +893,41 @@ r.get('/reports/incidents/:id', async (req, res) => {
 // SOC assistant chatbot
 // ────────────────────────────────────────────────────────────────────────────
 r.post('/chat', async (req, res) => {
+  const controller = new AbortController();
+  const disconnected = () => {
+    if (!res.writableEnded) controller.abort();
+  };
+  req.once('aborted', disconnected);
+  res.once('close', disconnected);
   try {
-    const { message, history } = req.body || {};
-    if (!message || typeof message !== 'string')
-      return res.status(400).json({ error: 'message (string) required' });
-    const useHermes = Boolean(process.env.HERMES_API_KEY);
-    const settings = useHermes ? null : await db.getAllSettings();
-    const result = useHermes
-      ? await chatHermes(message, history || [])
-      : await chatAgent(message, history || [], settings);
-    res.json(result);
-  } catch (e) { res.status(500).json({ error: e instanceof Error ? e.message : String(e) }); }
+    const { message, conversation_id: conversationId, history } = req.body || {};
+    if (typeof message !== 'string' || !message.trim() || message.length > 4000)
+      return res.status(400).json({ error: 'message must be a non-empty string of at most 4000 characters' });
+    if (history !== undefined) {
+      return res.status(400).json({ error: 'history is server-managed; send conversation_id instead' });
+    }
+    if (conversationId != null && typeof conversationId !== 'string') {
+      return res.status(400).json({ error: 'conversation_id must be a UUID string' });
+    }
+    if (!runtimeConfig().hermesApiKey) {
+      throw new HermesError('HERMES_NOT_CONFIGURED', 'Hermes is not configured', { status: 503 });
+    }
+    const result = await chatHermes(message.trim(), {
+      conversationId: conversationId || null,
+      actor: req.user?.username || 'unknown',
+      requestId: req.id,
+      signal: controller.signal,
+    });
+    if (!controller.signal.aborted && !res.headersSent) res.json(result);
+  } catch (error) {
+    if (!controller.signal.aborted && !res.headersSent) {
+      const response = publicHermesError(error, req.id);
+      res.status(response.status).json(response.body);
+    }
+  } finally {
+    req.removeListener('aborted', disconnected);
+    res.removeListener('close', disconnected);
+  }
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -856,10 +1023,12 @@ r.get('/stats', async (_, res) => {
 r.get('/runs', async (req, res) => {
   try {
     const { limit = 50, page = 1 } = req.query;
-    const offset = (parseInt(page)-1)*parseInt(limit);
+    const paging = pagination({ page, limit }, { defaultLimit: 50, maxLimit: 200 });
+    if (paging.error) return res.status(400).json({ error: paging.error });
+    const { offset } = paging;
     const [rows, count] = await Promise.all([
       db.query(`SELECT * FROM fetch_runs ORDER BY id DESC LIMIT $1 OFFSET $2`,
-               [parseInt(limit), offset]),
+               [paging.limit, offset]),
       db.query(`SELECT COUNT(*) AS n FROM fetch_runs`),
     ]);
     res.json({ runs: rows.rows, total: parseInt(count.rows[0].n) });

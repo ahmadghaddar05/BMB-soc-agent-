@@ -1,8 +1,42 @@
 'use strict';
 const https = require('https');
+const http = require('http');
 
-// Set TLS bypass at process level if Wazuh cert verification is disabled
-if (process.env.WAZUH_VERIFY_TLS === 'false') {
+function requestJson(urlString, { method = 'GET', headers = {}, body = null, timeoutMs = 30000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const target = new URL(urlString);
+    const client = target.protocol === 'https:' ? https : http;
+    const payload = body == null ? '' : JSON.stringify(body);
+    const request = client.request({
+      hostname: target.hostname,
+      port: target.port || (target.protocol === 'https:' ? 443 : 80),
+      path: `${target.pathname}${target.search}`,
+      method,
+      timeout: timeoutMs,
+      ...(target.protocol === 'https:' ? { rejectUnauthorized: process.env.WAZUH_VERIFY_TLS !== 'false' } : {}),
+      headers: {
+        Accept: 'application/json',
+        ...headers,
+        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
+      },
+    }, response => {
+      let responseBody = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => { responseBody += chunk; });
+      response.on('end', () => {
+        let parsed;
+        try { parsed = responseBody ? JSON.parse(responseBody) : {}; }
+        catch { return reject(new Error(`Wazuh returned invalid JSON: ${responseBody.slice(0, 300)}`)); }
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          return reject(new Error(`Wazuh Indexer ${response.statusCode}: ${responseBody.slice(0, 300)}`));
+        }
+        resolve(parsed);
+      });
+    });
+    request.on('timeout', () => request.destroy(new Error('Wazuh request timed out')));
+    request.on('error', reject);
+    request.end(payload || undefined);
+  });
 }
 
 function extractEntities(src) {
@@ -131,16 +165,16 @@ async function fetchFromWazuh({ minutes = 15, minLevel = 7, limit = 200 } = {}) 
     }
   };
 
-  let res;
   try {
-    res = await fetch(`${url}/${index}/_search`, {
+    const data = await requestJson(`${url}/${index}/_search`, {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
         'Authorization': `Basic ${auth}`,
       },
-      body: JSON.stringify(body),
+      body,
     });
+    return (data.hits?.hits || []).map(normalizeAlert);
   } catch (netErr) {
     const cause = netErr.cause || netErr;
     const code  = cause.code || '';
@@ -148,13 +182,24 @@ async function fetchFromWazuh({ minutes = 15, minLevel = 7, limit = 200 } = {}) 
     throw new Error(`Wazuh fetch failed [${code}]: ${msg} (URL: ${url})`);
   }
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => '');
-    throw new Error(`Wazuh Indexer ${res.status}: ${txt.slice(0, 200)}`);
-  }
+}
 
-  const data = await res.json();
-  return (data.hits?.hits || []).map(normalizeAlert);
+async function checkHealth() {
+  if (process.env.WAZUH_MODE === 'mock') return { status: 'mock', configured: true, reachable: true, latency_ms: 0 };
+  const url = (process.env.WAZUH_INDEXER_URL || '').replace(/\/$/, '');
+  if (!url) throw new Error('WAZUH_INDEXER_URL is not set');
+  const auth = Buffer.from(`${process.env.WAZUH_INDEXER_USER || 'admin'}:${process.env.WAZUH_INDEXER_PASS || ''}`).toString('base64');
+  const started = Date.now();
+  const response = await requestJson(`${url}/`, {
+    headers: { Authorization: `Basic ${auth}` },
+    timeoutMs: 8000,
+  });
+  return {
+    status: 'online', configured: true, reachable: true,
+    latency_ms: Date.now() - started,
+    cluster_name: response.cluster_name || null,
+    version: response.version?.number || null,
+  };
 }
 
 function makeMock() {
@@ -192,4 +237,4 @@ async function fetchAlerts(opts = {}) {
   return fetchFromWazuh(opts);
 }
 
-module.exports = { fetchAlerts, normalizeAlert };
+module.exports = { checkHealth, fetchAlerts, normalizeAlert, requestJson };

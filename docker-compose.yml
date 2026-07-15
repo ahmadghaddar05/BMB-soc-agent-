@@ -46,6 +46,16 @@ services:
       PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER:-socagent}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-socagent}
       ENRICHMENT_URL: http://enrichment:3001
+      ALERT_SOURCE: ${ALERT_SOURCE:-mock}
+      # Temporary Phase 1 access boundary (full RBAC follows in a later phase)
+      SOC_AUTH_DISABLED: "false"
+      SOC_ADMIN_USERNAME: ${SOC_ADMIN_USERNAME:-admin}
+      SOC_ADMIN_PASSWORD: ${SOC_ADMIN_PASSWORD:-}
+      SOC_SESSION_SECRET: ${SOC_SESSION_SECRET:-}
+      SOC_SESSION_TTL_MINUTES: ${SOC_SESSION_TTL_MINUTES:-480}
+      SOC_COOKIE_SECURE: ${SOC_COOKIE_SECURE:-false}
+      SOC_API_KEY: ${SOC_API_KEY:-}
+      SOC_ALLOWED_ORIGINS: ${SOC_ALLOWED_ORIGINS:-}
       # Elastic Security — read only
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
       ELASTIC_ALERT_ALIAS: ${ELASTIC_ALERT_ALIAS:-.alerts-security.alerts-default}
@@ -68,20 +78,23 @@ services:
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
-      # Hermes AI Analyst (API key remains backend-only)
-      HERMES_API_URL: ${HERMES_API_URL:-http://host.docker.internal:8643/v1}
+      # Hermes AI Analyst (API key remains backend-only; chat has no legacy fallback)
+      HERMES_REQUIRED: ${HERMES_REQUIRED:-true}
+      HERMES_API_URL: ${HERMES_API_URL:-http://host.docker.internal:8642/v1}
       HERMES_API_KEY: ${HERMES_API_KEY:-}
       HERMES_MODEL: ${HERMES_MODEL:-hermes-agent}
       HERMES_TIMEOUT_MS: ${HERMES_TIMEOUT_MS:-180000}
-      # Scheduler defaults
-      SCHEDULER_INTERVAL_MINUTES: ${SCHEDULER_INTERVAL_MINUTES:-5}
-      SCHEDULER_LOOKBACK_MINUTES: ${SCHEDULER_LOOKBACK_MINUTES:-15}
-      SCHEDULER_MIN_LEVEL: ${SCHEDULER_MIN_LEVEL:-7}
+      HERMES_REQUEST_TIMEOUT_MS: ${HERMES_REQUEST_TIMEOUT_MS:-10000}
+      HERMES_MAX_RETRIES: ${HERMES_MAX_RETRIES:-2}
+      HERMES_POLL_INTERVAL_MS: ${HERMES_POLL_INTERVAL_MS:-500}
+      HERMES_CAPABILITY_TTL_MS: ${HERMES_CAPABILITY_TTL_MS:-60000}
+      HERMES_STRICT_CAPABILITIES: ${HERMES_STRICT_CAPABILITIES:-true}
+      HERMES_ENFORCE_SAFE_TOOLSETS: ${HERMES_ENFORCE_SAFE_TOOLSETS:-true}
+      HERMES_REQUIRE_TOOLLESS_PROFILE: ${HERMES_REQUIRE_TOOLLESS_PROFILE:-true}
+      HERMES_FORBIDDEN_TOOLS: ${HERMES_FORBIDDEN_TOOLS:-terminal,execute_code,write_file,patch,delete_file,move_file,browser,web_search,web_extract,delegate_task,cronjob,shell,ssh}
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "elastictrainee:host-gateway"
-    volumes:
-      - /etc/elasticsearch/certs/http_ca.crt:/run/secrets/http_ca.crt:ro
     ports:
       - "127.0.0.1:3000:3000"
   frontend:

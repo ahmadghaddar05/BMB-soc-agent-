@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Bell, Blocks, BookOpenCheck, BrainCircuit, BriefcaseBusiness,
@@ -19,6 +19,8 @@ import Playbooks from './pages/Playbooks';
 import Integrations from './pages/Integrations';
 import Cases from './pages/Cases';
 import ChatWidget from './components/ChatWidget';
+import LoginPage from './components/LoginPage';
+import { api, setCsrfToken } from './lib/api';
 import './index.css';
 
 const NAV_ITEMS = [
@@ -61,14 +63,23 @@ function BmbLogo({ compact = false }) {
   );
 }
 
-function Shell() {
+function Shell({ session, onLogout }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [platformHealth, setPlatformHealth] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const [title, subtitle] = PAGE_META[location.pathname] || PAGE_META['/dashboard'];
+
+  useEffect(() => {
+    let active = true;
+    const loadHealth = () => api('/health/dependencies').then(data => { if (active) setPlatformHealth(data); }).catch(() => { if (active) setPlatformHealth({ status:'degraded' }); });
+    loadHealth();
+    const timer = setInterval(loadHealth, 30000);
+    return () => { active = false; clearInterval(timer); };
+  }, []);
 
   function submitSearch(event) {
     event.preventDefault();
@@ -97,7 +108,7 @@ function Shell() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="agent-status" title="Collector online"><span className="status-orbit"><span /></span>{!collapsed && <div><strong>Agent online</strong><small>Monitoring Elastic</small></div>}</div>
+          <div className="agent-status" title="Live dependency health"><span className={`status-orbit ${platformHealth?.status === 'ok' ? '' : 'degraded'}`}><span /></span>{!collapsed && <div><strong>{platformHealth?.status === 'ok' ? 'Platform healthy' : platformHealth ? 'Platform degraded' : 'Checking platform'}</strong><small>{platformHealth?.source ? `Source: ${platformHealth.source}` : 'Verifying dependencies'}</small></div>}</div>
           <button className="collapse-button" onClick={() => setCollapsed(value => !value)}><ChevronLeft className={collapsed ? 'rotate-180' : ''} size={16} />{!collapsed && <span>Collapse</span>}</button>
         </div>
       </aside>
@@ -116,7 +127,7 @@ function Shell() {
           <div className="topbar-actions">
             <button className="ask-ai-button" onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant'))}><Sparkles size={15} /><span>Ask AI Analyst</span></button>
             <button className="icon-button notification-button" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen(value => !value)}><Bell size={18} /><span /></button>
-            <div className="analyst-profile"><div><strong>Analyst</strong><small>SOC Director</small></div><span className="avatar">AM<i /></span></div>
+            <button className="analyst-profile" onClick={onLogout} title="Sign out"><div><strong>{session.user.username}</strong><small>{session.user.role}</small></div><span className="avatar">{session.user.username.slice(0,2).toUpperCase()}<i /></span></button>
           </div>
         </header>
         {notificationsOpen && <div className="notification-popover"><div><strong>Security notifications</strong><button onClick={() => setNotificationsOpen(false)}><X /></button></div><button onClick={() => { navigate('/alerts?severity=critical'); setNotificationsOpen(false); }}><ShieldAlert /><span><strong>Review critical alerts</strong><small>Open the current critical investigation queue.</small></span></button><button onClick={() => { navigate('/incidents'); setNotificationsOpen(false); }}><AlertTriangle /><span><strong>Open incidents</strong><small>Continue correlated incident response.</small></span></button></div>}
@@ -146,4 +157,38 @@ function Shell() {
   );
 }
 
-export default function App() { return <BrowserRouter><Shell /></BrowserRouter>; }
+function ApiErrorBanner() {
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    const show = event => { setError(event.detail); window.clearTimeout(show.timer); show.timer = window.setTimeout(() => setError(null), 7000); };
+    window.addEventListener('bmb-api-error', show);
+    return () => { window.removeEventListener('bmb-api-error', show); window.clearTimeout(show.timer); };
+  }, []);
+  if (!error || error.status === 401) return null;
+  return <div className="api-error-banner" role="alert"><span>{error.message}</span>{error.requestId && <small>Request {error.requestId}</small>}<button onClick={() => setError(null)}>×</button></div>;
+}
+
+function AuthenticatedApp() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    api('/auth/session').then(value => { if (active) { setCsrfToken(value.csrf); setSession(value); } }).catch(() => {}).finally(() => { if (active) setLoading(false); });
+    const expired = () => { setCsrfToken(null); setSession(null); };
+    window.addEventListener('bmb-auth-expired', expired);
+    return () => { active = false; window.removeEventListener('bmb-auth-expired', expired); };
+  }, []);
+
+  async function logout() {
+    try { await api('/auth/logout', { method:'POST', body:'{}' }); } catch {}
+    setCsrfToken(null);
+    setSession(null);
+  }
+
+  if (loading) return <div className="auth-loading"><span /><p>Checking secure session…</p></div>;
+  if (!session) return <><LoginPage onAuthenticated={value => { setCsrfToken(value.csrf); setSession(value); }} /><ApiErrorBanner /></>;
+  return <BrowserRouter><Shell session={session} onLogout={logout} /><ApiErrorBanner /></BrowserRouter>;
+}
+
+export default function App() { return <AuthenticatedApp />; }

@@ -1,0 +1,4 @@
+services:
+  api:
+    volumes:
+      - ${ELASTIC_CA_HOST_PATH:?set ELASTIC_CA_HOST_PATH}:${ELASTIC_CA_CERT:-/run/secrets/http_ca.crt}:ro

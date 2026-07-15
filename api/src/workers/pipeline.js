@@ -21,6 +21,24 @@ function safeError(err) {
   try { return JSON.stringify(err); } catch { return String(err); }
 }
 
+async function mapWithConcurrency(items, concurrency, worker) {
+  if (!items.length) return [];
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function runner() {
+    while (true) {
+      const index = nextIndex++;
+      if (index >= items.length) return;
+      results[index] = await worker(items[index], index);
+    }
+  }
+  await Promise.all(Array.from(
+    { length: Math.min(Math.max(1, concurrency), items.length) },
+    () => runner()
+  ));
+  return results;
+}
+
 // ── Enrich one alert ──────────────────────────────────────────────────────
 async function enrichAlert(alert) {
   const res = await fetch(`${getEnrichmentUrl()}/enrich`, {
@@ -45,8 +63,7 @@ async function enrichAlert(alert) {
 
 // ── Ingest, dedup by id ───────────────────────────────────────────────────
 async function ingestAlerts(alerts, runId) {
-  let stored = 0, duplicates = 0;
-  for (const a of alerts) {
+  const outcomes = await mapWithConcurrency(alerts, 10, async a => {
     try {
       const sourceSystem =
         a.source_system ||
@@ -94,12 +111,17 @@ async function ingestAlerts(alerts, runId) {
           runId,
         ]
       );
-      if (r.rowCount > 0) stored++; else duplicates++;
+      return r.rowCount > 0 ? 'stored' : 'duplicate';
     } catch (err) {
       console.error(`[ingest] failed to insert ${a.id}:`, safeError(err));
+      return 'failed';
     }
-  }
-  return { stored, duplicates };
+  });
+  return {
+    stored: outcomes.filter(value => value === 'stored').length,
+    duplicates: outcomes.filter(value => value === 'duplicate').length,
+    failed: outcomes.filter(value => value === 'failed').length,
+  };
 }
 
 // ── Enrich pending alerts ─────────────────────────────────────────────────
@@ -111,8 +133,7 @@ async function enrichPending(limit = 100) {
   );
   if (!rows.length) return { enriched: 0, failed: 0 };
 
-  let enriched = 0, failed = 0;
-  for (const row of rows) {
+  const outcomes = await mapWithConcurrency(rows, 10, async row => {
     try {
       const ctx = await enrichAlert(row);
       // Store as JSONB -- pass object directly, pg handles serialization
@@ -122,7 +143,7 @@ async function enrichPending(limit = 100) {
          WHERE id=$2`,
         [ctx, row.id]          // pg will serialize the object to JSONB
       );
-      enriched++;
+      return 'enriched';
     } catch (err) {
       const msg = safeError(err);
       console.error(`[enrich] failed for ${row.id}:`, msg);
@@ -132,21 +153,28 @@ async function enrichPending(limit = 100) {
          WHERE id=$2`,
         [msg.slice(0, 500), row.id]
       );
-      failed++;
+      return 'failed';
     }
-  }
-  return { enriched, failed };
+  });
+  return {
+    enriched: outcomes.filter(value => value === 'enriched').length,
+    failed: outcomes.filter(value => value === 'failed').length,
+  };
 }
 
 // ── Triage enriched alerts ────────────────────────────────────────────────
-async function triagePending(settings, limit = 50) {
+async function triagePending(settings, limit = 50, alertId = null) {
+  const scopedCondition = alertId ? 'AND id=$1' : '';
+  const queryParams = alertId ? [alertId, limit] : [limit];
+  const limitPlaceholder = alertId ? '$2' : '$1';
   const { rows } = await db.query(
     `SELECT * FROM alerts
      WHERE triage_status='pending'
        AND enrichment_status IN ('enriched','enrichment_failed')
+       ${scopedCondition}
      ORDER BY rule_level DESC, timestamp DESC
-     LIMIT $1`,
-    [limit]
+     LIMIT ${limitPlaceholder}`,
+    queryParams
   );
   if (!rows.length) return { triaged: 0, failed: 0, llm_calls: 0, cache_hits: 0 };
 
@@ -286,10 +314,23 @@ async function triagePending(settings, limit = 50) {
   };
 }
 
+async function retriageAlert(id, settings) {
+  const reset = await db.query(
+    `UPDATE alerts
+     SET triage_status='pending', triage_error=NULL, verdict=NULL,
+         triaged_at=NULL, auto_closed=false, auto_close_reason=NULL
+     WHERE id=$1
+     RETURNING id`,
+    [id]
+  );
+  if (!reset.rows.length) return null;
+  return { alert_id: id, ...(await triagePending(settings, 1, id)) };
+}
+
 // ── Full run cycle ────────────────────────────────────────────────────────
 async function runCycle(trigger = 'scheduler') {
   const settings = await db.getAllSettings();
-  const source   = settings.alert_source || 'mock';
+  const source   = process.env.ALERT_SOURCE || settings.alert_source || 'mock';
 
   const minutes = source === 'elastic'
     ? parseInt(settings.elastic_lookback_minutes || 1)
@@ -316,6 +357,7 @@ async function runCycle(trigger = 'scheduler') {
     enriched:0, enrichment_failed:0,
     triaged:0, triage_failed:0, incidents_created:0,
     llm_calls:0, llm_tokens:0, cache_hits:0, agentic_escalations:0,
+    prompt_tokens:0, completion_tokens:0,
     correlation_calls:0, correlation_tokens:0,
   };
 
@@ -443,6 +485,10 @@ async function runCycle(trigger = 'scheduler') {
       stats.stored = r.stored;
       stats.duplicates = r.duplicates;
 
+      if (r.failed) {
+        throw new Error(`Failed to persist ${r.failed} of ${alerts.length} fetched alerts`);
+      }
+
       console.log(
         `[cycle] stored=${r.stored} ` +
         `duplicates=${r.duplicates}`
@@ -521,6 +567,8 @@ async function runCycle(trigger = 'scheduler') {
       stats.triage_failed = tr.failed;
       stats.llm_calls = tr.llm_calls || 0;
       stats.llm_tokens = tr.llm_tokens || 0;
+      stats.prompt_tokens = tr.prompt_tokens || 0;
+      stats.completion_tokens = tr.completion_tokens || 0;
       stats.cache_hits = tr.cache_hits || 0;
       stats.agentic_escalations = tr.agentic_escalations || 0;
       stats.token_budget_exhausted = !!tr.budget_exhausted;
@@ -571,4 +619,7 @@ async function runCycle(trigger = 'scheduler') {
   }
 }
 
-module.exports = { runCycle, enrichPending, triagePending, correlatePending };
+module.exports = {
+  runCycle, ingestAlerts, enrichPending, triagePending, retriageAlert,
+  correlatePending, mapWithConcurrency,
+};
