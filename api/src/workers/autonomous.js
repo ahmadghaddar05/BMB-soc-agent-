@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const { createActionService } = require('../services/actions');
 
-const POLICY_VERSION = 'phase8-v1';
+const POLICY_VERSION = 'phase9-v1';
 const ACTOR = 'system:autonomous-agent';
 const QUALIFYING_VERDICTS = new Set(['true_positive', 'needs_investigation']);
 
@@ -38,6 +38,20 @@ function actionSummary(result) {
     target_id: request.target_id || result.result?.target_id || null,
     idempotent_replay: Boolean(result.idempotent_replay),
   };
+}
+
+function simulatedResponseProposal(incident) {
+  const entities = incident?.common_entities || {};
+  const first = values => Array.isArray(values)
+    ? values.map(value => String(value || '').trim()).find(Boolean)
+    : null;
+  const host = first(entities.hosts);
+  if (host) return { response_type:'endpoint_isolate', target_id:host };
+  const identity = first(entities.users);
+  if (identity) return { response_type:'identity_suspend', target_id:identity };
+  const ip = first(entities.ips);
+  if (ip) return { response_type:'ip_block', target_id:ip };
+  return null;
 }
 
 async function startOperation(database, details) {
@@ -150,6 +164,7 @@ async function loadCandidates(database, settings) {
     [[...QUALIFYING_VERDICTS], confidence, String(hours), poolLimit]
   );
   const assignmentEnabled = String(settings.autonomous_assignment_enabled || 'true') === 'true';
+  const responseProposalsEnabled = String(settings.simulated_response_proposals_enabled || 'false') === 'true';
   const incidentKeys = new Map(incidents.rows.map(incident => {
     const version = incident.correlation_run_id || new Date(incident.updated_at).toISOString();
     const keys = [
@@ -159,6 +174,9 @@ async function loadCandidates(database, settings) {
     ];
     if (assignmentEnabled && incident.severity === 'critical' && !incident.owner) {
       keys.push(operationKey('request-assignment', 'case', incident.id));
+    }
+    if (responseProposalsEnabled && incident.severity === 'critical' && simulatedResponseProposal(incident)) {
+      keys.push(operationKey('request-simulated-response', 'case', incident.id, version));
     }
     return [String(incident.id), keys];
   }));
@@ -200,6 +218,7 @@ async function runAutonomousAgent(settings = {}, fetchRunId = null, {
   try {
     const { incidents, alerts } = await loadCandidates(database, settings);
     const assignmentEnabled = String(settings.autonomous_assignment_enabled || 'true') === 'true';
+    const responseProposalsEnabled = String(settings.simulated_response_proposals_enabled || 'false') === 'true';
     const defaultOwner = compact(settings.autonomous_default_owner || 'SOC Analyst', 120);
 
     for (const incident of incidents) {
@@ -256,6 +275,23 @@ async function runAutonomousAgent(settings = {}, fetchRunId = null, {
             actor, requestId, idempotencyKey: assignmentKey,
           })));
         }
+
+        const response = simulatedResponseProposal(incident);
+        if (responseProposalsEnabled && incident.severity === 'critical' && response) {
+          const responseKey = operationKey('request-simulated-response', 'case', incident.id, version);
+          await executeOperation(database, {
+            runId: run.id, key: responseKey, type: 'request_simulated_response', sourceType: 'case',
+            sourceId: String(incident.id), reason: 'Critical correlated evidence qualifies for a reversible response simulation proposal.',
+          }, async () => actionSummary(await actionService.submit({
+            actionType: 'response.simulate', targetId: response.target_id,
+            parameters: {
+              response_type: response.response_type,
+              evidence_alert_ids: (incident.alert_ids || []).slice(0, 100),
+            },
+            reason: 'Propose a BMB-only response simulation for analyst review. Approval is required and no external system will be changed.',
+            actor, requestId, idempotencyKey: responseKey,
+          })));
+        }
       } catch (error) {
         console.error(`[autonomous] case ${incident.id} failed:`, error.message || error);
       }
@@ -306,6 +342,7 @@ async function runAutonomousAgent(settings = {}, fetchRunId = null, {
       investigation_notes_added: 0,
       case_notes_added: 0,
       approvals_requested: 0,
+      simulated_responses_proposed: 0,
       failures: 0,
     };
     for (const row of counted.rows) {
@@ -315,6 +352,10 @@ async function runAutonomousAgent(settings = {}, fetchRunId = null, {
       if (row.operation_type === 'add_investigation_note') metrics.investigation_notes_added += row.n;
       if (row.operation_type === 'add_case_note') metrics.case_notes_added += row.n;
       if (row.operation_type === 'request_case_assignment') metrics.approvals_requested += row.n;
+      if (row.operation_type === 'request_simulated_response') {
+        metrics.simulated_responses_proposed += row.n;
+        metrics.approvals_requested += row.n;
+      }
     }
     const status = metrics.failures ? 'partial' : 'completed';
     await database.query(
@@ -333,5 +374,5 @@ async function runAutonomousAgent(settings = {}, fetchRunId = null, {
 
 module.exports = {
   ACTOR, POLICY_VERSION, QUALIFYING_VERDICTS, alertNote, boundedConfidence,
-  incidentNote, loadCandidates, operationKey, runAutonomousAgent,
+  incidentNote, loadCandidates, operationKey, runAutonomousAgent, simulatedResponseProposal,
 };

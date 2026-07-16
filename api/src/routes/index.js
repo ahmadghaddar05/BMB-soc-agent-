@@ -10,12 +10,14 @@ const { dependencyHealth } = require('../services/health');
 const reports = require('../services/reports');
 const workflows = require('./workflows');
 const actions = require('./actions');
+const responses = require('./responses');
 const { POLICY_VERSION: AUTONOMOUS_POLICY_VERSION, runAutonomousAgent } = require('../workers/autonomous');
 
 const r = Router();
 
 r.use(workflows);
 r.use(actions);
+r.use(responses);
 
 const SEVERITIES = new Set(['critical','high','medium','low','informational']);
 const VERDICTS = new Set(['true_positive','false_positive','needs_investigation','benign_anomaly']);
@@ -80,12 +82,13 @@ const SETTING_KEYS = new Set([
   'incident_promote_enabled','incident_promote_verdicts','incident_promote_min_severity',
   'autonomous_agent_enabled','autonomous_lookback_hours','autonomous_max_items',
   'autonomous_min_confidence','autonomous_assignment_enabled','autonomous_default_owner',
+  'simulated_response_proposals_enabled',
 ]);
 
 const BOOLEAN_SETTINGS = new Set([
   'scheduler_enabled','triage_enabled','autoclose_enabled','correlation_enabled',
   'caching_enabled','incident_promote_enabled',
-  'autonomous_agent_enabled','autonomous_assignment_enabled',
+  'autonomous_agent_enabled','autonomous_assignment_enabled','simulated_response_proposals_enabled',
 ]);
 
 const INTEGER_SETTING_LIMITS = {

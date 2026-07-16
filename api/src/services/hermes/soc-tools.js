@@ -178,7 +178,7 @@ const TOOL_SPECS = [
   },
   {
     name: 'request_soc_action',
-    description: 'Request one allowlisted BMB workflow action. Notes and investigation creation execute directly; owner or status changes wait for analyst approval. External response actions are forbidden.',
+    description: 'Request one allowlisted BMB workflow action. Notes and investigation creation execute directly. Workflow changes and Phase 9 simulated response actions always wait for analyst approval. Simulated response never changes an external system.',
     parameters: {
       oneOf: [
         {
@@ -233,6 +233,32 @@ const TOOL_SPECS = [
                 owner: { type: 'string', maxLength: 120 },
                 status: { enum: ['open', 'closed', 'false_positive'] },
               } },
+          },
+        },
+        {
+          type: 'object', additionalProperties: false, required: ['action_type', 'target_id', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: 'response.simulate' },
+            target_id: { type: 'string', minLength: 1, maxLength: 253 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: {
+              type: 'object', additionalProperties: false,
+              required: ['response_type','evidence_alert_ids'],
+              properties: {
+                response_type: { enum: ['endpoint_isolate','identity_suspend','ip_block'] },
+                evidence_alert_ids: { type: 'array', minItems: 1, maxItems: 100, uniqueItems: true,
+                  items: { type: 'string', minLength: 1, maxLength: 500 } },
+              },
+            },
+          },
+        },
+        {
+          type: 'object', additionalProperties: false, required: ['action_type', 'target_id', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: 'response.rollback' },
+            target_id: { type: 'string', minLength: 36, maxLength: 36 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: { type: 'object', additionalProperties: false, maxProperties: 0 },
           },
         },
       ],
@@ -547,6 +573,7 @@ function createSocToolkit({
               id: action.id, action_type: action.action_type, target_type: action.target_type,
               target_id: action.target_id, status: action.status,
               approval_required: action.approval_required, reason: action.reason,
+              preview: action.preview || null,
               result: action.result || outcome.result || null,
             },
             analyst_approval_required: action.status === 'pending',

@@ -67,7 +67,7 @@ function fakeDatabase() {
   };
 }
 
-test('Phase 8 policy creates internal records and sends ownership through approval', async () => {
+test('Phase 9 agent creates internal records and proposes response simulations through approval', async () => {
   const database = fakeDatabase();
   const calls = [];
   const actionService = {
@@ -81,6 +81,7 @@ test('Phase 8 policy creates internal records and sends ownership through approv
   const result = await runAutonomousAgent({
     autonomous_lookback_hours:'24', autonomous_max_items:'20', autonomous_min_confidence:'0.7',
     autonomous_assignment_enabled:'true', autonomous_default_owner:'Tier 2 SOC',
+    simulated_response_proposals_enabled:'true',
   }, 42, { database, actionService, trigger:'test' });
 
   assert.equal(result.status, 'completed');
@@ -88,11 +89,14 @@ test('Phase 8 policy creates internal records and sends ownership through approv
   assert.equal(result.metrics.investigations_created, 1);
   assert.equal(result.metrics.investigation_notes_added, 1);
   assert.equal(result.metrics.case_notes_added, 1);
-  assert.equal(result.metrics.approvals_requested, 1);
+  assert.equal(result.metrics.approvals_requested, 2);
+  assert.equal(result.metrics.simulated_responses_proposed, 1);
   assert.deepEqual(calls.map(call => call.actionType), [
-    'investigation.create','investigation.add_note','case.add_note','case.update',
+    'investigation.create','investigation.add_note','case.add_note','case.update','response.simulate',
   ]);
-  assert.equal(calls.at(-1).parameters.owner, 'Tier 2 SOC');
+  assert.equal(calls.at(-2).parameters.owner, 'Tier 2 SOC');
+  assert.equal(calls.at(-1).parameters.response_type, 'identity_suspend');
+  assert.deepEqual(calls.at(-1).parameters.evidence_alert_ids, ['alert-a','alert-b']);
   assert.match(calls.at(-1).reason, /approval is required/i);
   assert.ok(calls.every(call => !['host.isolate','account.disable','ip.block'].includes(call.actionType)));
 });

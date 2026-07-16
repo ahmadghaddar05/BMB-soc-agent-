@@ -99,6 +99,17 @@ test('Phase 8 migration creates durable autonomous runs and idempotent operation
   assert.match(sql, /fetch_runs ADD COLUMN IF NOT EXISTS autonomous_run_id/);
 });
 
+test('Phase 9 migration creates approval-gated reversible response simulation records', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/009_simulated_response.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS simulated_response_states/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS simulated_response_events/);
+  assert.match(sql, /response\.simulate/);
+  assert.match(sql, /response\.rollback/);
+  assert.match(sql, /request_simulated_response/);
+  assert.match(sql, /simulated_response_proposals_enabled','false'/);
+  assert.match(sql, /state IN \('active','reverted'\)/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

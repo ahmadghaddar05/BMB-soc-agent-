@@ -168,6 +168,7 @@ describe('authenticated application flows', () => {
           autonomous_agent_enabled:'false', autonomous_lookback_hours:'24',
           autonomous_min_confidence:'0.70', autonomous_max_items:'20',
           autonomous_assignment_enabled:'true', autonomous_default_owner:'SOC Analyst',
+          simulated_response_proposals_enabled:'false',
         }, stats:{},
       });
       if (url.endsWith('/scheduler/status')) return jsonResponse({ running:false, recent_runs:[] });
@@ -188,6 +189,7 @@ describe('authenticated application flows', () => {
       autonomous_agent_enabled:'true', autonomous_lookback_hours:'24',
       autonomous_min_confidence:'0.70', autonomous_max_items:'20',
       autonomous_assignment_enabled:'true', autonomous_default_owner:'SOC Analyst',
+      simulated_response_proposals_enabled:'false',
     });
   });
 
@@ -263,7 +265,7 @@ describe('authenticated application flows', () => {
       id:'10000000-0000-4000-8000-000000000007', action_type:'case.update',
       target_type:'case', target_id:'7', status:'pending', approval_required:true,
       requested_by:'analyst', reason:'Assign accountable incident ownership',
-      policy_version:'phase7-v1', parameters:{ owner:'Incident Lead' },
+      policy_version:'phase9-v1', parameters:{ owner:'Incident Lead' },
       created_at:new Date().toISOString(), approvals:[],
     };
     globalThis.fetch = vi.fn(async (input, options = {}) => {
@@ -280,7 +282,7 @@ describe('authenticated application flows', () => {
     });
 
     await renderAt('/approvals');
-    expect(document.body.textContent).toContain('Phase 7 safety boundary');
+    expect(document.body.textContent).toContain('Phase 9 safety boundary');
     expect(document.body.textContent).toContain('Assign accountable incident ownership');
     const textarea = document.querySelector('.approval-decision textarea');
     await act(async () => {
@@ -296,6 +298,47 @@ describe('authenticated application flows', () => {
     const post = requests.find(entry => entry.url.endsWith(`/actions/${pending.id}/decision`) && entry.options.method === 'POST');
     expect(post).toBeTruthy();
     expect(JSON.parse(post.options.body)).toEqual({ decision:'approved', reason:'Validated assignment with the incident lead' });
+    expect(post.options.headers['X-CSRF-Token']).toBe('csrf-token');
+  });
+
+  it('shows verified simulated responses and submits rollback through the approval gate', async () => {
+    const requests = [];
+    const response = {
+      id:'20000000-0000-4000-8000-000000000001', response_type:'endpoint_isolate',
+      target_value:'server-1', state:'active', evidence_alert_ids:['elastic:alert-1'],
+      executed_by:'lead', executed_at:new Date().toISOString(), verified_at:new Date().toISOString(),
+    };
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.includes('/responses?page=1&limit=100')) return jsonResponse({ responses:[response], total:1 });
+      if (url.endsWith(`/responses/${response.id}/rollback`) && options.method === 'POST') {
+        return jsonResponse({ action_request:{ id:'action-rollback', status:'pending', action_type:'response.rollback' } }, 202);
+      }
+      if (url.endsWith(`/responses/${response.id}`)) return jsonResponse({
+        ...response, verification:{ verified:true, observed_state:'active' },
+        events:[{ id:1, event_type:'verified', actor:'lead', created_at:new Date().toISOString() }],
+      });
+      return jsonResponse({});
+    });
+
+    await renderAt('/responses');
+    expect(document.body.textContent).toContain('Simulation only — zero external side effects');
+    expect(document.body.textContent).toContain('server-1');
+    expect(document.body.textContent).toContain('active confirmed in BMB simulation ledger');
+    const textarea = document.querySelector('.response-rollback textarea');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(globalThis.HTMLTextAreaElement.prototype, 'value').set.call(textarea, 'Exercise completed safely');
+      textarea.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    const rollback = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Request approved rollback'));
+    await act(async () => rollback.click());
+    await settle();
+
+    const post = requests.find(item => item.url.endsWith(`/responses/${response.id}/rollback`) && item.options.method === 'POST');
+    expect(JSON.parse(post.options.body)).toEqual({ reason:'Exercise completed safely' });
     expect(post.options.headers['X-CSRF-Token']).toBe('csrf-token');
   });
 

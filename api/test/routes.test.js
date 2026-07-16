@@ -136,13 +136,15 @@ test('manual Hermes correlation endpoint is available and bounded by the worker'
   assert.equal(response.body.skipped_reason, 'no_new_triaged_alerts');
 });
 
-test('Phase 7 action policy is explicit and forbidden containment fails before database access', async () => {
+test('Phase 9 action policy exposes only approval-gated simulations and rejects real containment', async () => {
   db.query = async () => { throw new Error('database should not be queried'); };
   const policy = await request(routeApp()).get('/api/action-policy');
   assert.equal(policy.status, 200);
-  assert.equal(policy.body.version, 'phase7-v1');
+  assert.equal(policy.body.version, 'phase9-v1');
   assert.equal(policy.body.actions['case.update'].approvalRequired, true);
   assert.equal(policy.body.actions['case.add_note'].approvalRequired, false);
+  assert.equal(policy.body.actions['response.simulate'].approvalRequired, true);
+  assert.equal(policy.body.actions['response.rollback'].approvalRequired, true);
   assert.equal(policy.body.actions['host.isolate'], undefined);
 
   const denied = await request(routeApp()).post('/api/actions').send({
@@ -160,6 +162,16 @@ test('action list rejects unsupported status and oversized pages before querying
   assert.equal(badLimit.status, 400);
 });
 
+test('simulated response list rejects invalid state, type, and pagination before querying', async () => {
+  db.query = async () => { throw new Error('database should not be queried'); };
+  const badState = await request(routeApp()).get('/api/responses?state=executed');
+  const badType = await request(routeApp()).get('/api/responses?response_type=real_isolation');
+  const badLimit = await request(routeApp()).get('/api/responses?limit=101');
+  assert.equal(badState.status, 400);
+  assert.equal(badType.status, 400);
+  assert.equal(badLimit.status, 400);
+});
+
 test('settings permit Hermes correlation but still reject automatic closure and singleton promotion', async () => {
   const autoClose = await request(routeApp()).put('/api/settings').send({ autoclose_enabled:'true' });
   assert.equal(autoClose.status, 400);
@@ -171,13 +183,14 @@ test('settings permit Hermes correlation but still reject automatic closure and 
   assert.equal(promotion.status, 400);
 });
 
-test('Phase 8 autonomous policy settings are bounded and remain explicitly opt-in', async () => {
+test('Phase 9 autonomous and simulated-response policy settings remain explicitly opt-in', async () => {
   db.setSetting = async () => {};
   db.getAllSettings = async () => ({ autonomous_agent_enabled:'true' });
   const enabled = await request(routeApp()).put('/api/settings').send({
     autonomous_agent_enabled:'true', autonomous_lookback_hours:'24',
     autonomous_max_items:'20', autonomous_min_confidence:'0.75',
     autonomous_assignment_enabled:'true', autonomous_default_owner:'Tier 2 SOC',
+    simulated_response_proposals_enabled:'true',
   });
   assert.equal(enabled.status, 200);
   const badConfidence = await request(routeApp()).put('/api/settings').send({ autonomous_min_confidence:'1.1' });

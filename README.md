@@ -2,7 +2,7 @@
 
 BMB SOC Agent is a containerized security-operations workspace for collecting alerts, enriching evidence, triaging activity, correlating incidents, and assisting analysts.
 
-Phase 8 adds a proactive internal SOC agent on top of the grounded Hermes analyst, Hermes-only triage/correlation, durable investigations/cases, and controlled workflow actions. The scheduled pipeline can autonomously create evidence-linked investigations and grounded case/investigation notes. Critical-case ownership remains an approval-gated proposal. Hermes cannot access host tools or arbitrary writes, and external containment remains unavailable. Triage, scheduled correlation, and autonomous orchestration remain disabled by default pending live acceptance. Automatic closure and singleton incident promotion remain hard-disabled.
+Phase 9 adds an approval-gated simulated response lab on top of the proactive Phase 8 SOC agent. The agent may propose an evidence-bound endpoint isolation, identity suspension, or IP block simulation for a critical correlated case. Approval activates only a durable BMB simulation record, verification confirms only that internal state, and a second approval can roll it back. No EDR, identity, firewall, Elastic, email, or ticketing system is modified. Triage, scheduled correlation, autonomous orchestration, and automatic response proposals remain disabled by default pending live acceptance.
 
 ## Services
 
@@ -59,7 +59,7 @@ Set `ALERT_SOURCE=wazuh`. For deterministic mock data keep `WAZUH_MODE=mock`. Fo
 
 Run Hermes on the Docker server, not on the analyst laptop. In the dedicated Hermes profile, set `API_SERVER_ENABLED=true`, `API_SERVER_HOST=0.0.0.0`, `API_SERVER_PORT=8642`, and a strong `API_SERVER_KEY`, then start `hermes gateway`. Keep port 8642 blocked from untrusted networks; only the local Docker host needs it. The SOC API calls `http://host.docker.internal:8642/v1` server-to-server, so browser CORS is not needed.
 
-Use `hermes tools` to configure the `api_server` platform as an isolated, tool-less profile. BMB does not enable Hermes host tools, including read-only file or memory tools. Hermes requests structured application tool calls; the authenticated BMB API validates its parameterized evidence tools and the five controlled Phase 7 workflow actions. Verify the resolved host profile before starting BMB:
+Use `hermes tools` to configure the `api_server` platform as an isolated, tool-less profile. BMB does not enable Hermes host tools, including read-only file or memory tools. Hermes requests structured application tool calls; the authenticated BMB API validates its parameterized evidence tools and the Phase 9 controlled-action allowlist. Verify the resolved host profile before starting BMB:
 
 ```bash
 curl -s http://127.0.0.1:8642/v1/capabilities -H "Authorization: Bearer $API_SERVER_KEY"
@@ -90,6 +90,8 @@ Phase 7 adds `request_soc_action` as the only AI write boundary. Investigation c
 
 Phase 8 adds an opt-in orchestration worker after triage and correlation. It qualifies only high/critical stored evidence with approved verdicts and a configurable minimum confidence, then reuses Phase 7 actions with deterministic idempotency keys. Autonomous runs and each operation are durable and visible on the dashboard. A failed candidate is recorded without corrupting other work, and replays cannot duplicate completed investigations or notes. `GET /api/agent/status` exposes readiness and history; `POST /api/agent/run-now` processes stored evidence; the normal scheduler runs the complete collection-to-agent flow.
 
+Phase 9 adds `response.simulate` and `response.rollback` to that same controlled-action boundary. Both actions always remain pending until an authenticated, CSRF-protected approval. Simulation targets must be present in the supplied stored alerts, duplicates are rejected, activation and verification are transactional, and rollback requires a separate approval. `/responses` shows the durable simulation state and event history. `simulated_response_proposals_enabled` is a separate opt-in setting; enabling it lets the autonomous worker propose one bounded simulation for a qualifying critical case but never bypasses approval.
+
 ## Authentication and security
 
 - Browser login creates an HMAC-signed, HttpOnly, SameSite=Strict cookie.
@@ -104,7 +106,7 @@ This is a Phase 1 access boundary with one administrator identity, not full mult
 
 ## Database lifecycle
 
-The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent records, Phase 3 added independently queryable Hermes sub-runs, Phase 4 added exact triage cache provenance plus `alerts.triage_run_id`, Phase 5 added `incidents.correlation_run_id`, Phase 6 added durable investigations/cases, Phase 7 activated policy-controlled action requests and approvals, and Phase 8 added durable autonomous runs and retry-safe operations.
+The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent records, Phase 3 added independently queryable Hermes sub-runs, Phase 4 added exact triage cache provenance plus `alerts.triage_run_id`, Phase 5 added `incidents.correlation_run_id`, Phase 6 added durable investigations/cases, Phase 7 activated policy-controlled action requests and approvals, Phase 8 added durable autonomous runs and retry-safe operations, and Phase 9 added reversible simulated response state and events.
 
 ## Health and metrics
 
@@ -115,7 +117,7 @@ The API obtains a PostgreSQL advisory lock and applies versioned SQL files from 
 
 ## Local verification
 
-Install from lockfiles and run every Phase 8 check:
+Install from lockfiles and run every Phase 9 check:
 
 ```bash
 cd api
@@ -138,7 +140,7 @@ The frontend build may report a chunk-size optimization warning; bundle splittin
 
 ## Important UI behavior
 
-The Approval Queue executes only the allowlisted internal Phase 7 workflow actions described above. Phase 8 automation uses the same boundary. Containment recommendations, playbooks, watchlists, and external-response controls remain review state and do not execute firewall, EDR, identity, email, Elastic, or ticketing actions. Real external response is a Phase 9 concern and requires connector authorization, approval gates, and audited integrations.
+The Approval Queue executes only the allowlisted internal workflow and simulated-response actions described above. The Response Lab is deliberately not a real response connector: it cannot execute firewall, EDR, identity, email, Elastic, or ticketing actions. Any future real connector requires separate authorization, secrets, least-privilege integration design, live verification, and an explicit project phase.
 
 See `docs/phase-0/PHASE_0_AUDIT.md`, `docs/phase-2/PHASE_2_ACCEPTANCE_GATE.md`, and `docs/phase-3/PHASE_3_ACCEPTANCE_GATE.md` for the audited baseline and delivery gates.
 

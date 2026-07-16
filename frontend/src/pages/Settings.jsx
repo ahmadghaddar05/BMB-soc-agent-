@@ -290,7 +290,7 @@ export default function Settings() {
       {/* ── Autonomous internal orchestration ── */}
       <Section title="Autonomous SOC agent">
         <div className="rounded-lg border border-cyan-900/60 bg-cyan-950/20 p-3 text-xs text-cyan-200">
-          Phase 8 creates grounded investigations and timeline notes automatically. Critical-case ownership is proposed through the approval queue. Closure, false-positive decisions, isolation, blocking, and account actions remain unavailable.
+          Phase 9 creates grounded investigations and timeline notes automatically. It can also propose reversible response simulations for critical cases. Every simulated isolation, identity suspension, or IP block requires approval and never changes an external system.
         </div>
         <Row label="Enable autonomous orchestration"
              hint="Runs after collection, enrichment, triage, and correlation in each scheduled cycle">
@@ -311,6 +311,9 @@ export default function Settings() {
         <Row label="Proposed owner" hint="Human queue or analyst proposed for unowned critical cases">
           <input className="input w-64" maxLength="120" {...field('autonomous_default_owner')} />
         </Row>
+        <Row label="Propose response simulations" hint="Creates approval requests for BMB-only simulations; disabled by default and never invokes an external connector">
+          <Toggle {...toggle('simulated_response_proposals_enabled')} />
+        </Row>
         <div className="flex gap-2">
           <button className="btn-primary" disabled={loading}
             onClick={()=>save({
@@ -320,6 +323,7 @@ export default function Settings() {
               autonomous_max_items:s.autonomous_max_items || '20',
               autonomous_assignment_enabled:s.autonomous_assignment_enabled || 'true',
               autonomous_default_owner:s.autonomous_default_owner || 'SOC Analyst',
+              simulated_response_proposals_enabled:s.simulated_response_proposals_enabled || 'false',
             })}>
             <Save className="w-4 h-4"/> Save autonomous policy
           </button>
