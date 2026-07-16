@@ -128,7 +128,10 @@ export default function Dashboard() {
           api('/stats'),
           api('/collector/status'),
           api('/alert-groups?page=1&limit=8').catch(() => ({ groups: [] })),
-          api(`/alerts?page=1&limit=1000&from=${encodeURIComponent(from)}`).catch(() => ({ alerts: [] })),
+          // The alerts API deliberately caps a page at 200 records. Keep the
+          // dashboard request inside that contract so recent activity is not
+          // silently replaced with an empty series after an HTTP 400.
+          api(`/alerts?page=1&limit=200&from=${encodeURIComponent(from)}`).catch(() => ({ alerts: [] })),
         ]);
         if (!active) return;
         setStats(statsData);

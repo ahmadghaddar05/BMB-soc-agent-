@@ -28,6 +28,7 @@ describe('authenticated application flows', () => {
     if (root) await act(async () => root.unmount());
     container.remove();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     window.history.replaceState({}, '', '/');
   });
 
@@ -62,6 +63,31 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Suspicious login');
     expect(calls.some(url => url.includes('/alert-groups?') && url.includes('search=needle'))).toBe(true);
     expect(calls.some(url => url.endsWith('/alerts/alert-1'))).toBe(true);
+  });
+
+  it('loads dashboard activity within the alerts API page-size contract', async () => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    const calls = [];
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      calls.push(url);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/stats')) return jsonResponse({ alerts:{ total:1, grouped_activities:1 }, incidents:{ total:0, open:0 }, recent_runs:[], severity_split:[], top_src_ips:[] });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:false, scheduler_running:false }, latest_run:null });
+      if (url.includes('/alert-groups?')) return jsonResponse({ total:0, groups:[] });
+      if (url.includes('/alerts?')) return jsonResponse({ total:1, alerts:[{ id:'elastic:1', timestamp:new Date().toISOString(), rule_level:12 }] });
+      return jsonResponse({});
+    });
+
+    await renderAt('/dashboard');
+
+    expect(calls.some(url => url.includes('/alerts?page=1&limit=200&from='))).toBe(true);
+    expect(calls.some(url => url.includes('limit=1000'))).toBe(false);
   });
 
   it('updates incident status through the protected API workflow', async () => {
