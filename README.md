@@ -137,3 +137,5 @@ The frontend build may report a chunk-size optimization warning; bundle splittin
 Containment recommendations, alert escalation markers, playbooks, assignments, watchlists, cases, and investigations that are browser-local are labeled as local review state. They do not execute firewall, EDR, identity, email, or ticketing actions. Real response actions require a later server workflow, authorization checks, approval gates, and audited integrations.
 
 See `docs/phase-0/PHASE_0_AUDIT.md`, `docs/phase-2/PHASE_2_ACCEPTANCE_GATE.md`, and `docs/phase-3/PHASE_3_ACCEPTANCE_GATE.md` for the audited baseline and delivery gates.
+
+For a consolidated technical and non-technical explanation of the complete journey from Phase 0 through Phase 4, see `docs/PHASE_0_TO_4_PROJECT_HISTORY.md`.
