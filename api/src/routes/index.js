@@ -2,7 +2,7 @@
 const { Router } = require('express');
 const db = require('../db');
 const scheduler = require('../workers/scheduler');
-const { runCycle, enrichPending, triagePending, retriageAlert } = require('../workers/pipeline');
+const { runCycle, enrichPending, triagePending, retriageAlert, correlatePending } = require('../workers/pipeline');
 const { chatHermes } = require('../services/hermes');
 const { HermesError, publicHermesError } = require('../services/hermes/errors');
 const { runtimeConfig } = require('../config');
@@ -63,14 +63,14 @@ function positiveRecordId(value, name) {
 
 const SETTING_KEYS = new Set([
   'scheduler_enabled','interval_minutes','lookback_minutes','min_level','limit',
-  'llm_provider','groq_model','ollama_model','triage_mode','triage_enabled',
+  'triage_mode','triage_enabled',
   'autoclose_enabled','autoclose_confidence','autoclose_max_severity','autoclose_verdicts',
   'correlation_enabled','correlation_lookback_hours','correlation_max_alerts',
   'correlation_new_alerts_per_cycle','correlation_initial_alerts',
   'correlation_context_pool','correlation_entity_window_hours','correlation_token_budget',
   'caching_enabled','triage_cache_ttl_hours','triage_token_budget',
   'agentic_max_iterations','hybrid_agentic_min_rule_level',
-  'hybrid_agentic_confidence_below','anthropic_model',
+  'hybrid_agentic_confidence_below',
   'incident_promote_enabled','incident_promote_verdicts','incident_promote_min_severity',
 ]);
 
@@ -101,7 +101,6 @@ function validateSetting(key, value) {
     const [min,max] = INTEGER_SETTING_LIMITS[key];
     if (!Number.isInteger(number) || number < min || number > max) return `${key} must be an integer between ${min} and ${max}`;
   }
-  if (key === 'llm_provider' && !['groq','anthropic','ollama'].includes(text)) return 'llm_provider is unsupported';
   if (key === 'triage_mode' && !['pipeline','agentic','hybrid'].includes(text)) return 'triage_mode is unsupported';
   if (key === 'autoclose_max_severity' && !SEVERITIES.has(text)) return 'autoclose_max_severity is unsupported';
   if (key === 'incident_promote_min_severity' && !SEVERITIES.has(text)) return 'incident_promote_min_severity is unsupported';
@@ -109,9 +108,8 @@ function validateSetting(key, value) {
     const number = Number(text);
     if (!Number.isFinite(number) || number < 0 || number > 1) return `${key} must be between 0 and 1`;
   }
-  if (key === 'autoclose_enabled' && text !== 'false') return 'automatic closure remains disabled in Phase 4';
-  if (key === 'correlation_enabled' && text !== 'false') return 'correlation is disabled until Phase 5';
-  if (key === 'incident_promote_enabled' && text !== 'false') return 'incident promotion is disabled until Phase 5';
+  if (key === 'autoclose_enabled' && text !== 'false') return 'automatic closure remains disabled';
+  if (key === 'incident_promote_enabled' && text !== 'false') return 'automatic singleton promotion remains disabled';
   return null;
 }
 
@@ -381,13 +379,22 @@ r.post('/scheduler/triage-pending', async (req, res) => {
   }
 });
 
-r.post('/scheduler/correlate-now', async (_, res) => {
-  res.status(409).json({
-    error: {
-      code: 'CORRELATION_PHASE5_REQUIRED',
-      message: 'Correlation is disabled until its Hermes migration in Phase 5',
-    },
-  });
+r.post('/scheduler/correlate-now', async (req, res) => {
+  try {
+    const settings = await db.getAllSettings();
+    res.json(await correlatePending(settings, null, {
+      actor: req.user?.username || 'system:manual-correlation',
+      requestId: req.id,
+    }));
+  } catch (error) {
+    res.status(error.status || 502).json({
+      error: {
+        code: error.code || 'HERMES_CORRELATION_FAILED',
+        message: error.message || 'Hermes correlation failed',
+        request_id: req.id,
+      },
+    });
+  }
 });
 
 // ────────────────────────────────────────────────────────────────────────────

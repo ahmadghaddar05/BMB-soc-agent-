@@ -46,6 +46,7 @@ function runtimeConfig(env = process.env) {
     hermesAnalystTimeoutMs: boundedInt(env.HERMES_ANALYST_TIMEOUT_MS, 240000, 10000, 600000),
     hermesTriageMaxToolCalls: boundedInt(env.HERMES_TRIAGE_MAX_TOOL_CALLS, 3, 1, 4),
     hermesTriageTimeoutMs: boundedInt(env.HERMES_TRIAGE_TIMEOUT_MS, 180000, 10000, 600000),
+    hermesCorrelationTimeoutMs: boundedInt(env.HERMES_CORRELATION_TIMEOUT_MS, 180000, 10000, 600000),
     hermesToolTimeoutMs: boundedInt(env.HERMES_TOOL_TIMEOUT_MS, 10000, 1000, 60000),
     hermesToolResultMaxBytes: boundedInt(env.HERMES_TOOL_RESULT_MAX_BYTES, 65536, 4096, 262144),
     hermesStrictCapabilities: bool(env.HERMES_STRICT_CAPABILITIES, true),

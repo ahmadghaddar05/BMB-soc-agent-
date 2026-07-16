@@ -56,6 +56,15 @@ test('Phase 4 migration binds cache provenance and keeps unsafe automation disab
   assert.match(sql, /autoclose_enabled','correlation_enabled','incident_promote_enabled/);
 });
 
+test('Phase 5 migration links incidents to Hermes runs and removes legacy provider settings', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/005_hermes_correlation.sql'), 'utf8');
+  assert.match(sql, /incidents ADD COLUMN IF NOT EXISTS correlation_run_id/);
+  assert.match(sql, /incidents_correlation_run_fk/);
+  assert.match(sql, /idx_incidents_correlation_run_id/);
+  assert.match(sql, /llm_provider','groq_model','anthropic_model','ollama_model/);
+  assert.match(sql, /WHERE key='correlation_enabled'/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

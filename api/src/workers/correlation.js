@@ -1,7 +1,9 @@
 'use strict';
+
 const crypto = require('crypto');
 const db = require('../db');
-const { correlateAlerts } = require('../services/llm');
+const { correlateHermes } = require('../services/hermes/correlation');
+const { HermesError } = require('../services/hermes/errors');
 
 const SEV_ORDER = { informational: 0, low: 1, medium: 2, high: 3, critical: 4 };
 
@@ -9,108 +11,115 @@ function maxSeverity(a, b) {
   return (SEV_ORDER[a] || 0) >= (SEV_ORDER[b] || 0) ? (a || 'medium') : (b || 'medium');
 }
 
-// Deterministic key from the member alert set — lets us detect the same
-// incident across runs even though the LLM is non-deterministic.
 function incidentKey(ids) {
   return crypto.createHash('sha256')
-    .update([...ids].sort().join('|'))
+    .update(`hermes-correlation-v1|${[...ids].map(String).sort().join('|')}`)
     .digest('hex')
     .slice(0, 32);
 }
 
-// Upsert one incident. If an OPEN incident already shares any alert id, merge
-// into it (union the members) instead of creating a near-duplicate. We never
-// silently reopen incidents an analyst has closed/marked false-positive — new
-// related activity against a closed incident becomes a fresh incident.
-async function upsertIncident(inc, firstSeen, lastSeen, runId, incidentType = 'correlation') {
+async function upsertIncident(inc, firstSeen, lastSeen, fetchRunId, correlationRunId, identityAlertIds = inc.alert_ids) {
   const existing = await db.query(
     `SELECT * FROM incidents
-     WHERE status = 'open' AND alert_ids && $1::text[]
-     ORDER BY id ASC LIMIT 1`,
+     WHERE status='open' AND alert_ids && $1::text[]
+     ORDER BY id ASC`,
     [inc.alert_ids]
   );
 
-  if (existing.rows.length) {
-    const cur        = existing.rows[0];
-    const mergedIds  = [...new Set([...(cur.alert_ids || []), ...inc.alert_ids])];
-    const mergedStgs = [...new Set([...(cur.attack_stages || []), ...inc.attack_stages])];
-    const severity   = maxSeverity(cur.severity, inc.severity);
-    // If a correlation incident now absorbs a previously-promoted single alert,
-    // it graduates to a 'correlation' incident.
-    const newType    = (cur.incident_type === 'correlation' || incidentType === 'correlation') ? 'correlation' : cur.incident_type;
-
-    await db.query(
-      `UPDATE incidents
-       SET alert_ids=$1, attack_stages=$2, severity=$3, confidence=$4,
-           title=$5, narrative=$6, recommended_actions=$7, common_entities=$8,
-           last_seen=GREATEST(COALESCE(last_seen, $9), $9),
-           first_seen=LEAST(COALESCE(first_seen, $10), $10),
-           incident_key=$11, incident_type=$12, updated_at=NOW()
-       WHERE id=$13`,
-      [mergedIds, mergedStgs, severity, inc.confidence,
-       inc.title, inc.narrative, inc.recommended_actions, inc.common_entities,
-       lastSeen, firstSeen, incidentKey(mergedIds), newType, cur.id]
+  if (existing.rows.length > 1) {
+    throw new HermesError(
+      'CORRELATION_AMBIGUOUS_OVERLAP',
+      'The proposed group overlaps multiple open incidents and requires analyst reconciliation',
+      { status: 409, details: existing.rows.map(row => row.id).slice(0, 8) }
     );
-    return 'updated';
   }
 
-  // No open overlap → insert new. ON CONFLICT handles the case where this exact
-  // member-set was seen before. (xmax = 0) is true only for a fresh INSERT.
-  const r = await db.query(
-    `INSERT INTO incidents
-       (incident_key, title, severity, confidence, attack_stages,
-        common_entities, alert_ids, narrative, recommended_actions,
-        first_seen, last_seen, status, fetch_run_id, incident_type)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'open',$12,$13)
+  if (existing.rows.length === 1) {
+    const current = existing.rows[0];
+    const mergedIds = [...new Set([...(current.alert_ids || []), ...inc.alert_ids])];
+    const mergedStages = [...new Set([...(current.attack_stages || []), ...inc.attack_stages])];
+    const membershipChanged = mergedIds.length !== (current.alert_ids || []).length;
+    await db.query(
+      `UPDATE incidents
+       SET alert_ids=$1,attack_stages=$2,severity=$3,confidence=$4,
+           title=$5,narrative=$6,recommended_actions=$7,common_entities=$8,
+           last_seen=GREATEST(COALESCE(last_seen,$9),$9),
+           first_seen=LEAST(COALESCE(first_seen,$10),$10),
+           incident_type='correlation',correlation_run_id=$11,updated_at=NOW()
+       WHERE id=$12`,
+      [
+        mergedIds, mergedStages, maxSeverity(current.severity, inc.severity),
+        membershipChanged ? inc.confidence : current.confidence,
+        membershipChanged ? inc.title : current.title,
+        membershipChanged ? inc.narrative : current.narrative,
+        membershipChanged ? inc.recommended_actions : current.recommended_actions,
+        membershipChanged ? inc.common_entities : current.common_entities,
+        lastSeen, firstSeen, correlationRunId, current.id,
+      ]
+    );
+    return { status: membershipChanged ? 'updated' : 'unchanged', id: current.id };
+  }
+
+  const key = incidentKey(identityAlertIds.length ? identityAlertIds : inc.alert_ids);
+  const historical = await db.query('SELECT id,status FROM incidents WHERE incident_key=$1', [key]);
+  if (historical.rows.length && historical.rows[0].status !== 'open') {
+    return { status: 'preserved', id: historical.rows[0].id };
+  }
+
+  const result = await db.query(
+    `INSERT INTO incidents(
+       incident_key,title,severity,confidence,attack_stages,common_entities,
+       alert_ids,narrative,recommended_actions,first_seen,last_seen,status,
+       fetch_run_id,incident_type,correlation_run_id
+     ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'open',$12,'correlation',$13)
      ON CONFLICT (incident_key) DO UPDATE SET
-        title=EXCLUDED.title, severity=EXCLUDED.severity, confidence=EXCLUDED.confidence,
-        attack_stages=EXCLUDED.attack_stages, common_entities=EXCLUDED.common_entities,
-        narrative=EXCLUDED.narrative, recommended_actions=EXCLUDED.recommended_actions,
-        last_seen=GREATEST(incidents.last_seen, EXCLUDED.last_seen), updated_at=NOW()
-     RETURNING (xmax = 0) AS inserted`,
-    [incidentKey(inc.alert_ids), inc.title, inc.severity, inc.confidence,
-     inc.attack_stages, inc.common_entities, inc.alert_ids, inc.narrative,
-     inc.recommended_actions, firstSeen, lastSeen, runId || null, incidentType]
+       severity=CASE WHEN incidents.status='open' THEN EXCLUDED.severity ELSE incidents.severity END,
+       last_seen=CASE WHEN incidents.status='open' THEN GREATEST(incidents.last_seen,EXCLUDED.last_seen) ELSE incidents.last_seen END,
+       correlation_run_id=CASE WHEN incidents.status='open' THEN EXCLUDED.correlation_run_id ELSE incidents.correlation_run_id END,
+       updated_at=CASE WHEN incidents.status='open' THEN NOW() ELSE incidents.updated_at END
+     RETURNING id,(xmax=0) AS inserted,status`,
+    [
+      key, inc.title, inc.severity, inc.confidence, inc.attack_stages,
+      inc.common_entities, inc.alert_ids, inc.narrative, inc.recommended_actions,
+      firstSeen, lastSeen, fetchRunId || null, correlationRunId,
+    ]
   );
-  return r.rows[0].inserted ? 'created' : 'updated';
+  return { status: result.rows[0].inserted ? 'created' : 'unchanged', id: result.rows[0].id };
 }
 
-// Pull all triaged alerts from the last N hours and ask the LLM to correlate.
 function boundedInt(value, fallback, min, max) {
-  const n = parseInt(value, 10);
-  return Math.min(max, Math.max(min, Number.isFinite(n) ? n : fallback));
+  const number = parseInt(value, 10);
+  return Math.min(max, Math.max(min, Number.isFinite(number) ? number : fallback));
 }
 
 function meaningful(value) {
-  const v = String(value || '').trim().toLowerCase();
-  return v && !['unknown','n/a','na','none','null','-'].includes(v) ? v : null;
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized && !['unknown', 'n/a', 'na', 'none', 'null', '-'].includes(normalized)
+    ? normalized : null;
 }
 
 function relationScore(a, b) {
   let score = 0;
-  const direct = ['username','hostname','process','target_db'];
-  for (const key of direct) {
-    const av = meaningful(a[key]);
-    const bv = meaningful(b[key]);
-    if (av && av === bv) score += key === 'process' ? 1 : 2;
+  for (const key of ['username', 'hostname', 'process', 'target_db']) {
+    const left = meaningful(a[key]);
+    const right = meaningful(b[key]);
+    if (left && left === right) score += key === 'process' ? 1 : 2;
   }
-  const aIps = new Set([meaningful(a.src_ip), meaningful(a.dst_ip)].filter(Boolean));
-  const bIps = [meaningful(b.src_ip), meaningful(b.dst_ip)].filter(Boolean);
-  if (bIps.some(ip => aIps.has(ip))) score += 2;
+  const leftIps = new Set([meaningful(a.src_ip), meaningful(a.dst_ip)].filter(Boolean));
+  if ([meaningful(b.src_ip), meaningful(b.dst_ip)].filter(Boolean).some(ip => leftIps.has(ip))) score += 2;
   return score;
 }
 
 function withinHours(a, b, hours) {
-  const at = new Date(a.timestamp).getTime();
-  const bt = new Date(b.timestamp).getTime();
-  return Number.isFinite(at) && Number.isFinite(bt) &&
-    Math.abs(at - bt) <= hours * 60 * 60 * 1000;
+  const left = new Date(a.timestamp).getTime();
+  const right = new Date(b.timestamp).getTime();
+  return Number.isFinite(left) && Number.isFinite(right) && Math.abs(left - right) <= hours * 3600000;
 }
 
-// Incremental correlation: process each newly triaged alert once, then add only
-// recent alerts that share a meaningful entity. This avoids resending the same
-// 24-hour batch to the LLM on every scheduler cycle.
-async function correlatePending(settings = {}, runId = null) {
+async function correlatePending(settings = {}, fetchRunId = null, {
+  actor = 'system:scheduler', requestId = crypto.randomUUID(), signal,
+  correlate = correlateHermes,
+} = {}) {
   const hours = boundedInt(settings.correlation_lookback_hours, 24, 1, 168);
   const cap = boundedInt(settings.correlation_max_alerts, 40, 2, 80);
   const newCap = boundedInt(settings.correlation_new_alerts_per_cycle, 20, 1, 50);
@@ -118,196 +127,149 @@ async function correlatePending(settings = {}, runId = null) {
   const contextPoolCap = boundedInt(settings.correlation_context_pool, 100, 10, 300);
   const entityWindowHours = boundedInt(settings.correlation_entity_window_hours, 6, 1, 48);
   const tokenBudget = boundedInt(settings.correlation_token_budget, 20000, 6000, 100000);
+  const budgetCandidateCap = Math.max(2, Math.floor((tokenBudget - 3000) / 220));
+  const effectiveCap = Math.min(cap, budgetCandidateCap);
 
   let cursor = null;
   try {
     const parsed = JSON.parse(settings.correlation_cursor_json || 'null');
-    if (Array.isArray(parsed) && parsed.length === 2 &&
-        Number.isFinite(new Date(parsed[0]).getTime())) {
+    if (Array.isArray(parsed) && parsed.length === 2 && Number.isFinite(new Date(parsed[0]).getTime())) {
       cursor = [new Date(parsed[0]).toISOString(), String(parsed[1] || '')];
     }
-  } catch {
-    cursor = null;
-  }
-  // Backward-compatible migration from the earlier timestamp-only cursor.
+  } catch { cursor = null; }
   if (!cursor && settings.correlation_cursor_at) {
     const legacy = new Date(settings.correlation_cursor_at);
     if (Number.isFinite(legacy.getTime())) cursor = [legacy.toISOString(), ''];
   }
-  const hasCursor = !!cursor;
 
   const columns = `
-    id, timestamp, triaged_at, rule_id, rule_level, rule_desc,
-    src_ip, dst_ip, username, hostname, target_db, process, verdict
+    id,timestamp,triaged_at,rule_id,rule_level,rule_desc,source_severity,
+    src_ip,dst_ip,username,hostname,target_db,process,mitre_tactics,verdict
   `;
-
-  const fresh = hasCursor
+  const fresh = cursor
     ? await db.query(
-        `SELECT ${columns}
-         FROM alerts
-         WHERE triage_status='triaged' AND auto_closed=false
-           AND (COALESCE(triaged_at, timestamp), id) > ($1::timestamptz, $2::text)
-         ORDER BY COALESCE(triaged_at, timestamp) ASC, id ASC
-         LIMIT $3`,
-        [cursor[0], cursor[1], newCap]
-      )
+      `SELECT ${columns} FROM alerts
+       WHERE triage_status='triaged' AND auto_closed=false
+         AND (COALESCE(triaged_at,timestamp),id)>($1::timestamptz,$2::text)
+       ORDER BY COALESCE(triaged_at,timestamp) ASC,id ASC LIMIT $3`,
+      [cursor[0], cursor[1], Math.min(newCap, Math.max(1, effectiveCap - 1))]
+    )
     : await db.query(
-        `SELECT ${columns}
-         FROM alerts
-         WHERE triage_status='triaged' AND auto_closed=false
-           AND timestamp >= NOW() - ($1 || ' hours')::interval
-         ORDER BY COALESCE(triaged_at, timestamp) ASC, id ASC
-         LIMIT $2`,
-        [String(hours), initialCap]
-      );
+      `SELECT ${columns} FROM alerts
+       WHERE triage_status='triaged' AND auto_closed=false
+         AND timestamp>=NOW()-($1 || ' hours')::interval
+       ORDER BY COALESCE(triaged_at,timestamp) ASC,id ASC LIMIT $2`,
+      [String(hours), Math.min(initialCap, effectiveCap)]
+    );
 
   const newRows = fresh.rows;
   if (!newRows.length) {
     return {
-      incidents_created: 0, incidents_updated: 0, considered: 0,
-      new_alerts: 0, llm_calls: 0, llm_tokens: 0, skipped_reason: 'no_new_triaged_alerts',
+      incidents_created: 0, incidents_updated: 0, incidents_unchanged: 0,
+      considered: 0, new_alerts: 0, llm_calls: 0, llm_tokens: 0,
+      skipped_reason: 'no_new_triaged_alerts',
     };
   }
 
-  const lastFresh = newRows[newRows.length - 1];
-  const nextCursor = [
-    new Date(lastFresh.triaged_at || lastFresh.timestamp).toISOString(),
-    String(lastFresh.id),
-  ];
-  const newIds = newRows.map(row => row.id);
-
+  const newIds = newRows.map(row => String(row.id));
   const pool = await db.query(
-    `SELECT ${columns}
-     FROM alerts
+    `SELECT ${columns} FROM alerts
      WHERE triage_status='triaged' AND auto_closed=false
-       AND timestamp >= NOW() - ($1 || ' hours')::interval
-       AND NOT (id = ANY($2::text[]))
-     ORDER BY rule_level DESC, timestamp DESC
-     LIMIT $3`,
+       AND timestamp>=NOW()-($1 || ' hours')::interval
+       AND NOT (id=ANY($2::text[]))
+     ORDER BY rule_level DESC,timestamp DESC LIMIT $3`,
     [String(hours), newIds, contextPoolCap]
   );
-
-  const relatedContext = pool.rows.filter(candidate =>
-    newRows.some(freshAlert =>
-      relationScore(freshAlert, candidate) > 0 &&
-      withinHours(freshAlert, candidate, entityWindowHours)
-    )
-  );
-
-  // Reserve prompt/output headroom. In practice compact alerts are usually
-  // below 220 tokens each; this keeps a single correlation request bounded.
-  const budgetCandidateCap = Math.max(2, Math.floor((tokenBudget - 3000) / 220));
-  const effectiveCap = Math.min(cap, budgetCandidateCap);
+  const relatedContext = pool.rows.filter(candidate => newRows.some(freshAlert =>
+    relationScore(freshAlert, candidate) > 0 && withinHours(freshAlert, candidate, entityWindowHours)
+  ));
   const candidates = [...newRows, ...relatedContext]
-    .filter((row, index, all) => all.findIndex(x => x.id === row.id) === index)
+    .filter((row, index, all) => all.findIndex(item => item.id === row.id) === index)
     .slice(0, effectiveCap);
+  // The configured candidate/token cap may be lower than the fresh-query cap.
+  // Advance only through fresh alerts actually supplied to Hermes so no alert
+  // can be skipped by a small runtime limit.
+  const candidateIds = new Set(candidates.map(row => String(row.id)));
+  const includedFresh = newRows.filter(row => candidateIds.has(String(row.id)));
+  const lastFresh = includedFresh.at(-1);
+  const nextCursor = [
+    new Date(lastFresh.triaged_at || lastFresh.timestamp).toISOString(), String(lastFresh.id),
+  ];
+  const includedFreshIds = includedFresh.map(row => String(row.id));
 
-  let hasPlausiblePair = false;
-  for (let i = 0; i < candidates.length && !hasPlausiblePair; i++) {
-    for (let j = i + 1; j < candidates.length; j++) {
-      if (relationScore(candidates[i], candidates[j]) > 0 &&
-          withinHours(candidates[i], candidates[j], entityWindowHours)) {
-        hasPlausiblePair = true;
-        break;
-      }
-    }
-  }
-
+  const hasPlausiblePair = candidates.some((left, leftIndex) => candidates.some((right, rightIndex) =>
+    rightIndex > leftIndex && relationScore(left, right) > 0 && withinHours(left, right, entityWindowHours)
+  ));
   if (!hasPlausiblePair) {
     await db.setSetting('correlation_cursor_json', JSON.stringify(nextCursor));
     return {
-      incidents_created: 0, incidents_updated: 0, considered: candidates.length,
-      new_alerts: newRows.length, llm_calls: 0, llm_tokens: 0,
-      skipped_reason: 'no_plausible_entity_links',
+      incidents_created: 0, incidents_updated: 0, incidents_unchanged: 0,
+      considered: candidates.length, new_alerts: includedFresh.length,
+      llm_calls: 0, llm_tokens: 0, skipped_reason: 'no_plausible_entity_links',
     };
   }
 
-  const tsById = Object.fromEntries(candidates.map(r => [r.id, r.timestamp]));
-  const { incidents, usage } = await correlateAlerts(candidates, settings);
+  const timestamps = Object.fromEntries(candidates.map(row => [String(row.id), row.timestamp]));
+  const freshSet = new Set(includedFreshIds);
+  const result = await correlate(candidates, includedFreshIds, settings, {
+    actor, requestId, signal,
+    persist: async (incidents, correlationRunId) => {
+      let created = 0;
+      let updated = 0;
+      let unchanged = 0;
+      const incidentIds = [];
+      const targetIds = new Set();
+      // Resolve every existing target before writing. This prevents two model
+      // groups from silently rewriting the same open incident in one run.
+      for (const incident of incidents) {
+        const targets = await db.query(
+          `SELECT id FROM incidents
+           WHERE status='open' AND alert_ids && $1::text[] ORDER BY id ASC`,
+          [incident.alert_ids]
+        );
+        if (targets.rows.length > 1 || (targets.rows[0] && targetIds.has(String(targets.rows[0].id)))) {
+          throw new HermesError(
+            'CORRELATION_AMBIGUOUS_OVERLAP',
+            'Correlation groups overlap ambiguous open incident state and require analyst reconciliation',
+            { status: 409, details: targets.rows.map(row => row.id).slice(0, 8) }
+          );
+        }
+        if (targets.rows[0]) targetIds.add(String(targets.rows[0].id));
+      }
+      for (const incident of incidents) {
+        const times = incident.alert_ids.map(id => new Date(timestamps[String(id)]));
+        const firstSeen = new Date(Math.min(...times)).toISOString();
+        const lastSeen = new Date(Math.max(...times)).toISOString();
+        const identityAlertIds = incident.alert_ids.filter(id => freshSet.has(String(id)));
+        const persisted = await upsertIncident(
+          incident, firstSeen, lastSeen, fetchRunId, correlationRunId, identityAlertIds
+        );
+        incidentIds.push(persisted.id);
+        if (persisted.status === 'created') created += 1;
+        else if (persisted.status === 'updated') updated += 1;
+        else unchanged += 1;
+      }
+      return { created, updated, unchanged, incidentIds };
+    },
+  });
 
-  let created = 0, updated = 0;
-  const failures = [];
-  for (const inc of incidents) {
-    const times = inc.alert_ids.map(id => tsById[id]).filter(Boolean).map(t => new Date(t));
-    const firstSeen = times.length ? new Date(Math.min(...times)).toISOString() : new Date().toISOString();
-    const lastSeen = times.length ? new Date(Math.max(...times)).toISOString() : firstSeen;
-    try {
-      const result = await upsertIncident(inc, firstSeen, lastSeen, runId);
-      if (result === 'created') created++; else updated++;
-    } catch (err) {
-      failures.push(`${inc.title || 'incident'}: ${err.message || String(err)}`);
-    }
-  }
-
-  // Cursor advances only after the model response and every database write
-  // succeed. Retrying is safe because incident upserts are idempotent.
-  if (failures.length) {
-    throw new Error(`Correlation persistence failed; cursor retained: ${failures.join('; ').slice(0, 400)}`);
-  }
   await db.setSetting('correlation_cursor_json', JSON.stringify(nextCursor));
-
-  const llmTokens = parseInt(usage?.total_tokens || 0, 10) || 0;
   console.log(
     `[correlate] new=${newRows.length} context=${relatedContext.length} ` +
-    `considered=${candidates.length} created=${created} updated=${updated} tokens=${llmTokens}`
+    `considered=${candidates.length} created=${result.created} updated=${result.updated} tokens=${result.total_tokens}`
   );
   return {
-    incidents_created: created, incidents_updated: updated,
-    considered: candidates.length, new_alerts: newRows.length,
-    llm_calls: 1, llm_tokens: llmTokens, token_budget: tokenBudget,
+    incidents_created: result.created, incidents_updated: result.updated,
+    incidents_unchanged: result.unchanged, considered: candidates.length,
+    new_alerts: includedFresh.length, llm_calls: 1, llm_tokens: result.total_tokens || 0,
+    prompt_tokens: result.prompt_tokens || 0,
+    completion_tokens: result.completion_tokens || 0,
+    correlation_run_id: result.run_id, hermes_run_id: result.hermes_run_id,
+    token_budget: tokenBudget,
   };
 }
 
-// Promote significant standalone alerts to single-alert incidents so the
-// Incidents page works as a triage queue, not just a correlation output. Only
-// alerts NOT already part of an open incident are promoted, gated by verdict
-// and severity thresholds. These are tagged incident_type='triage'.
-async function promoteSingletons(settings = {}, runId = null) {
-  const verdicts = (settings.incident_promote_verdicts || 'true_positive,needs_investigation')
-    .split(',').map(s => s.trim()).filter(Boolean);
-  const minSev = settings.incident_promote_min_severity || 'high';
-  const hours  = parseInt(settings.correlation_lookback_hours || 24);
-  const order  = ['informational','low','medium','high','critical'];
-  const allowedSev = order.slice(order.indexOf(minSev) >= 0 ? order.indexOf(minSev) : 3);
-
-  const { rows } = await db.query(
-    `SELECT id, timestamp, rule_desc, verdict, mitre_tactics
-     FROM alerts
-     WHERE triage_status='triaged' AND auto_closed=false
-       AND verdict->>'verdict' = ANY($1)
-       AND verdict->>'severity' = ANY($2)
-       AND timestamp >= NOW() - ($3 || ' hours')::interval
-       AND NOT EXISTS (
-         SELECT 1 FROM incidents i WHERE i.status='open' AND alerts.id = ANY(i.alert_ids)
-       )
-     ORDER BY timestamp DESC LIMIT 200`,
-    [verdicts, allowedSev, String(hours)]
-  );
-
-  let created = 0;
-  for (const a of rows) {
-    const v = a.verdict || {};
-    const stages = [...new Set([...(a.mitre_tactics || []), v.attack_stage].filter(Boolean))];
-    const inc = {
-      alert_ids: [a.id],
-      title: (a.rule_desc || 'Alert').slice(0, 200),
-      severity: v.severity || 'medium',
-      confidence: typeof v.confidence === 'number' ? v.confidence : 0.5,
-      attack_stages: stages,
-      common_entities: {},
-      narrative: v.narrative || '',
-      recommended_actions: Array.isArray(v.recommended_actions) ? v.recommended_actions : [],
-    };
-    try {
-      const ts = new Date(a.timestamp).toISOString();
-      const res = await upsertIncident(inc, ts, ts, runId, 'triage');
-      if (res === 'created') created++;
-    } catch (err) {
-      console.error('[promote] failed for alert', a.id, ':', err.message || String(err));
-    }
-  }
-  if (created) console.log(`[promote] created ${created} single-alert incident(s)`);
-  return { promoted: created };
-}
-
-module.exports = { correlatePending, promoteSingletons, incidentKey };
+module.exports = {
+  correlatePending, incidentKey, maxSeverity, meaningful,
+  relationScore, upsertIncident, withinHours,
+};

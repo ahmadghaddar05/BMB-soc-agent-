@@ -70,15 +70,7 @@ services:
       WAZUH_INDEXER_PASS: ${WAZUH_INDEXER_PASS:-}
       WAZUH_VERIFY_TLS: ${WAZUH_VERIFY_TLS:-false}
       WAZUH_INDEX: ${WAZUH_INDEX:-wazuh-alerts-*}
-      # Legacy provider settings retained only for the disconnected Phase 5 correlation migration
-      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
-      # Hermes AI Analyst and triage (API key remains backend-only; no legacy fallback)
+      # Hermes AI analyst, triage, and correlation (backend-only; no fallback)
       HERMES_REQUIRED: ${HERMES_REQUIRED:-true}
       HERMES_API_URL: ${HERMES_API_URL:-http://host.docker.internal:8642/v1}
       HERMES_API_KEY: ${HERMES_API_KEY:-}
@@ -92,6 +84,7 @@ services:
       HERMES_ANALYST_TIMEOUT_MS: ${HERMES_ANALYST_TIMEOUT_MS:-240000}
       HERMES_TRIAGE_MAX_TOOL_CALLS: ${HERMES_TRIAGE_MAX_TOOL_CALLS:-3}
       HERMES_TRIAGE_TIMEOUT_MS: ${HERMES_TRIAGE_TIMEOUT_MS:-180000}
+      HERMES_CORRELATION_TIMEOUT_MS: ${HERMES_CORRELATION_TIMEOUT_MS:-180000}
       HERMES_TOOL_TIMEOUT_MS: ${HERMES_TOOL_TIMEOUT_MS:-10000}
       HERMES_TOOL_RESULT_MAX_BYTES: ${HERMES_TOOL_RESULT_MAX_BYTES:-65536}
       HERMES_STRICT_CAPABILITIES: ${HERMES_STRICT_CAPABILITIES:-true}

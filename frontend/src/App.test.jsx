@@ -115,6 +115,46 @@ describe('authenticated application flows', () => {
     expect(patch.options.headers['X-CSRF-Token']).toBe('csrf-token');
   });
 
+  it('exposes the bounded Hermes correlation policy and saves it independently', async () => {
+    const requests = [];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/settings') && (options.method || 'GET') === 'PUT') {
+        return jsonResponse({ ok:true, settings:JSON.parse(options.body) });
+      }
+      if (url.endsWith('/settings')) return jsonResponse({
+        settings:{
+          correlation_enabled:'false', correlation_lookback_hours:'24',
+          correlation_entity_window_hours:'6', correlation_max_alerts:'40',
+          correlation_token_budget:'20000', triage_enabled:'false', caching_enabled:'true',
+        },
+        stats:{ total:0, enriched:0, enrichment_failed:0, enrich_pending:0, triaged:0, triage_failed:0, auto_closed:0 },
+      });
+      if (url.endsWith('/scheduler/status')) return jsonResponse({ running:false, recent_runs:[] });
+      return jsonResponse({});
+    });
+
+    await renderAt('/settings');
+    const heading = [...document.querySelectorAll('h3')].find(node => node.textContent.includes('Hermes correlation'));
+    expect(heading).toBeTruthy();
+    const section = heading.parentElement;
+    const toggle = section.querySelector('button');
+    await act(async () => toggle.click());
+    const save = [...section.querySelectorAll('button')].find(button => button.textContent.includes('Save correlation policy'));
+    await act(async () => save.click());
+    await settle();
+
+    const put = requests.find(item => item.url.endsWith('/settings') && item.options.method === 'PUT');
+    expect(JSON.parse(put.options.body)).toMatchObject({
+      correlation_enabled:'true', correlation_lookback_hours:'24',
+      correlation_entity_window_hours:'6', correlation_max_alerts:'40',
+      correlation_token_budget:'20000',
+    });
+  });
+
   it('surfaces API failure states to the analyst', async () => {
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);

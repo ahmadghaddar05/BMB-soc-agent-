@@ -2,7 +2,7 @@
 
 BMB SOC Agent is a containerized security-operations workspace for collecting alerts, enriching evidence, triaging activity, correlating incidents, and assisting analysts.
 
-Phase 4 provides a grounded Hermes analyst and Hermes-only automated triage through application-owned, bounded, read-only SOC tools. Chat and triage fail closed when Hermes is missing, incompatible, unsafe, or requests a tool outside the allowlist. Triage remains disabled by default pending live acceptance. Automatic closure and Phase 5 correlation are hard-disabled.
+Phase 5 provides a grounded Hermes analyst plus Hermes-only triage and incident correlation. Correlation keeps deterministic candidate, entity, time, and alert-ID guards in the application; Hermes cannot access host tools or write incidents directly. Triage and scheduled correlation remain disabled by default pending live acceptance. Automatic closure and singleton incident promotion remain hard-disabled.
 
 ## Services
 
@@ -55,7 +55,7 @@ For a controlled development environment only, `ELASTIC_VERIFY_TLS=false` skips 
 
 Set `ALERT_SOURCE=wazuh`. For deterministic mock data keep `WAZUH_MODE=mock`. For a real indexer set `WAZUH_MODE=real`, `WAZUH_INDEXER_URL`, `WAZUH_INDEXER_USER`, and `WAZUH_INDEXER_PASS`. Set `WAZUH_VERIFY_TLS=true` when the indexer certificate is trusted.
 
-## Hermes Phase 4 grounded analyst and triage setup
+## Hermes grounded analyst, triage, and correlation setup
 
 Run Hermes on the Docker server, not on the analyst laptop. In the dedicated Hermes profile, set `API_SERVER_ENABLED=true`, `API_SERVER_HOST=0.0.0.0`, `API_SERVER_PORT=8642`, and a strong `API_SERVER_KEY`, then start `hermes gateway`. Keep port 8642 blocked from untrusted networks; only the local Docker host needs it. The SOC API calls `http://host.docker.internal:8642/v1` server-to-server, so browser CORS is not needed.
 
@@ -67,7 +67,7 @@ curl -s http://127.0.0.1:8642/v1/models -H "Authorization: Bearer $API_SERVER_KE
 curl -s http://127.0.0.1:8642/v1/toolsets -H "Authorization: Bearer $API_SERVER_KEY"
 ```
 
-Set the BMB `HERMES_API_KEY` to that same secret. The API performs all three checks before each cached capability window, verifies the configured model, and rejects unsafe advertised tools. Chat and triage use Hermes `/v1/runs`, poll status, call `/stop` on cancellation/timeout, and run bounded structured loops around these BMB-owned tools:
+Set the BMB `HERMES_API_KEY` to that same secret. The API performs all three checks before each cached capability window, verifies the configured model, and rejects unsafe advertised tools. Chat, triage, and correlation use Hermes `/v1/runs`, poll status, and call `/stop` on cancellation or timeout. Chat and agentic triage use bounded structured loops around these BMB-owned tools:
 
 - SOC summary and recent collection runs
 - Alert search and alert detail, including untriaged collected alerts
@@ -80,11 +80,11 @@ Every argument passes a strict JSON schema. Queries are parameterized and result
 
 The UI uses `POST /api/chat/stream` for bounded progress events and final output. `POST /api/chat` remains available for trusted API clients that need a single JSON response. Browser cancellation propagates through the BMB tool loop to Hermes `/stop`.
 
-`GET /api/health/dependencies` reports Hermes reachability, model/capabilities, host toolsets, safe-profile state, and the BMB application tool count. `HERMES_REQUIRED=true` makes the production container reject missing credentials at startup. There is no Groq, Anthropic, or Ollama fallback for chat or triage.
+`GET /api/health/dependencies` reports Hermes reachability, model/capabilities, host toolsets, safe-profile state, and the BMB application tool count. `HERMES_REQUIRED=true` makes the production container reject missing credentials at startup. There is no Groq, Anthropic, or Ollama fallback for chat, triage, or correlation.
 
-Phase 4 supports strict `pipeline`, bounded `agentic`, and deterministic `hybrid` triage modes. Verdict cache entries bind the exact alert, material signature, successful enrichment evidence, prompt/schema versions, and Hermes model. Every verdict links to a durable Hermes run. Failed enrichment is never triaged. Fresh databases keep AI triage disabled; automatic closure, incident promotion, and Phase 5 correlation are blocked.
+Phase 4 supports strict `pipeline`, bounded `agentic`, and deterministic `hybrid` triage modes. Verdict cache entries bind the exact alert, material signature, successful enrichment evidence, prompt/schema versions, and Hermes model. Every verdict links to a durable Hermes run. Failed enrichment is never triaged.
 
-Legacy provider variables remain only for the disconnected Phase 5 correlation implementation and can be removed when that migration is complete.
+Phase 5 correlation is incremental and tool-less. The application selects newly triaged alerts, adds only recent context with exact shared entities, and bounds the batch and token estimate. Hermes returns a strict incident schema. The API rejects unknown IDs, duplicate membership, groups without a newly triaged alert, and groups lacking a connected entity/time chain. Common entities and severity are recomputed from supplied evidence before persistence. Incident keys remain stable as membership grows, closed or false-positive incidents are never reopened, and unchanged membership does not rewrite the narrative. The correlation cursor advances only after the Hermes result and every incident/audit write succeed. `POST /api/scheduler/correlate-now` runs a manual pass; scheduled correlation is controlled independently by `correlation_enabled`.
 
 ## Authentication and security
 
@@ -100,7 +100,7 @@ This is a Phase 1 access boundary with one administrator identity, not full mult
 
 ## Database lifecycle
 
-The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent records, Phase 3 added independently queryable Hermes sub-runs, and Phase 4 adds exact triage cache provenance plus `alerts.triage_run_id`.
+The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent records, Phase 3 added independently queryable Hermes sub-runs, Phase 4 added exact triage cache provenance plus `alerts.triage_run_id`, and Phase 5 adds `incidents.correlation_run_id`.
 
 ## Health and metrics
 
@@ -111,7 +111,7 @@ The API obtains a PostgreSQL advisory lock and applies versioned SQL files from 
 
 ## Local verification
 
-Install from lockfiles and run every Phase 4 check:
+Install from lockfiles and run every Phase 5 check:
 
 ```bash
 cd api

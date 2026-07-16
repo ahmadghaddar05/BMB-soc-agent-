@@ -43,6 +43,7 @@ test('Hermes timing and retry settings are bounded', () => {
     HERMES_MAX_RETRIES:'99', HERMES_POLL_INTERVAL_MS:'0',
     HERMES_ANALYST_MAX_TOOL_CALLS:'99', HERMES_ANALYST_TIMEOUT_MS:'1',
     HERMES_TRIAGE_MAX_TOOL_CALLS:'99', HERMES_TRIAGE_TIMEOUT_MS:'1',
+    HERMES_CORRELATION_TIMEOUT_MS:'99999999',
     HERMES_TOOL_TIMEOUT_MS:'99999999', HERMES_TOOL_RESULT_MAX_BYTES:'1',
   });
   assert.equal(config.hermesTimeoutMs, 600000);
@@ -53,6 +54,7 @@ test('Hermes timing and retry settings are bounded', () => {
   assert.equal(config.hermesAnalystTimeoutMs, 10000);
   assert.equal(config.hermesTriageMaxToolCalls, 4);
   assert.equal(config.hermesTriageTimeoutMs, 10000);
+  assert.equal(config.hermesCorrelationTimeoutMs, 600000);
   assert.equal(config.hermesToolTimeoutMs, 60000);
   assert.equal(config.hermesToolResultMaxBytes, 4096);
 });

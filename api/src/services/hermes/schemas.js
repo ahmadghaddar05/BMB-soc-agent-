@@ -7,6 +7,7 @@ const ajv = new Ajv({ allErrors: true, strict: true, allowUnionTypes: true });
 const EVIDENCE_TYPES = ['alert', 'incident', 'alert_group', 'asset', 'identity', 'observable', 'fetch_run'];
 const TRIAGE_SEVERITIES = ['critical', 'high', 'medium', 'low', 'informational'];
 const TRIAGE_VERDICTS = ['true_positive', 'false_positive', 'needs_investigation', 'benign_anomaly'];
+const CORRELATION_SEVERITIES = ['critical', 'high', 'medium', 'low', 'informational'];
 
 const schemas = {
   capabilities: {
@@ -199,6 +200,50 @@ const schemas = {
       },
     ],
   },
+  correlationOutput: {
+    type: 'object', required: ['incidents'],
+    properties: {
+      incidents: {
+        type: 'array', maxItems: 20,
+        items: {
+          type: 'object',
+          required: [
+            'title', 'severity', 'confidence', 'alert_ids', 'attack_stages',
+            'common_entities', 'narrative', 'recommended_actions',
+          ],
+          properties: {
+            title: { type: 'string', minLength: 1, maxLength: 200 },
+            severity: { enum: CORRELATION_SEVERITIES },
+            confidence: { type: 'number', minimum: 0, maximum: 1 },
+            alert_ids: {
+              type: 'array', minItems: 2, maxItems: 80, uniqueItems: true,
+              items: { type: 'string', minLength: 1, maxLength: 256 },
+            },
+            attack_stages: {
+              type: 'array', maxItems: 12, uniqueItems: true,
+              items: { type: 'string', minLength: 1, maxLength: 100 },
+            },
+            common_entities: {
+              type: 'object', required: ['users', 'hosts', 'ips'],
+              properties: {
+                users: { type: 'array', maxItems: 20, uniqueItems: true, items: { type: 'string', minLength: 1, maxLength: 256 } },
+                hosts: { type: 'array', maxItems: 20, uniqueItems: true, items: { type: 'string', minLength: 1, maxLength: 256 } },
+                ips: { type: 'array', maxItems: 40, uniqueItems: true, items: { type: 'string', minLength: 1, maxLength: 256 } },
+              },
+              additionalProperties: false,
+            },
+            narrative: { type: 'string', minLength: 1, maxLength: 3000 },
+            recommended_actions: {
+              type: 'array', minItems: 1, maxItems: 8,
+              items: { type: 'string', minLength: 1, maxLength: 500 },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    additionalProperties: false,
+  },
 };
 
 const validators = Object.fromEntries(Object.entries(schemas).map(([name, schema]) => [name, ajv.compile(schema)]));
@@ -241,6 +286,10 @@ function parseTriageTurn(raw) {
   return validate('triageTurn', parseJsonOutput(raw), 'HERMES_INVALID_OUTPUT');
 }
 
+function parseCorrelationOutput(raw) {
+  return validate('correlationOutput', parseJsonOutput(raw), 'HERMES_INVALID_OUTPUT');
+}
+
 function validateCitations(output, evidence) {
   const valid = Object.fromEntries(EVIDENCE_TYPES.map(type => [type, new Set()]));
   if (Array.isArray(evidence)) {
@@ -262,7 +311,7 @@ function validateCitations(output, evidence) {
 }
 
 module.exports = {
-  EVIDENCE_TYPES, TRIAGE_SEVERITIES, TRIAGE_VERDICTS,
-  parseAnalystTurn, parseChatOutput, parseTriageTurn,
+  CORRELATION_SEVERITIES, EVIDENCE_TYPES, TRIAGE_SEVERITIES, TRIAGE_VERDICTS,
+  parseAnalystTurn, parseChatOutput, parseCorrelationOutput, parseTriageTurn,
   schemas, validate, validateCitations,
 };

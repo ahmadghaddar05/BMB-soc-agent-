@@ -13,6 +13,7 @@ const { createApp } = require('../src');
 
 const originalQuery = db.query;
 const originalSettings = db.getAllSettings;
+const originalSetSetting = db.setSetting;
 
 function routeApp() {
   process.env.SOC_AUTH_DISABLED = 'true';
@@ -22,6 +23,7 @@ function routeApp() {
 test.afterEach(() => {
   db.query = originalQuery;
   db.getAllSettings = originalSettings;
+  db.setSetting = originalSetSetting;
 });
 
 function highestPlaceholder(sql) {
@@ -126,17 +128,23 @@ test('retriage rejects failed enrichment before starting Hermes', async () => {
   assert.equal(response.body.error.code, 'HERMES_ENRICHMENT_REQUIRED');
 });
 
-test('legacy correlation endpoint stays disabled until Phase 5', async () => {
+test('manual Hermes correlation endpoint is available and bounded by the worker', async () => {
+  db.getAllSettings = async () => ({ correlation_enabled:'false' });
+  db.query = async () => ({ rows:[], rowCount:0 });
   const response = await request(routeApp()).post('/api/scheduler/correlate-now').send({});
-  assert.equal(response.status, 409);
-  assert.equal(response.body.error.code, 'CORRELATION_PHASE5_REQUIRED');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.skipped_reason, 'no_new_triaged_alerts');
 });
 
-test('settings cannot activate automatic closure or legacy correlation', async () => {
+test('settings permit Hermes correlation but still reject automatic closure and singleton promotion', async () => {
   const autoClose = await request(routeApp()).put('/api/settings').send({ autoclose_enabled:'true' });
   assert.equal(autoClose.status, 400);
+  db.setSetting = async () => {};
+  db.getAllSettings = async () => ({ correlation_enabled:'true' });
   const correlation = await request(routeApp()).put('/api/settings').send({ correlation_enabled:'true' });
-  assert.equal(correlation.status, 400);
+  assert.equal(correlation.status, 200);
+  const promotion = await request(routeApp()).put('/api/settings').send({ incident_promote_enabled:'true' });
+  assert.equal(promotion.status, 400);
 });
 
 test('missing incident update returns 404', async () => {

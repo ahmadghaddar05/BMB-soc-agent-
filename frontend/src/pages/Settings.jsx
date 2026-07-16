@@ -228,9 +228,6 @@ export default function Settings() {
           <input className="input w-24" type="number" min="1" max="720"
             placeholder="168" {...field('triage_cache_ttl_hours')} />
         </Row>
-        <Row label="Correlation" hint="Scheduled for the Hermes Phase 5 migration">
-          <span className="text-sm text-gray-500">Disabled</span>
-        </Row>
         <button className="btn-primary" disabled={loading}
           onClick={()=>save({
             triage_enabled:s.triage_enabled,
@@ -243,10 +240,57 @@ export default function Settings() {
         </button>
       </Section>
 
+      <Section title="Hermes correlation">
+        <Row label="Enable scheduled correlation"
+             hint="Groups newly triaged alerts only after deterministic entity and time checks">
+          <Toggle {...toggle('correlation_enabled')} />
+        </Row>
+        <Row label="Look-back window" hint="Maximum age of triaged alerts considered as context">
+          <input className="input w-24" type="number" min="1" max="168"
+            {...field('correlation_lookback_hours')} />
+        </Row>
+        <Row label="Entity-link window" hint="Maximum hours between each connected alert pair">
+          <input className="input w-24" type="number" min="1" max="48"
+            {...field('correlation_entity_window_hours')} />
+        </Row>
+        <Row label="Candidate cap" hint="Hard limit on alerts supplied to one Hermes correlation run">
+          <input className="input w-24" type="number" min="2" max="80"
+            {...field('correlation_max_alerts')} />
+        </Row>
+        <Row label="Token budget" hint="Bounds the candidate batch before a Hermes run starts">
+          <input className="input w-40" type="number" min="6000" max="100000" step="1000"
+            {...field('correlation_token_budget')} />
+        </Row>
+        <div className="flex gap-2">
+          <button className="btn-primary" disabled={loading}
+            onClick={()=>save({
+              correlation_enabled:s.correlation_enabled || 'false',
+              correlation_lookback_hours:s.correlation_lookback_hours || '24',
+              correlation_entity_window_hours:s.correlation_entity_window_hours || '6',
+              correlation_max_alerts:s.correlation_max_alerts || '40',
+              correlation_token_budget:s.correlation_token_budget || '20000',
+            })}>
+            <Save className="w-4 h-4"/> Save correlation policy
+          </button>
+          <button className="btn-secondary" disabled={loading}
+            onClick={async()=>{
+              setLoading(true);
+              try {
+                const result = await api('/scheduler/correlate-now',{method:'POST'});
+                setMsg({type:'ok', text:`Correlation complete — created ${result.incidents_created||0}, updated ${result.incidents_updated||0}`});
+                await load();
+              } catch (e) { setMsg({type:'err', text:e.message}); }
+              setLoading(false);
+            }}>
+            <RefreshCw className="w-4 h-4"/> Correlate now
+          </button>
+        </div>
+      </Section>
+
       {/* ── Auto-close ── */}
       <Section title="Automatic closure">
         <Row label="Disabled by policy"
-             hint="Phase 4 records recommendations but never executes closure">
+             hint="Phase 5 records recommendations but never executes closure">
           <Toggle {...toggle('autoclose_enabled')} disabled />
         </Row>
       </Section>
