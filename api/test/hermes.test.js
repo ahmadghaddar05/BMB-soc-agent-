@@ -46,6 +46,28 @@ test('Hermes capability handshake validates and caches the safe server contract'
   assert.equal(calls.length, 3);
 });
 
+test('Hermes capability handshake accepts the toolset list envelope used by current servers', async () => {
+  const client = createHermesClient({ config, fetchImpl: async url => {
+    if (url.endsWith('/toolsets')) return jsonResponse({
+      object: 'list',
+      data: [],
+    });
+    return handshakeResponse(url);
+  } });
+  const result = await client.handshake();
+  assert.equal(result.safe, true);
+  assert.deepEqual(result.active_toolsets, []);
+  assert.deepEqual(result.active_tools, []);
+});
+
+test('Hermes capability handshake still rejects malformed toolset envelopes', async () => {
+  const client = createHermesClient({ config, fetchImpl: async url => {
+    if (url.endsWith('/toolsets')) return jsonResponse({ object: 'list', data: {} });
+    return handshakeResponse(url);
+  } });
+  await assert.rejects(client.handshake(), error => error.code === 'HERMES_PROTOCOL_ERROR');
+});
+
 test('Hermes capability handshake rejects unsafe host tools', async () => {
   const client = createHermesClient({ config, fetchImpl: async url => handshakeResponse(url, [{
     name: 'core', enabled: true, configured: true, tools: ['read_file', 'write_file'],

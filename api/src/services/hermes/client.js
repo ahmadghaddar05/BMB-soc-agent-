@@ -174,7 +174,14 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
     ]);
     const capabilities = validate('capabilities', capResult.data);
     const models = validate('models', modelResult.data);
-    const toolsets = validate('toolsets', toolsetResult.data);
+    // Hermes has shipped both the original bare-array response and list
+    // envelopes across API server releases. Normalize only documented list
+    // containers, then apply the same strict item validation below.
+    const rawToolsets = toolsetResult.data;
+    const normalizedToolsets = Array.isArray(rawToolsets)
+      ? rawToolsets
+      : rawToolsets?.data ?? rawToolsets?.toolsets ?? rawToolsets;
+    const toolsets = validate('toolsets', normalizedToolsets);
     const required = ['run_submission', 'run_status', 'run_stop'];
     const missing = required.filter(name => capabilities.features[name] !== true);
     if (config.hermesStrictCapabilities && missing.length) {
