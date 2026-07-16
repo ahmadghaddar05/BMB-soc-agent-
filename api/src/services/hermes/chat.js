@@ -8,8 +8,8 @@ const { parseAnalystTurn, validateCitations } = require('./schemas');
 const { createSocToolkit, compactText, sanitize } = require('./soc-tools');
 const { createAgentStore } = require('./store');
 
-const PROMPT_VERSION = 'soc-grounded-analyst-v3';
-const OUTPUT_SCHEMA_VERSION = 'soc-analyst-turn-v1';
+const PROMPT_VERSION = 'soc-grounded-analyst-v4';
+const OUTPUT_SCHEMA_VERSION = 'soc-analyst-turn-v2';
 
 function instructionsFor(specs) {
   const catalog = specs.map(spec => ({ name: spec.name, description: spec.description, parameters: spec.parameters }));
@@ -21,7 +21,7 @@ Never invent identifiers, counts, users, hosts, IP addresses, actions, or conclu
 Never claim an action was executed. Use the smallest number of tool calls needed.
 Return exactly one JSON object with no markdown or surrounding prose.
 To request evidence: {"type":"tool_call","tool":"exact_tool_name","arguments":{}}
-To answer: {"type":"final","answer":"string","citations":[{"type":"alert|incident|alert_group|asset|identity|observable|fetch_run","id":"exact supplied evidence id"}],"confidence":"low|medium|high","limitations":["string"]}
+To answer: {"type":"final","answer":"string","citations":[{"type":"alert|incident|alert_group|asset|identity|observable|fetch_run|investigation|case","id":"exact supplied evidence id"}],"confidence":"low|medium|high","limitations":["string"]}
 Every citation must exactly match evidence returned by a tool in this investigation. Use an empty citations array when no record supports the answer.
 Allowed application tools: ${JSON.stringify(catalog)}`;
 }

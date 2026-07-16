@@ -8,8 +8,11 @@ const { HermesError, publicHermesError } = require('../services/hermes/errors');
 const { runtimeConfig } = require('../config');
 const { dependencyHealth } = require('../services/health');
 const reports = require('../services/reports');
+const workflows = require('./workflows');
 
 const r = Router();
+
+r.use(workflows);
 
 const SEVERITIES = new Set(['critical','high','medium','low','informational']);
 const VERDICTS = new Set(['true_positive','false_positive','needs_investigation','benign_anomaly']);
@@ -817,8 +820,14 @@ r.patch('/incidents/:id', async (req, res) => {
     if (!['open','closed','false_positive'].includes(status))
       return res.status(400).json({ error: 'Invalid status' });
     const r = await db.query(
-      `UPDATE incidents SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *`,
-      [status, req.params.id]
+      `WITH changed AS (
+         UPDATE incidents SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *
+       ), audited AS (
+         INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+         SELECT $3,'incident.status_updated','incident',changed.id::text,'success',$4,
+                jsonb_build_object('status',$1) FROM changed
+       ) SELECT * FROM changed`,
+      [status, req.params.id, req.user?.username || 'unknown', req.id || null]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Incident not found' });
     res.json(r.rows[0]);

@@ -65,6 +65,18 @@ test('Phase 5 migration links incidents to Hermes runs and removes legacy provid
   assert.match(sql, /WHERE key='correlation_enabled'/);
 });
 
+test('Phase 6 migration creates durable investigation and case workflow records', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/006_durable_workflows.sql'), 'utf8');
+  for (const table of ['investigations', 'investigation_alerts', 'investigation_notes', 'case_notes']) {
+    assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
+  }
+  assert.match(sql, /incidents ADD COLUMN IF NOT EXISTS owner/);
+  assert.match(sql, /investigation_alerts[\s\S]+REFERENCES alerts\(id\) ON DELETE RESTRICT/);
+  assert.match(sql, /investigation_notes[\s\S]+ON DELETE CASCADE/);
+  assert.match(sql, /case_notes[\s\S]+ON DELETE CASCADE/);
+  assert.match(sql, /evidence_type IN \([\s\S]+'investigation','case'/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

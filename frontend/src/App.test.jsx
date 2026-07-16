@@ -155,6 +155,72 @@ describe('authenticated application flows', () => {
     });
   });
 
+  it('creates a durable investigation through the protected API', async () => {
+    const requests = [];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/investigations?limit=100')) return jsonResponse({ investigations:[], total:0 });
+      if (url.includes('/alerts?limit=50&search=maya')) return jsonResponse({ alerts:[{
+        id:'elastic:alert-1', rule_desc:'Suspicious account activity', username:'maya',
+        source_severity:'high', timestamp:new Date().toISOString(),
+      }] });
+      if (url.endsWith('/investigations') && options.method === 'POST') return jsonResponse({
+        id:'4f5f15c5-bf70-47d4-916b-a6fb870c208a', title:'Investigation: maya',
+        search_query:'maya', status:'open', owner:'analyst', created_by:'analyst',
+        created_at:new Date().toISOString(), alert_ids:['elastic:alert-1'], notes:[], note_count:0,
+      }, 201);
+      return jsonResponse({});
+    });
+
+    await renderAt('/investigations?search=maya');
+    const evidenceToggle = document.querySelector('.row-check');
+    expect(evidenceToggle).toBeTruthy();
+    await act(async () => evidenceToggle.click());
+    const create = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Create from 1 alert'));
+    await act(async () => create.click());
+    await settle();
+
+    const post = requests.find(item => item.url.endsWith('/investigations') && item.options.method === 'POST');
+    expect(JSON.parse(post.options.body)).toMatchObject({ search_query:'maya', alert_ids:['elastic:alert-1'] });
+    expect(post.options.headers['X-CSRF-Token']).toBe('csrf-token');
+    expect(document.body.textContent).toContain('Stored securely on the SOC server');
+  });
+
+  it('persists case ownership through the protected case API', async () => {
+    const requests = [];
+    const item = {
+      id:7, title:'Credential attack', severity:'high', status:'open', owner:null,
+      alert_ids:['alert-1'], first_seen:new Date().toISOString(), notes:[], note_count:0,
+    };
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/cases?limit=100')) return jsonResponse({ cases:[item], total:1 });
+      if (url.endsWith('/cases/7') && options.method === 'PATCH') return jsonResponse({ ...item, owner:'SOC Analyst' });
+      if (url.endsWith('/cases/7')) return jsonResponse(item);
+      return jsonResponse({});
+    });
+
+    await renderAt('/cases');
+    const owner = document.querySelector('.case-form select');
+    expect(owner).toBeTruthy();
+    await act(async () => {
+      owner.value = 'SOC Analyst';
+      owner.dispatchEvent(new Event('change', { bubbles:true }));
+    });
+    await settle();
+
+    const patch = requests.find(entry => entry.url.endsWith('/cases/7') && entry.options.method === 'PATCH');
+    expect(JSON.parse(patch.options.body)).toEqual({ owner:'SOC Analyst' });
+    expect(patch.options.headers['X-CSRF-Token']).toBe('csrf-token');
+    expect(document.body.textContent).toContain('Durable ownership');
+  });
+
   it('surfaces API failure states to the analyst', async () => {
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);

@@ -95,3 +95,28 @@ test('enrichment tools use only fixed service paths and URL-encode model values'
   assert.equal(urls[0], 'http://enrichment:3001/ad/users/alice%2Fadmin');
   assert.deepEqual(result.evidence, [{ type: 'identity', id: 'alice/admin' }]);
 });
+
+test('durable workflow tools expose bounded read-only investigation and case context', async () => {
+  const calls = [];
+  const database = {
+    async query(sql, params) {
+      calls.push({ sql:String(sql), params });
+      if (String(sql).includes('FROM investigations i')) return { rows:[{
+        id:'4f5f15c5-bf70-47d4-916b-a6fb870c208a', title:'Credential review', status:'open',
+        owner:'SOC Analyst', evidence_count:2, note_count:1,
+      }] };
+      if (String(sql).includes('FROM incidents i')) return { rows:[{
+        id:7, title:'Credential attack', status:'open', severity:'high', owner:'SOC Analyst', note_count:2,
+      }] };
+      return { rows:[] };
+    },
+  };
+  const toolkit = createSocToolkit({ database, config });
+  const investigations = await toolkit.execute('list_investigations', { status:'open', limit:5 }, authorized);
+  const cases = await toolkit.execute('list_cases', { owner:'SOC Analyst', limit:5 }, authorized);
+  assert.deepEqual(investigations.evidence, [{ type:'investigation', id:'4f5f15c5-bf70-47d4-916b-a6fb870c208a' }]);
+  assert.deepEqual(cases.evidence, [{ type:'case', id:'7' }]);
+  assert.ok(calls.every(call => !/\b(?:INSERT|UPDATE|DELETE)\b/i.test(call.sql)));
+  assert.equal(calls[0].params.at(-1), 5);
+  assert.equal(calls[1].params.at(-1), 5);
+});

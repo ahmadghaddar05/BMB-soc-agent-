@@ -63,6 +63,48 @@ const TOOL_SPECS = [
     },
   },
   {
+    name: 'list_investigations',
+    description: 'List durable analyst investigations with bounded evidence and note counts.',
+    parameters: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        query: { type: 'string', minLength: 1, maxLength: 200 },
+        status: { enum: ['open', 'closed'] },
+        owner: { type: 'string', minLength: 1, maxLength: 120 },
+        limit: { type: 'integer', minimum: 1, maximum: 25 },
+      },
+    },
+  },
+  {
+    name: 'get_investigation',
+    description: 'Get one durable investigation, its analyst notes, and bounded linked alert summaries.',
+    parameters: {
+      type: 'object', additionalProperties: false, required: ['id'],
+      properties: { id: { type: 'string', minLength: 36, maxLength: 36 } },
+    },
+  },
+  {
+    name: 'list_cases',
+    description: 'List durable incident-backed cases with owner, status, and note count.',
+    parameters: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        status: { enum: ['open', 'closed', 'false_positive'] },
+        severity: { enum: SEVERITIES },
+        owner: { type: 'string', minLength: 1, maxLength: 120 },
+        limit: { type: 'integer', minimum: 1, maximum: 25 },
+      },
+    },
+  },
+  {
+    name: 'get_case',
+    description: 'Get one durable case with analyst notes and bounded member alert summaries.',
+    parameters: {
+      type: 'object', additionalProperties: false, required: ['id'],
+      properties: { id: { type: 'integer', minimum: 1, maximum: 2147483647 } },
+    },
+  },
+  {
     name: 'pivot_observable',
     description: 'Find alerts and incidents connected to an exact IP, username, or hostname.',
     parameters: {
@@ -290,6 +332,82 @@ function createSocToolkit({ database = db, fetchImpl = global.fetch, config = ru
       return {
         data: { found: true, incident: sanitize({ ...incident, alerts: members.rows.map(publicAlert) }) },
         evidence: [...evidence('incident', args.id), ...members.rows.flatMap(row => evidence('alert', row.id))],
+      };
+    },
+
+    async list_investigations(args) {
+      const conditions = ['1=1'];
+      const params = [];
+      const bind = value => { params.push(value); return `$${params.length}`; };
+      if (args.query) {
+        const pattern = `%${args.query}%`;
+        conditions.push(`(i.title ILIKE ${bind(pattern)} OR i.search_query ILIKE ${bind(pattern)})`);
+      }
+      if (args.status) conditions.push(`i.status=${bind(args.status)}`);
+      if (args.owner) conditions.push(`LOWER(i.owner)=LOWER(${bind(args.owner)})`);
+      params.push(args.limit || 15);
+      const result = await database.query(`SELECT i.id,i.title,i.search_query,i.status,i.owner,
+        i.created_by,i.created_at,i.updated_at,
+        (SELECT COUNT(*)::int FROM investigation_alerts ia WHERE ia.investigation_id=i.id) AS evidence_count,
+        (SELECT COUNT(*)::int FROM investigation_notes n WHERE n.investigation_id=i.id) AS note_count
+        FROM investigations i WHERE ${conditions.join(' AND ')}
+        ORDER BY i.updated_at DESC LIMIT $${params.length}`, params);
+      const investigations = sanitize(result.rows);
+      return {
+        data: { count: investigations.length, investigations },
+        evidence: investigations.flatMap(row => evidence('investigation', row.id)),
+      };
+    },
+
+    async get_investigation(args) {
+      const result = await database.query(`SELECT id,title,search_query,status,owner,created_by,created_at,updated_at
+        FROM investigations WHERE id=$1`, [args.id]);
+      if (!result.rows.length) return { data: { found: false, id: args.id }, evidence: [] };
+      const [notes, members] = await Promise.all([
+        database.query(`SELECT id,body,author,created_at FROM investigation_notes
+          WHERE investigation_id=$1 ORDER BY created_at DESC,id DESC LIMIT 20`, [args.id]),
+        database.query(`${selectAlert} WHERE id IN (
+          SELECT alert_id FROM investigation_alerts WHERE investigation_id=$1
+        ) ORDER BY timestamp DESC LIMIT 25`, [args.id]),
+      ]);
+      const alerts = members.rows.map(publicAlert);
+      return {
+        data: { found: true, investigation: sanitize({ ...result.rows[0], notes: notes.rows, alerts }) },
+        evidence: [...evidence('investigation', args.id), ...alerts.flatMap(row => evidence('alert', row.id))],
+      };
+    },
+
+    async list_cases(args) {
+      const conditions = ['1=1'];
+      const params = [];
+      const bind = value => { params.push(value); return `$${params.length}`; };
+      if (args.status) conditions.push(`i.status=${bind(args.status)}`);
+      if (args.severity) conditions.push(`COALESCE(i.severity,'unknown')=${bind(args.severity)}`);
+      if (args.owner) conditions.push(`LOWER(i.owner)=LOWER(${bind(args.owner)})`);
+      params.push(args.limit || 15);
+      const result = await database.query(`SELECT i.id,i.title,i.severity,i.confidence,i.status,i.owner,
+        i.first_seen,i.last_seen,array_length(i.alert_ids,1) AS alert_count,
+        (SELECT COUNT(*)::int FROM case_notes n WHERE n.incident_id=i.id) AS note_count
+        FROM incidents i WHERE ${conditions.join(' AND ')}
+        ORDER BY i.updated_at DESC LIMIT $${params.length}`, params);
+      const cases = sanitize(result.rows);
+      return { data: { count: cases.length, cases }, evidence: cases.flatMap(row => evidence('case', row.id)) };
+    },
+
+    async get_case(args) {
+      const result = await database.query(`SELECT id,title,severity,confidence,attack_stages,common_entities,
+        alert_ids,narrative,recommended_actions,first_seen,last_seen,status,owner,incident_type
+        FROM incidents WHERE id=$1`, [args.id]);
+      if (!result.rows.length) return { data: { found: false, id: args.id }, evidence: [] };
+      const item = result.rows[0];
+      const [notes, members] = await Promise.all([
+        database.query('SELECT id,body,author,created_at FROM case_notes WHERE incident_id=$1 ORDER BY created_at DESC,id DESC LIMIT 20', [args.id]),
+        database.query(`${selectAlert} WHERE id=ANY($1::text[]) ORDER BY timestamp DESC LIMIT 25`, [item.alert_ids]),
+      ]);
+      const alerts = members.rows.map(publicAlert);
+      return {
+        data: { found: true, case: sanitize({ ...item, notes: notes.rows, alerts }) },
+        evidence: [...evidence('case', args.id), ...alerts.flatMap(row => evidence('alert', row.id))],
       };
     },
 
