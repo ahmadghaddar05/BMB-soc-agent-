@@ -2,7 +2,7 @@
 
 BMB SOC Agent is a containerized security-operations workspace for collecting alerts, enriching evidence, triaging activity, correlating incidents, and assisting analysts.
 
-Phase 7 provides a grounded Hermes analyst, Hermes-only triage/correlation, durable investigations/cases, and controlled internal workflow actions. Hermes cannot access host tools or arbitrary writes. The BMB API can execute low-risk investigation/note actions directly while owner and status changes wait for explicit analyst approval. External containment remains unavailable. Triage and scheduled correlation remain disabled by default pending live acceptance. Automatic closure and singleton incident promotion remain hard-disabled.
+Phase 8 adds a proactive internal SOC agent on top of the grounded Hermes analyst, Hermes-only triage/correlation, durable investigations/cases, and controlled workflow actions. The scheduled pipeline can autonomously create evidence-linked investigations and grounded case/investigation notes. Critical-case ownership remains an approval-gated proposal. Hermes cannot access host tools or arbitrary writes, and external containment remains unavailable. Triage, scheduled correlation, and autonomous orchestration remain disabled by default pending live acceptance. Automatic closure and singleton incident promotion remain hard-disabled.
 
 ## Services
 
@@ -88,6 +88,8 @@ Phase 5 correlation is incremental and tool-less. The application selects newly 
 
 Phase 7 adds `request_soc_action` as the only AI write boundary. Investigation creation and investigation/case notes execute inside the BMB database. Investigation/case owner or status updates create pending requests in `/approvals` and execute only after an authenticated, CSRF-protected decision. Requests are policy-versioned, idempotent, transactional, and audited. Host isolation, account disablement, IP blocking, email quarantine, Elastic writeback, and other external response actions are not implemented.
 
+Phase 8 adds an opt-in orchestration worker after triage and correlation. It qualifies only high/critical stored evidence with approved verdicts and a configurable minimum confidence, then reuses Phase 7 actions with deterministic idempotency keys. Autonomous runs and each operation are durable and visible on the dashboard. A failed candidate is recorded without corrupting other work, and replays cannot duplicate completed investigations or notes. `GET /api/agent/status` exposes readiness and history; `POST /api/agent/run-now` processes stored evidence; the normal scheduler runs the complete collection-to-agent flow.
+
 ## Authentication and security
 
 - Browser login creates an HMAC-signed, HttpOnly, SameSite=Strict cookie.
@@ -102,18 +104,18 @@ This is a Phase 1 access boundary with one administrator identity, not full mult
 
 ## Database lifecycle
 
-The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent records, Phase 3 added independently queryable Hermes sub-runs, Phase 4 added exact triage cache provenance plus `alerts.triage_run_id`, Phase 5 added `incidents.correlation_run_id`, Phase 6 added durable investigations/cases, and Phase 7 activated policy-controlled action requests and approvals.
+The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent records, Phase 3 added independently queryable Hermes sub-runs, Phase 4 added exact triage cache provenance plus `alerts.triage_run_id`, Phase 5 added `incidents.correlation_run_id`, Phase 6 added durable investigations/cases, Phase 7 activated policy-controlled action requests and approvals, and Phase 8 added durable autonomous runs and retry-safe operations.
 
 ## Health and metrics
 
 - `GET /api/health` reports API process health.
 - `GET /api/health/dependencies` checks PostgreSQL, enrichment, Hermes, and the selected alert source and reports configured/reachable/degraded/disabled state.
-- `fetch_runs` persists fetched, stored, duplicate, enrichment, triage, failure, AI call/token/cache, correlation, token-budget, and duration metrics.
+- `fetch_runs` persists fetched, stored, duplicate, enrichment, triage, failure, AI call/token/cache, correlation, autonomous investigation/note/approval, token-budget, and duration metrics.
 - `SOC_API_KEY=... node eval/export_predictions.js` exports the stored call, token, and latency values instead of inferred placeholders.
 
 ## Local verification
 
-Install from lockfiles and run every Phase 7 check:
+Install from lockfiles and run every Phase 8 check:
 
 ```bash
 cd api
@@ -136,7 +138,7 @@ The frontend build may report a chunk-size optimization warning; bundle splittin
 
 ## Important UI behavior
 
-The Approval Queue executes only the allowlisted internal Phase 7 workflow actions described above. Containment recommendations, playbooks, watchlists, and external-response controls remain review state and do not execute firewall, EDR, identity, email, Elastic, or ticketing actions. Real external response requires Phase 8 connector authorization, approval gates, and audited integrations.
+The Approval Queue executes only the allowlisted internal Phase 7 workflow actions described above. Phase 8 automation uses the same boundary. Containment recommendations, playbooks, watchlists, and external-response controls remain review state and do not execute firewall, EDR, identity, email, Elastic, or ticketing actions. Real external response is a Phase 9 concern and requires connector authorization, approval gates, and audited integrations.
 
 See `docs/phase-0/PHASE_0_AUDIT.md`, `docs/phase-2/PHASE_2_ACCEPTANCE_GATE.md`, and `docs/phase-3/PHASE_3_ACCEPTANCE_GATE.md` for the audited baseline and delivery gates.
 

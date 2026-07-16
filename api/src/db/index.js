@@ -146,6 +146,9 @@ const db = {
          completion_tokens=$15, cache_hits=$16, agentic_escalations=$17,
          correlation_calls=$18, correlation_tokens=$19,
          token_budget_exhausted=$20,
+         autonomous_run_id=$21,investigations_created=$22,
+         investigation_notes_added=$23,case_notes_added=$24,
+         approvals_requested=$25,autonomous_failures=$26,
          duration_ms=GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000)),
          finished_at=NOW()
        WHERE id=$1`,
@@ -158,7 +161,10 @@ const db = {
        stats.prompt_tokens || 0, stats.completion_tokens || 0,
        stats.cache_hits || 0, stats.agentic_escalations || 0,
        stats.correlation_calls || 0, stats.correlation_tokens || 0,
-       Boolean(stats.token_budget_exhausted)]
+       Boolean(stats.token_budget_exhausted),
+       stats.autonomous_run_id || null, stats.investigations_created || 0,
+       stats.investigation_notes_added || 0, stats.case_notes_added || 0,
+       stats.approvals_requested || 0, stats.autonomous_failures || 0]
     );
   },
 };

@@ -287,6 +287,57 @@ export default function Settings() {
         </div>
       </Section>
 
+      {/* ── Autonomous internal orchestration ── */}
+      <Section title="Autonomous SOC agent">
+        <div className="rounded-lg border border-cyan-900/60 bg-cyan-950/20 p-3 text-xs text-cyan-200">
+          Phase 8 creates grounded investigations and timeline notes automatically. Critical-case ownership is proposed through the approval queue. Closure, false-positive decisions, isolation, blocking, and account actions remain unavailable.
+        </div>
+        <Row label="Enable autonomous orchestration"
+             hint="Runs after collection, enrichment, triage, and correlation in each scheduled cycle">
+          <Toggle {...toggle('autonomous_agent_enabled')} />
+        </Row>
+        <Row label="Evidence look-back" hint="Maximum age of qualified triage and correlation evidence">
+          <input className="input w-24" type="number" min="1" max="168" {...field('autonomous_lookback_hours')} />
+        </Row>
+        <Row label="Minimum confidence" hint="Only high/critical evidence at or above this confidence is automated">
+          <input className="input w-24" type="number" min="0" max="1" step="0.05" {...field('autonomous_min_confidence')} />
+        </Row>
+        <Row label="Maximum work items" hint="Bounds investigations considered during one autonomous run">
+          <input className="input w-24" type="number" min="1" max="100" {...field('autonomous_max_items')} />
+        </Row>
+        <Row label="Propose critical-case assignment" hint="Creates a pending approval; it never assigns an owner directly">
+          <Toggle {...toggle('autonomous_assignment_enabled')} />
+        </Row>
+        <Row label="Proposed owner" hint="Human queue or analyst proposed for unowned critical cases">
+          <input className="input w-64" maxLength="120" {...field('autonomous_default_owner')} />
+        </Row>
+        <div className="flex gap-2">
+          <button className="btn-primary" disabled={loading}
+            onClick={()=>save({
+              autonomous_agent_enabled:s.autonomous_agent_enabled || 'false',
+              autonomous_lookback_hours:s.autonomous_lookback_hours || '24',
+              autonomous_min_confidence:s.autonomous_min_confidence || '0.70',
+              autonomous_max_items:s.autonomous_max_items || '20',
+              autonomous_assignment_enabled:s.autonomous_assignment_enabled || 'true',
+              autonomous_default_owner:s.autonomous_default_owner || 'SOC Analyst',
+            })}>
+            <Save className="w-4 h-4"/> Save autonomous policy
+          </button>
+          <button className="btn-secondary" disabled={loading}
+            onClick={async()=>{
+              setLoading(true);
+              try {
+                const result = await api('/agent/run-now',{method:'POST'});
+                setMsg({type:result.status==='partial'?'err':'ok', text:`Agent run ${result.status} — investigations ${result.metrics?.investigations_created||0}, case notes ${result.metrics?.case_notes_added||0}, approvals ${result.metrics?.approvals_requested||0}, failures ${result.metrics?.failures||0}`});
+                await load();
+              } catch (e) { setMsg({type:'err', text:e.message}); }
+              setLoading(false);
+            }}>
+            <Play className="w-4 h-4"/> Run orchestration now
+          </button>
+        </div>
+      </Section>
+
       {/* ── Auto-close ── */}
       <Section title="Automatic closure">
         <Row label="Disabled by policy"

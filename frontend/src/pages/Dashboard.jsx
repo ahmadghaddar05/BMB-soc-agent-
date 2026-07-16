@@ -112,6 +112,7 @@ function EmptyState({ children }) {
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [collector, setCollector] = useState(null);
+  const [agent, setAgent] = useState(null);
   const [queue, setQueue] = useState([]);
   const [recentAlerts, setRecentAlerts] = useState([]);
   const [error, setError] = useState(null);
@@ -124,9 +125,10 @@ export default function Dashboard() {
     async function load() {
       try {
         const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const [statsData, collectorData, queueData, alertData] = await Promise.all([
+        const [statsData, collectorData, agentData, queueData, alertData] = await Promise.all([
           api('/stats'),
           api('/collector/status'),
+          api('/agent/status').catch(() => ({ enabled:false, readiness:{}, recent_operations:[], pending_approvals:0 })),
           api('/alert-groups?page=1&limit=8').catch(() => ({ groups: [] })),
           // The alerts API deliberately caps a page at 200 records. Keep the
           // dashboard request inside that contract so recent activity is not
@@ -136,6 +138,7 @@ export default function Dashboard() {
         if (!active) return;
         setStats(statsData);
         setCollector(collectorData);
+        setAgent(agentData);
         setQueue(queueData.groups || []);
         setRecentAlerts(alertData.alerts || []);
         setUpdatedAt(new Date());
@@ -291,6 +294,27 @@ export default function Dashboard() {
               </div>
             </article>
           </div>
+
+          <article className="dashboard-panel autonomous-panel">
+            <PanelHeading icon={Bot} title="Autonomous SOC Agent" help="Durable Phase 8 orchestration: grounded investigations and notes execute automatically; sensitive ownership changes wait for approval." action={<Link to="/approvals">Review approvals <ChevronRight size={13} /></Link>} />
+            <div className="autonomous-summary">
+              <span className={`agent-state ${agent?.enabled ? 'online' : 'offline'}`}><i />{agent?.enabled ? 'Automation enabled' : 'Automation disabled'}</span>
+              <div><small>Latest run</small><strong>{agent?.latest_run ? `${agent.latest_run.status} · ${timeAgo(agent.latest_run.started_at)} ago` : 'No autonomous runs'}</strong></div>
+              <div><small>Investigations</small><strong>{number(agent?.latest_run?.metrics?.investigations_created)}</strong></div>
+              <div><small>Case notes</small><strong>{number(agent?.latest_run?.metrics?.case_notes_added)}</strong></div>
+              <div><small>Pending approvals</small><strong className={number(agent?.pending_approvals) ? 'warning' : ''}>{number(agent?.pending_approvals)}</strong></div>
+              <div><small>Failures</small><strong className={number(agent?.latest_run?.metrics?.failures) ? 'danger' : ''}>{number(agent?.latest_run?.metrics?.failures)}</strong></div>
+            </div>
+            <div className="agent-readiness">
+              {Object.entries(agent?.readiness || {}).map(([key, ready]) => <span key={key} className={ready ? 'ready' : ''}><i />{key}</span>)}
+            </div>
+            <div className="agent-operation-feed">
+              {(agent?.recent_operations || []).slice(0, 4).map(operation => (
+                <div key={operation.id}><span className={`operation-status ${operation.status}`}><i /></span><strong>{operation.operation_type.replaceAll('_', ' ')}</strong><small>{operation.source_type} {operation.source_id} · {operation.status}</small><time>{timeAgo(operation.updated_at)}</time></div>
+              ))}
+              {!agent?.recent_operations?.length && <EmptyState>No autonomous operations recorded yet</EmptyState>}
+            </div>
+          </article>
 
           <article className="dashboard-panel collector-strip">
             <div className="collector-summary"><span className={`collector-icon ${collectorRunning ? 'online' : ''}`}><Database /></span><div><strong>Elastic Collector</strong><span>{collector.collector?.source?.toUpperCase() || 'ELASTIC'} · cursor {collector.collector?.cursor_enabled ? 'enabled' : 'disabled'}</span></div></div>

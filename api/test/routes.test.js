@@ -171,6 +171,21 @@ test('settings permit Hermes correlation but still reject automatic closure and 
   assert.equal(promotion.status, 400);
 });
 
+test('Phase 8 autonomous policy settings are bounded and remain explicitly opt-in', async () => {
+  db.setSetting = async () => {};
+  db.getAllSettings = async () => ({ autonomous_agent_enabled:'true' });
+  const enabled = await request(routeApp()).put('/api/settings').send({
+    autonomous_agent_enabled:'true', autonomous_lookback_hours:'24',
+    autonomous_max_items:'20', autonomous_min_confidence:'0.75',
+    autonomous_assignment_enabled:'true', autonomous_default_owner:'Tier 2 SOC',
+  });
+  assert.equal(enabled.status, 200);
+  const badConfidence = await request(routeApp()).put('/api/settings').send({ autonomous_min_confidence:'1.1' });
+  const badOwner = await request(routeApp()).put('/api/settings').send({ autonomous_default_owner:'' });
+  assert.equal(badConfidence.status, 400);
+  assert.equal(badOwner.status, 400);
+});
+
 test('missing incident update returns 404', async () => {
   db.query = async () => ({ rows:[], rowCount:0 });
   const response = await request(routeApp()).patch('/api/incidents/999').send({ status:'closed' });

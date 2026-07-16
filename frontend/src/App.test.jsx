@@ -155,6 +155,42 @@ describe('authenticated application flows', () => {
     });
   });
 
+  it('exposes the opt-in autonomous SOC policy and saves its safety controls', async () => {
+    const requests = [];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/settings') && options.method === 'PUT') return jsonResponse({ ok:true, settings:JSON.parse(options.body) });
+      if (url.endsWith('/settings')) return jsonResponse({
+        settings:{
+          autonomous_agent_enabled:'false', autonomous_lookback_hours:'24',
+          autonomous_min_confidence:'0.70', autonomous_max_items:'20',
+          autonomous_assignment_enabled:'true', autonomous_default_owner:'SOC Analyst',
+        }, stats:{},
+      });
+      if (url.endsWith('/scheduler/status')) return jsonResponse({ running:false, recent_runs:[] });
+      return jsonResponse({});
+    });
+
+    await renderAt('/settings');
+    const heading = [...document.querySelectorAll('h3')].find(node => node.textContent.includes('Autonomous SOC agent'));
+    expect(heading).toBeTruthy();
+    const section = heading.parentElement;
+    await act(async () => section.querySelector('button').click());
+    const save = [...section.querySelectorAll('button')].find(button => button.textContent.includes('Save autonomous policy'));
+    await act(async () => save.click());
+    await settle();
+
+    const put = requests.find(item => item.url.endsWith('/settings') && item.options.method === 'PUT');
+    expect(JSON.parse(put.options.body)).toMatchObject({
+      autonomous_agent_enabled:'true', autonomous_lookback_hours:'24',
+      autonomous_min_confidence:'0.70', autonomous_max_items:'20',
+      autonomous_assignment_enabled:'true', autonomous_default_owner:'SOC Analyst',
+    });
+  });
+
   it('creates a durable investigation through the protected API', async () => {
     const requests = [];
     globalThis.fetch = vi.fn(async (input, options = {}) => {

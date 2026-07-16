@@ -10,6 +10,7 @@ const { dependencyHealth } = require('../services/health');
 const reports = require('../services/reports');
 const workflows = require('./workflows');
 const actions = require('./actions');
+const { POLICY_VERSION: AUTONOMOUS_POLICY_VERSION, runAutonomousAgent } = require('../workers/autonomous');
 
 const r = Router();
 
@@ -77,11 +78,14 @@ const SETTING_KEYS = new Set([
   'agentic_max_iterations','hybrid_agentic_min_rule_level',
   'hybrid_agentic_confidence_below',
   'incident_promote_enabled','incident_promote_verdicts','incident_promote_min_severity',
+  'autonomous_agent_enabled','autonomous_lookback_hours','autonomous_max_items',
+  'autonomous_min_confidence','autonomous_assignment_enabled','autonomous_default_owner',
 ]);
 
 const BOOLEAN_SETTINGS = new Set([
   'scheduler_enabled','triage_enabled','autoclose_enabled','correlation_enabled',
   'caching_enabled','incident_promote_enabled',
+  'autonomous_agent_enabled','autonomous_assignment_enabled',
 ]);
 
 const INTEGER_SETTING_LIMITS = {
@@ -92,6 +96,7 @@ const INTEGER_SETTING_LIMITS = {
   correlation_token_budget:[6000,100000], triage_cache_ttl_hours:[1,720],
   triage_token_budget:[10000,500000], agentic_max_iterations:[2,4],
   hybrid_agentic_min_rule_level:[1,20],
+  autonomous_lookback_hours:[1,168], autonomous_max_items:[1,100],
 };
 
 function validateSetting(key, value) {
@@ -109,12 +114,15 @@ function validateSetting(key, value) {
   if (key === 'triage_mode' && !['pipeline','agentic','hybrid'].includes(text)) return 'triage_mode is unsupported';
   if (key === 'autoclose_max_severity' && !SEVERITIES.has(text)) return 'autoclose_max_severity is unsupported';
   if (key === 'incident_promote_min_severity' && !SEVERITIES.has(text)) return 'incident_promote_min_severity is unsupported';
-  if (['autoclose_confidence','hybrid_agentic_confidence_below'].includes(key)) {
+  if (['autoclose_confidence','hybrid_agentic_confidence_below','autonomous_min_confidence'].includes(key)) {
     const number = Number(text);
     if (!Number.isFinite(number) || number < 0 || number > 1) return `${key} must be between 0 and 1`;
   }
   if (key === 'autoclose_enabled' && text !== 'false') return 'automatic closure remains disabled';
   if (key === 'incident_promote_enabled' && text !== 'false') return 'automatic singleton promotion remains disabled';
+  if (key === 'autonomous_default_owner' && (!text.trim() || text.length > 120)) {
+    return 'autonomous_default_owner must be between 1 and 120 characters';
+  }
   return null;
 }
 
@@ -400,6 +408,48 @@ r.post('/scheduler/correlate-now', async (req, res) => {
       },
     });
   }
+});
+
+r.get('/agent/status', async (_, res) => {
+  try {
+    const settings = await db.getAllSettings();
+    const [runs, operations, totals, pending] = await Promise.all([
+      db.query(`SELECT * FROM autonomous_runs ORDER BY started_at DESC LIMIT 10`),
+      db.query(`SELECT * FROM autonomous_operations ORDER BY updated_at DESC LIMIT 25`),
+      db.query(`SELECT status,operation_type,COUNT(*)::int AS n
+        FROM autonomous_operations GROUP BY status,operation_type`),
+      db.query(`SELECT COUNT(*)::int AS n FROM action_requests
+        WHERE status='pending' AND requested_by='system:autonomous-agent'`),
+    ]);
+    res.json({
+      enabled: settings.autonomous_agent_enabled === 'true',
+      policy_version: AUTONOMOUS_POLICY_VERSION,
+      readiness: {
+        scheduler: settings.scheduler_enabled === 'true',
+        triage: settings.triage_enabled === 'true',
+        correlation: settings.correlation_enabled === 'true',
+        autonomous: settings.autonomous_agent_enabled === 'true',
+      },
+      latest_run: runs.rows[0] || null,
+      recent_runs: runs.rows,
+      recent_operations: operations.rows,
+      operation_totals: totals.rows,
+      pending_approvals: pending.rows[0]?.n || 0,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+r.post('/agent/run-now', async (req, res) => {
+  try {
+    if (scheduler.status().cycle_active) {
+      return res.status(409).json({ error: 'A pipeline cycle is already running' });
+    }
+    const settings = await db.getAllSettings();
+    const result = await runAutonomousAgent(settings, null, {
+      trigger: 'manual', actor: 'system:autonomous-agent',
+    });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ────────────────────────────────────────────────────────────────────────────

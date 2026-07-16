@@ -89,6 +89,16 @@ test('Phase 7 migration activates controlled action policy and approval records'
   assert.match(sql, /action_request/);
 });
 
+test('Phase 8 migration creates durable autonomous runs and idempotent operations', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/008_autonomous_soc_agent.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS autonomous_runs/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS autonomous_operations/);
+  assert.match(sql, /operation_key TEXT NOT NULL UNIQUE/);
+  assert.match(sql, /request_case_assignment/);
+  assert.match(sql, /autonomous_agent_enabled','false'/);
+  assert.match(sql, /fetch_runs ADD COLUMN IF NOT EXISTS autonomous_run_id/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

@@ -50,11 +50,11 @@ All routes require the existing authenticated administrator boundary. Cookie-aut
 - Target removed after request but before approval: request becomes `failed`; it is not reported as executed.
 - Hermes host tools: remain disabled and rejected by dependency health checks.
 
-## Deliberately deferred to Phase 8
+## Deliberately deferred beyond Phase 7
 
 - External containment and response connectors.
 - Connector-specific authorization and dry-run/rollback behavior.
 - EDR host isolation, identity disablement, network blocking, mail quarantine, or ticket-system writes.
 - Expanded multi-role separation between action requester and approver.
 
-Phase 7 therefore provides controlled internal automation, not autonomous external response.
+Phase 8 builds autonomous internal orchestration on this boundary. External response connectors are deferred to Phase 9.
