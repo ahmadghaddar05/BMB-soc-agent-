@@ -3,6 +3,7 @@
 const { runtimeConfig } = require('../config');
 const { defaultHermesClient } = require('./hermes/client');
 const { chatHermes } = require('./hermes/chat');
+const { TOOL_SPECS } = require('./hermes/soc-tools');
 
 async function checkHermesHealth() {
   const config = runtimeConfig();
@@ -18,6 +19,9 @@ async function checkHermesHealth() {
       advertised_models: snapshot.advertised_models.length,
       active_toolsets: snapshot.active_toolsets,
       active_tools: snapshot.active_tools,
+      application_tool_mode: 'bounded_read_only',
+      application_tool_count: TOOL_SPECS.length,
+      application_tools: TOOL_SPECS.map(tool => tool.name),
       capabilities: snapshot.features,
     };
   } catch (error) {

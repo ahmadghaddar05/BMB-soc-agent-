@@ -5,8 +5,12 @@ import ChatWidget from './ChatWidget';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-const response = body => new Response(JSON.stringify(body), {
-  status: 200, headers: { 'Content-Type':'application/json' },
+const response = body => new Response([
+  JSON.stringify({ type:'progress', stage:'tool_completed', tool:'search_alerts', evidence_count:1 }),
+  JSON.stringify({ type:'result', result:body }),
+  '',
+].join('\n'), {
+  status: 200, headers: { 'Content-Type':'application/x-ndjson' },
 });
 
 async function settle(milliseconds = 30) {
@@ -32,13 +36,17 @@ describe('Hermes chat widget', () => {
     vi.restoreAllMocks();
   });
 
-  async function submit(text) {
+  async function typeMessage(text) {
     const textarea = container.querySelector('textarea');
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
       setter.call(textarea, text);
       textarea.dispatchEvent(new Event('input', { bubbles:true }));
     });
+  }
+
+  async function submit(text) {
+    await typeMessage(text);
     await act(async () => container.querySelector('[aria-label="Send to Hermes"]').click());
     await settle();
   }
@@ -49,7 +57,8 @@ describe('Hermes chat widget', () => {
       bodies.push(JSON.parse(options.body));
       return response({
         answer: 'Investigate alert A.', conversation_id: '11111111-1111-4111-8111-111111111111',
-        citations: [{ type:'alert', id:'A' }], confidence: 'high', tools_used: [{ tool:'soc_evidence_snapshot' }],
+        citations: [{ type:'alert', id:'A' }], confidence: 'high', limitations: ['Test limitation'],
+        tools_used: [{ tool:'search_alerts', evidence_count:1 }],
       });
     });
 
@@ -61,6 +70,9 @@ describe('Hermes chat widget', () => {
       message:'Follow-up question', conversation_id:'11111111-1111-4111-8111-111111111111',
     });
     expect(container.textContent).toContain('evidence: alert:A');
+    expect(container.textContent).toContain('queried: search_alerts (1)');
+    expect(container.textContent).toContain('confidence: high');
+    expect(container.textContent).toContain('limitations: Test limitation');
     expect(window.sessionStorage.getItem('bmb-soc-conversation-id')).toBe('11111111-1111-4111-8111-111111111111');
   });
 
@@ -69,12 +81,13 @@ describe('Hermes chat widget', () => {
       options.signal.addEventListener('abort', () => reject(new window.DOMException('Aborted', 'AbortError')), { once:true });
     }));
 
-    const sending = submit('Long investigation');
+    await typeMessage('Long investigation');
+    await act(async () => container.querySelector('[aria-label="Send to Hermes"]').click());
     await settle(5);
     const stopButton = container.querySelector('[aria-label="Stop Hermes request"]');
     expect(stopButton).toBeTruthy();
     await act(async () => stopButton.click());
-    await sending;
+    await settle();
 
     expect(container.textContent).toContain('Request cancelled.');
   });

@@ -35,6 +35,55 @@ export async function api(path, opts = {}) {
   return data;
 }
 
+export async function apiStream(path, opts = {}, onEvent = () => {}) {
+  const method = String(opts.method || 'GET').toUpperCase();
+  const { headers: optionHeaders = {}, ...fetchOptions } = opts;
+  const res = await fetch(`${BASE}/api${path}`, {
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(!['GET','HEAD','OPTIONS'].includes(method) && csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+      ...optionHeaders,
+    },
+    ...fetchOptions,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    const message = typeof body.error === 'object' ? body.error.message : body.error;
+    const error = new Error(message || `HTTP ${res.status}`);
+    error.code = body.error?.code || `HTTP_${res.status}`;
+    error.status = res.status;
+    throw error;
+  }
+  if (!res.body) throw new Error('Streaming response body is unavailable');
+
+  const reader = res.body.getReader();
+  const decoder = new globalThis.TextDecoder();
+  let buffer = '';
+  let result = null;
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    const lines = buffer.split('\n');
+    buffer = done ? '' : lines.pop();
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line);
+      onEvent(event);
+      if (event.type === 'error') {
+        const error = new Error(event.error?.message || 'Hermes investigation failed');
+        error.code = event.error?.code || 'HERMES_UNAVAILABLE';
+        error.status = event.status || 502;
+        throw error;
+      }
+      if (event.type === 'result') result = event.result;
+    }
+    if (done) break;
+  }
+  if (!result) throw new Error('Hermes stream ended without a result');
+  return result;
+}
+
 export const sevClass = (sev) => ({
   critical: 'badge-critical',
   high:     'badge-high',

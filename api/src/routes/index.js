@@ -892,6 +892,58 @@ r.get('/reports/incidents/:id', async (req, res) => {
 // ────────────────────────────────────────────────────────────────────────────
 // SOC assistant chatbot
 // ────────────────────────────────────────────────────────────────────────────
+r.post('/chat/stream', async (req, res) => {
+  const { message, conversation_id: conversationId, history } = req.body || {};
+  if (typeof message !== 'string' || !message.trim() || message.length > 4000)
+    return res.status(400).json({ error: 'message must be a non-empty string of at most 4000 characters' });
+  if (history !== undefined)
+    return res.status(400).json({ error: 'history is server-managed; send conversation_id instead' });
+  if (conversationId != null && typeof conversationId !== 'string')
+    return res.status(400).json({ error: 'conversation_id must be a UUID string' });
+  if (req.user?.role !== 'administrator')
+    return res.status(403).json({ error: 'SOC analyst access is not permitted for this account' });
+  if (!runtimeConfig().hermesApiKey) {
+    const response = publicHermesError(
+      new HermesError('HERMES_NOT_CONFIGURED', 'Hermes is not configured', { status: 503 }), req.id
+    );
+    return res.status(response.status).json(response.body);
+  }
+
+  const controller = new AbortController();
+  const disconnected = () => {
+    if (!res.writableEnded) controller.abort();
+  };
+  req.once('aborted', disconnected);
+  res.once('close', disconnected);
+  res.status(200);
+  res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store, no-transform');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+  const send = event => {
+    if (!controller.signal.aborted && !res.writableEnded) res.write(`${JSON.stringify(event)}\n`);
+  };
+  try {
+    const result = await chatHermes(message.trim(), {
+      conversationId: conversationId || null,
+      actor: req.user?.username || 'unknown', requestId: req.id,
+      authorization: { canReadSoc: req.user?.role === 'administrator', role: req.user?.role },
+      signal: controller.signal,
+      onProgress: event => send({ type: 'progress', ...event }),
+    });
+    send({ type: 'result', result });
+  } catch (error) {
+    if (!controller.signal.aborted) {
+      const response = publicHermesError(error, req.id);
+      send({ type: 'error', error: response.body.error, status: response.status });
+    }
+  } finally {
+    if (!res.writableEnded) res.end();
+    req.removeListener('aborted', disconnected);
+    res.removeListener('close', disconnected);
+  }
+});
+
 r.post('/chat', async (req, res) => {
   const controller = new AbortController();
   const disconnected = () => {
@@ -909,12 +961,16 @@ r.post('/chat', async (req, res) => {
     if (conversationId != null && typeof conversationId !== 'string') {
       return res.status(400).json({ error: 'conversation_id must be a UUID string' });
     }
+    if (req.user?.role !== 'administrator') {
+      return res.status(403).json({ error: 'SOC analyst access is not permitted for this account' });
+    }
     if (!runtimeConfig().hermesApiKey) {
       throw new HermesError('HERMES_NOT_CONFIGURED', 'Hermes is not configured', { status: 503 });
     }
     const result = await chatHermes(message.trim(), {
       conversationId: conversationId || null,
       actor: req.user?.username || 'unknown',
+      authorization: { canReadSoc: req.user?.role === 'administrator', role: req.user?.role },
       requestId: req.id,
       signal: controller.signal,
     });

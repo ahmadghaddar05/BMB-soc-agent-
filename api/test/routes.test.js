@@ -57,6 +57,21 @@ test('chat validates message and history before calling an AI provider', async (
   assert.equal(invalidMessage.status, 400);
   const invalidHistory = await request(routeApp()).post('/api/chat').send({ message:'hello', history:'not-an-array' });
   assert.equal(invalidHistory.status, 400);
+  const invalidStream = await request(routeApp()).post('/api/chat/stream').send({ message:'', history:[] });
+  assert.equal(invalidStream.status, 400);
+});
+
+test('chat stream fails closed before opening when Hermes is not configured', async () => {
+  const previous = process.env.HERMES_API_KEY;
+  delete process.env.HERMES_API_KEY;
+  try {
+    const response = await request(routeApp()).post('/api/chat/stream').send({ message:'Find alert A' });
+    assert.equal(response.status, 503);
+    assert.equal(response.body.error.code, 'HERMES_NOT_CONFIGURED');
+  } finally {
+    if (previous === undefined) delete process.env.HERMES_API_KEY;
+    else process.env.HERMES_API_KEY = previous;
+  }
 });
 
 test('chat fails closed when Hermes is not configured and never reads legacy settings', async () => {

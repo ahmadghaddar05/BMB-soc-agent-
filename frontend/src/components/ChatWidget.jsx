@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { api } from '../lib/api';
+import { apiStream } from '../lib/api';
 import { MessageSquare, X, Send, Bot, User, Loader2, Square, RotateCcw } from 'lucide-react';
 
 const SUGGESTIONS = [
@@ -12,6 +12,7 @@ export default function ChatWidget() {
   const [open, setOpen]       = useState(false);
   const [input, setInput]     = useState('');
   const [busy, setBusy]       = useState(false);
+  const [progress, setProgress] = useState(null);
   const [messages, setMessages] = useState([
     { role: 'assistant', content: "Hi — I'm your BMB AI analyst. Ask me about alerts, incidents, or what to investigate next." },
   ]);
@@ -45,9 +46,11 @@ export default function ChatWidget() {
     const controller = new window.AbortController();
     abortRef.current = controller;
     try {
-      const res = await api('/chat', {
+      const res = await apiStream('/chat/stream', {
         method: 'POST', signal: controller.signal,
         body: JSON.stringify({ message: q, ...(conversationId ? { conversation_id: conversationId } : {}) }),
+      }, event => {
+        if (event.type === 'progress') setProgress(event);
       });
       setConversationId(res.conversation_id);
       try { window.sessionStorage.setItem('bmb-soc-conversation-id', res.conversation_id); } catch { /* optional */ }
@@ -64,6 +67,7 @@ export default function ChatWidget() {
       if (abortRef.current === controller) {
         abortRef.current = null;
         setBusy(false);
+        setProgress(null);
       }
     }
   }
@@ -108,7 +112,7 @@ export default function ChatWidget() {
               </div>
               <div>
                 <div className="text-sm font-semibold text-white">BMB AI Analyst</div>
-                <div className="text-xs text-gray-500">Investigation &amp; triage help</div>
+                <div className="text-xs text-gray-500">Grounded read-only investigation</div>
               </div>
             </div>
             <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">
@@ -130,12 +134,20 @@ export default function ChatWidget() {
                   {m.content}
                   {m.tools?.length > 0 && (
                     <div className="mt-1.5 pt-1.5 border-t border-dark-600 text-[10px] text-gray-500">
-                      queried: {m.tools.map(t => t.tool).join(', ')}
+                      queried: {m.tools.map(t => `${t.tool} (${t.evidence_count ?? 0})`).join(', ')}
                     </div>
                   )}
                   {m.citations?.length > 0 && (
                     <div className="mt-1.5 pt-1.5 border-t border-dark-600 text-[10px] text-gray-400">
                       evidence: {m.citations.map(citation => `${citation.type}:${citation.id}`).join(', ')}
+                    </div>
+                  )}
+                  {m.confidence && (
+                    <div className="mt-1 text-[10px] text-gray-500">confidence: {m.confidence}</div>
+                  )}
+                  {m.limitations?.length > 0 && (
+                    <div className="mt-1 text-[10px] text-amber-300/80">
+                      limitations: {m.limitations.join('; ')}
                     </div>
                   )}
                 </div>
@@ -147,7 +159,11 @@ export default function ChatWidget() {
                   <Bot className="w-4 h-4 text-accent" />
                 </div>
                 <div className="flex items-center gap-2 rounded-lg px-3 py-2 bg-dark-700 text-gray-400 text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin" /> investigating…
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {progress?.stage === 'tool_running' ? `querying ${progress.tool}...`
+                    : progress?.stage === 'tool_completed' ? `reviewing ${progress.tool} evidence...`
+                    : progress?.stage === 'finalizing' ? 'validating citations...'
+                    : 'investigating...'}
                 </div>
               </div>
             )}

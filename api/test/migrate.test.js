@@ -36,6 +36,13 @@ test('Hermes audit migration creates every durable agent and approval record', (
   assert.match(sql, /provider = 'hermes'/);
 });
 
+test('grounded analyst migration records every Hermes sub-run durably', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/003_grounded_hermes_analyst.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS agent_run_steps/);
+  assert.match(sql, /agent_run_steps_run_step_unique/);
+  assert.match(sql, /agent_run_steps_hermes_run_unique/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

@@ -4,6 +4,7 @@ const Ajv = require('ajv');
 const { HermesError } = require('./errors');
 
 const ajv = new Ajv({ allErrors: true, strict: true, allowUnionTypes: true });
+const EVIDENCE_TYPES = ['alert', 'incident', 'alert_group', 'asset', 'identity', 'observable', 'fetch_run'];
 
 const schemas = {
   capabilities: {
@@ -93,7 +94,7 @@ const schemas = {
         items: {
           type: 'object', required: ['type', 'id'],
           properties: {
-            type: { enum: ['alert', 'incident'] },
+            type: { enum: EVIDENCE_TYPES },
             id: { type: 'string', minLength: 1, maxLength: 256 },
           },
           additionalProperties: false,
@@ -106,6 +107,43 @@ const schemas = {
       },
     },
     additionalProperties: false,
+  },
+  analystTurn: {
+    oneOf: [
+      {
+        type: 'object', required: ['type', 'tool', 'arguments'],
+        properties: {
+          type: { const: 'tool_call' },
+          tool: { type: 'string', minLength: 1, maxLength: 100 },
+          arguments: { type: 'object' },
+        },
+        additionalProperties: false,
+      },
+      {
+        type: 'object', required: ['type', 'answer', 'citations', 'confidence'],
+        properties: {
+          type: { const: 'final' },
+          answer: { type: 'string', minLength: 1, maxLength: 8000 },
+          citations: {
+            type: 'array', maxItems: 40,
+            items: {
+              type: 'object', required: ['type', 'id'],
+              properties: {
+                type: { enum: EVIDENCE_TYPES },
+                id: { type: 'string', minLength: 1, maxLength: 256 },
+              },
+              additionalProperties: false,
+            },
+          },
+          confidence: { enum: ['low', 'medium', 'high'] },
+          limitations: {
+            type: 'array', maxItems: 10,
+            items: { type: 'string', minLength: 1, maxLength: 500 },
+          },
+        },
+        additionalProperties: false,
+      },
+    ],
   },
 };
 
@@ -122,7 +160,7 @@ function validate(name, value, code = 'HERMES_PROTOCOL_ERROR') {
   return value;
 }
 
-function parseChatOutput(raw) {
+function parseJsonOutput(raw) {
   if (typeof raw !== 'string' || !raw.trim()) {
     throw new HermesError('HERMES_INVALID_OUTPUT', 'Hermes returned an empty response', { status: 502 });
   }
@@ -134,15 +172,28 @@ function parseChatOutput(raw) {
   catch {
     throw new HermesError('HERMES_INVALID_OUTPUT', 'Hermes returned invalid structured output', { status: 502 });
   }
-  return validate('chatOutput', value, 'HERMES_INVALID_OUTPUT');
+  return value;
+}
+
+function parseChatOutput(raw) {
+  return validate('chatOutput', parseJsonOutput(raw), 'HERMES_INVALID_OUTPUT');
+}
+
+function parseAnalystTurn(raw) {
+  return validate('analystTurn', parseJsonOutput(raw), 'HERMES_INVALID_OUTPUT');
 }
 
 function validateCitations(output, evidence) {
-  const valid = {
-    alert: new Set((evidence.alerts || []).map(item => String(item.id))),
-    incident: new Set((evidence.incidents || []).map(item => String(item.id))),
-  };
-  const invalid = output.citations.filter(citation => !valid[citation.type].has(String(citation.id)));
+  const valid = Object.fromEntries(EVIDENCE_TYPES.map(type => [type, new Set()]));
+  if (Array.isArray(evidence)) {
+    for (const item of evidence) {
+      if (valid[item?.type] && item?.id != null) valid[item.type].add(String(item.id));
+    }
+  } else {
+    for (const item of evidence?.alerts || []) valid.alert.add(String(item.id));
+    for (const item of evidence?.incidents || []) valid.incident.add(String(item.id));
+  }
+  const invalid = output.citations.filter(citation => !valid[citation.type]?.has(String(citation.id)));
   if (invalid.length) {
     throw new HermesError('HERMES_UNGROUNDED_OUTPUT', 'Hermes cited evidence that was not supplied', {
       status: 502,
@@ -152,4 +203,4 @@ function validateCitations(output, evidence) {
   return output;
 }
 
-module.exports = { parseChatOutput, schemas, validate, validateCitations };
+module.exports = { EVIDENCE_TYPES, parseAnalystTurn, parseChatOutput, schemas, validate, validateCitations };

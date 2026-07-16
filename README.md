@@ -2,7 +2,7 @@
 
 BMB SOC Agent is a containerized security-operations workspace for collecting alerts, enriching evidence, triaging activity, correlating incidents, and assisting analysts.
 
-Phase 2 establishes the shared Hermes agent boundary. The chatbot is Hermes-only and fails closed when Hermes is missing, incompatible, or unsafe. Automated triage and correlation remain disabled by default and retain explicitly labeled legacy code until their Hermes migrations in Phases 4 and 5; the whole pipeline is not yet Hermes-only.
+Phase 3 provides a grounded Hermes analyst through application-owned, bounded, read-only SOC tools. The chatbot is Hermes-only and fails closed when Hermes is missing, incompatible, unsafe, or requests a tool outside the allowlist. Automated triage and correlation remain disabled by default and retain explicitly labeled legacy code until their Hermes migrations in Phases 4 and 5; the whole pipeline is not yet Hermes-only.
 
 ## Services
 
@@ -55,11 +55,11 @@ For a controlled development environment only, `ELASTIC_VERIFY_TLS=false` skips 
 
 Set `ALERT_SOURCE=wazuh`. For deterministic mock data keep `WAZUH_MODE=mock`. For a real indexer set `WAZUH_MODE=real`, `WAZUH_INDEXER_URL`, `WAZUH_INDEXER_USER`, and `WAZUH_INDEXER_PASS`. Set `WAZUH_VERIFY_TLS=true` when the indexer certificate is trusted.
 
-## Hermes Phase 2 setup
+## Hermes Phase 3 grounded analyst setup
 
 Run Hermes on the Docker server, not on the analyst laptop. In the dedicated Hermes profile, set `API_SERVER_ENABLED=true`, `API_SERVER_HOST=0.0.0.0`, `API_SERVER_PORT=8642`, and a strong `API_SERVER_KEY`, then start `hermes gateway`. Keep port 8642 blocked from untrusted networks; only the local Docker host needs it. The SOC API calls `http://host.docker.internal:8642/v1` server-to-server, so browser CORS is not needed.
 
-Use `hermes tools` to configure the `api_server` platform as an isolated, tool-less profile. Phase 2 supplies a fixed SOC evidence snapshot through the API and therefore permits no Hermes host tools, including read-only file or memory tools. Verify the resolved profile before starting BMB:
+Use `hermes tools` to configure the `api_server` platform as an isolated, tool-less profile. Phase 3 does not enable Hermes host tools, including read-only file or memory tools. Hermes requests structured application tool calls; the authenticated BMB API validates and executes only its parameterized read-only SOC allowlist. Verify the resolved host profile before starting BMB:
 
 ```bash
 curl -s http://127.0.0.1:8642/v1/capabilities -H "Authorization: Bearer $API_SERVER_KEY"
@@ -67,9 +67,20 @@ curl -s http://127.0.0.1:8642/v1/models -H "Authorization: Bearer $API_SERVER_KE
 curl -s http://127.0.0.1:8642/v1/toolsets -H "Authorization: Bearer $API_SERVER_KEY"
 ```
 
-Set the BMB `HERMES_API_KEY` to that same secret. The API performs all three checks before each cached capability window, verifies the configured model, and rejects unsafe advertised tools. Chat uses Hermes `/v1/runs`, polls status, calls `/stop` on cancellation/timeout, validates a strict JSON response and every evidence citation, and stores conversations, messages, runs, tool traces, usage, evidence links, and audit events. The key remains backend-only.
+Set the BMB `HERMES_API_KEY` to that same secret. The API performs all three checks before each cached capability window, verifies the configured model, and rejects unsafe advertised tools. Chat uses Hermes `/v1/runs`, polls status, calls `/stop` on cancellation/timeout, and runs a bounded structured loop around these BMB-owned tools:
 
-`GET /api/health/dependencies` reports Hermes reachability, model/capabilities, toolsets, and safe-profile state. `HERMES_REQUIRED=true` makes the production container reject missing credentials at startup. There is no Groq, Anthropic, or Ollama fallback for chat.
+- SOC summary and recent collection runs
+- Alert search and alert detail, including untriaged collected alerts
+- Incident search and incident detail
+- Exact IP, username, and hostname pivots
+- Identity and logon context
+- Asset, EDR, threat-intelligence, and vulnerability context
+
+Every argument passes a strict JSON schema. Queries are parameterized and result/time/iteration limits are enforced. Raw payloads, full logs, credentials, secrets, and tokens are withheld or redacted. Tool data is explicitly treated as untrusted to resist prompt injection. Final output and citations are schema-validated against evidence actually returned during the run. Conversations, every Hermes sub-run, tool traces, usage, evidence links, and audit events are durable. The Hermes key remains backend-only.
+
+The UI uses `POST /api/chat/stream` for bounded progress events and final output. `POST /api/chat` remains available for trusted API clients that need a single JSON response. Browser cancellation propagates through the BMB tool loop to Hermes `/stop`.
+
+`GET /api/health/dependencies` reports Hermes reachability, model/capabilities, host toolsets, safe-profile state, and the BMB application tool count. `HERMES_REQUIRED=true` makes the production container reject missing credentials at startup. There is no Groq, Anthropic, or Ollama fallback for chat.
 
 The legacy provider variables remain only for triage/investigation and correlation until their Phase 4 and Phase 5 migrations. Fresh databases keep AI triage disabled and automatic closure blocked.
 
@@ -87,7 +98,7 @@ This is a Phase 1 access boundary with one administrator identity, not full mult
 
 ## Database lifecycle
 
-The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 adds durable agent conversation, message, run, tool-call, evidence-link, action-request/approval, and audit-event tables.
+The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent conversation, message, run, tool-call, evidence-link, action-request/approval, and audit-event tables. Phase 3 adds `agent_run_steps` so every Hermes sub-run in a grounded investigation is independently queryable.
 
 ## Health and metrics
 
@@ -98,7 +109,7 @@ The API obtains a PostgreSQL advisory lock and applies versioned SQL files from 
 
 ## Local verification
 
-Install from lockfiles and run every Phase 2 check:
+Install from lockfiles and run every Phase 3 check:
 
 ```bash
 cd api
@@ -123,4 +134,4 @@ The frontend build may report a chunk-size optimization warning; bundle splittin
 
 Containment recommendations, alert escalation markers, playbooks, assignments, watchlists, cases, and investigations that are browser-local are labeled as local review state. They do not execute firewall, EDR, identity, email, or ticketing actions. Real response actions require a later server workflow, authorization checks, approval gates, and audited integrations.
 
-See `docs/phase-0/PHASE_0_AUDIT.md`, `docs/phase-0/PHASE_1_ACCEPTANCE_GATE.md`, and `docs/phase-2/PHASE_2_ACCEPTANCE_GATE.md` for the audited baseline and delivery gates.
+See `docs/phase-0/PHASE_0_AUDIT.md`, `docs/phase-2/PHASE_2_ACCEPTANCE_GATE.md`, and `docs/phase-3/PHASE_3_ACCEPTANCE_GATE.md` for the audited baseline and delivery gates.
