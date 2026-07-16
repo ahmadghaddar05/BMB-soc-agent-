@@ -96,6 +96,36 @@ test('enrichment tools use only fixed service paths and URL-encode model values'
   assert.deepEqual(result.evidence, [{ type: 'identity', id: 'alice/admin' }]);
 });
 
+test('controlled action tool requires separate action permission and delegates only to the policy service', async () => {
+  const submitted = [];
+  const actionService = {
+    async submit(input) {
+      submitted.push(input);
+      return { action_request: {
+        id: '10000000-0000-4000-8000-000000000004', action_type: input.actionType,
+        target_type: 'case', target_id: input.targetId, status: 'pending', approval_required: true,
+        reason: input.reason,
+      }, idempotent_replay: false };
+    },
+  };
+  const toolkit = createSocToolkit({ database: {}, actionService, config });
+  const args = {
+    action_type: 'case.update', target_id: '7', parameters: { owner: 'Incident Lead' },
+    reason: 'Assign the active incident',
+  };
+  await assert.rejects(
+    toolkit.execute('request_soc_action', args, authorized),
+    error => error.code === 'HERMES_TOOL_UNAUTHORIZED' && error.status === 403
+  );
+  const result = await toolkit.execute('request_soc_action', args, {
+    authorization: { canRequestActions: true }, actor: 'admin', runId: 'run-7', requestId: 'req-7',
+  });
+  assert.equal(submitted.length, 1);
+  assert.equal(result.data.action_request.status, 'pending');
+  assert.equal(result.data.analyst_approval_required, true);
+  assert.deepEqual(result.evidence, [{ type: 'action_request', id: '10000000-0000-4000-8000-000000000004' }]);
+});
+
 test('durable workflow tools expose bounded read-only investigation and case context', async () => {
   const calls = [];
   const database = {

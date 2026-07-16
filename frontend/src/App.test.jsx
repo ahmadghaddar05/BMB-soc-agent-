@@ -221,6 +221,48 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Durable ownership');
   });
 
+  it('reviews and approves a sensitive Hermes action through the protected approval queue', async () => {
+    const requests = [];
+    const pending = {
+      id:'10000000-0000-4000-8000-000000000007', action_type:'case.update',
+      target_type:'case', target_id:'7', status:'pending', approval_required:true,
+      requested_by:'analyst', reason:'Assign accountable incident ownership',
+      policy_version:'phase7-v1', parameters:{ owner:'Incident Lead' },
+      created_at:new Date().toISOString(), approvals:[],
+    };
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.includes('/actions?page=1&limit=100&status=pending')) return jsonResponse({ actions:[pending], total:1 });
+      if (url.includes('/actions?page=1&limit=100')) return jsonResponse({ actions:[], total:0 });
+      if (url.endsWith(`/actions/${pending.id}/decision`) && options.method === 'POST') {
+        return jsonResponse({ action_request:{ ...pending, status:'executed', executed_by:'analyst' }, decision:'approved' });
+      }
+      return jsonResponse({});
+    });
+
+    await renderAt('/approvals');
+    expect(document.body.textContent).toContain('Phase 7 safety boundary');
+    expect(document.body.textContent).toContain('Assign accountable incident ownership');
+    const textarea = document.querySelector('.approval-decision textarea');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(globalThis.HTMLTextAreaElement.prototype, 'value').set.call(
+        textarea, 'Validated assignment with the incident lead'
+      );
+      textarea.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    const approve = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Approve and execute'));
+    await act(async () => approve.click());
+    await settle();
+
+    const post = requests.find(entry => entry.url.endsWith(`/actions/${pending.id}/decision`) && entry.options.method === 'POST');
+    expect(post).toBeTruthy();
+    expect(JSON.parse(post.options.body)).toEqual({ decision:'approved', reason:'Validated assignment with the incident lead' });
+    expect(post.options.headers['X-CSRF-Token']).toBe('csrf-token');
+  });
+
   it('surfaces API failure states to the analyst', async () => {
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);

@@ -57,6 +57,7 @@ export default function ChatWidget() {
       setMessages(m => [...m, {
         role: 'assistant', content: res.answer, tools: res.tools_used,
         citations: res.citations, confidence: res.confidence, limitations: res.limitations,
+        actions: res.actions,
       }]);
     } catch (e) {
       const cancelled = e?.name === 'AbortError';
@@ -112,7 +113,7 @@ export default function ChatWidget() {
               </div>
               <div>
                 <div className="text-sm font-semibold text-white">BMB AI Analyst</div>
-                <div className="text-xs text-gray-500">Grounded read-only investigation</div>
+                <div className="text-xs text-gray-500">Grounded analysis · controlled actions</div>
               </div>
             </div>
             <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">
@@ -140,6 +141,11 @@ export default function ChatWidget() {
                   {m.citations?.length > 0 && (
                     <div className="mt-1.5 pt-1.5 border-t border-dark-600 text-[10px] text-gray-400">
                       evidence: {m.citations.map(citation => `${citation.type}:${citation.id}`).join(', ')}
+                    </div>
+                  )}
+                  {m.actions?.length > 0 && (
+                    <div className="mt-1.5 pt-1.5 border-t border-dark-600 text-[10px] text-cyan-300">
+                      actions: {m.actions.map(action => `${action.action_type} (${action.status})`).join(', ')} · review in Approvals
                     </div>
                   )}
                   {m.confidence && (

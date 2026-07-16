@@ -9,10 +9,12 @@ const { runtimeConfig } = require('../config');
 const { dependencyHealth } = require('../services/health');
 const reports = require('../services/reports');
 const workflows = require('./workflows');
+const actions = require('./actions');
 
 const r = Router();
 
 r.use(workflows);
+r.use(actions);
 
 const SEVERITIES = new Set(['critical','high','medium','low','informational']);
 const VERDICTS = new Set(['true_positive','false_positive','needs_investigation','benign_anomaly']);
@@ -959,7 +961,10 @@ r.post('/chat/stream', async (req, res) => {
     const result = await chatHermes(message.trim(), {
       conversationId: conversationId || null,
       actor: req.user?.username || 'unknown', requestId: req.id,
-      authorization: { canReadSoc: req.user?.role === 'administrator', role: req.user?.role },
+      authorization: {
+        canReadSoc: req.user?.role === 'administrator',
+        canRequestActions: req.user?.role === 'administrator', role: req.user?.role,
+      },
       signal: controller.signal,
       onProgress: event => send({ type: 'progress', ...event }),
     });
@@ -1002,7 +1007,10 @@ r.post('/chat', async (req, res) => {
     const result = await chatHermes(message.trim(), {
       conversationId: conversationId || null,
       actor: req.user?.username || 'unknown',
-      authorization: { canReadSoc: req.user?.role === 'administrator', role: req.user?.role },
+      authorization: {
+        canReadSoc: req.user?.role === 'administrator',
+        canRequestActions: req.user?.role === 'administrator', role: req.user?.role,
+      },
       requestId: req.id,
       signal: controller.signal,
     });

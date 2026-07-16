@@ -77,6 +77,18 @@ test('Phase 6 migration creates durable investigation and case workflow records'
   assert.match(sql, /evidence_type IN \([\s\S]+'investigation','case'/);
 });
 
+test('Phase 7 migration activates controlled action policy and approval records', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/007_controlled_actions.sql'), 'utf8');
+  for (const column of ['policy_version', 'approval_required', 'idempotency_key', 'executed_at', 'executed_by', 'result', 'error_code']) {
+    assert.match(sql, new RegExp(`action_requests ADD COLUMN IF NOT EXISTS ${column}`));
+  }
+  assert.match(sql, /action_requests_idempotency_key_unique/);
+  assert.match(sql, /action_approvals_one_decision/);
+  assert.match(sql, /investigation\.create/);
+  assert.match(sql, /investigation\.update/);
+  assert.match(sql, /action_request/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

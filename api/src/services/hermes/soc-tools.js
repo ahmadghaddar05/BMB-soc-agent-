@@ -5,6 +5,7 @@ const { isIP } = require('node:net');
 const db = require('../../db');
 const { runtimeConfig } = require('../../config');
 const { HermesError } = require('./errors');
+const { ActionError, createActionService, stableKey } = require('../actions');
 
 const ajv = new Ajv({ allErrors: true, strict: true });
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'informational', 'unknown'];
@@ -175,6 +176,68 @@ const TOOL_SPECS = [
       properties: { hostname: { type: 'string', minLength: 1, maxLength: 253 } },
     },
   },
+  {
+    name: 'request_soc_action',
+    description: 'Request one allowlisted BMB workflow action. Notes and investigation creation execute directly; owner or status changes wait for analyst approval. External response actions are forbidden.',
+    parameters: {
+      oneOf: [
+        {
+          type: 'object', additionalProperties: false, required: ['action_type', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: 'investigation.create' },
+            target_id: { type: 'string', maxLength: 1 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: {
+              type: 'object', additionalProperties: false, required: ['title', 'alert_ids'],
+              properties: {
+                title: { type: 'string', minLength: 1, maxLength: 200 },
+                search_query: { type: 'string', maxLength: 500 },
+                alert_ids: { type: 'array', minItems: 1, maxItems: 100, uniqueItems: true,
+                  items: { type: 'string', minLength: 1, maxLength: 500 } },
+              },
+            },
+          },
+        },
+        ...['investigation.add_note', 'case.add_note'].map(actionType => ({
+          type: 'object', additionalProperties: false, required: ['action_type', 'target_id', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: actionType },
+            target_id: { type: 'string', minLength: 1, maxLength: 64 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: { type: 'object', additionalProperties: false, required: ['body'],
+              properties: { body: { type: 'string', minLength: 1, maxLength: 4000 } } },
+          },
+        })),
+        {
+          type: 'object', additionalProperties: false, required: ['action_type', 'target_id', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: 'investigation.update' },
+            target_id: { type: 'string', minLength: 36, maxLength: 36 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: { type: 'object', additionalProperties: false, minProperties: 1,
+              properties: {
+                title: { type: 'string', minLength: 1, maxLength: 200 },
+                owner: { type: 'string', maxLength: 120 },
+                status: { enum: ['open', 'closed'] },
+              } },
+          },
+        },
+        {
+          type: 'object', additionalProperties: false, required: ['action_type', 'target_id', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: 'case.update' },
+            target_id: { type: 'string', pattern: '^[1-9][0-9]*$', maxLength: 10 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: { type: 'object', additionalProperties: false, minProperties: 1,
+              properties: {
+                owner: { type: 'string', maxLength: 120 },
+                status: { enum: ['open', 'closed', 'false_positive'] },
+              } },
+          },
+        },
+      ],
+    },
+  },
 ];
 
 const validators = new Map(TOOL_SPECS.map(spec => [spec.name, ajv.compile(spec.parameters)]));
@@ -226,7 +289,10 @@ function enrichmentBaseUrl() {
   return (process.env.ENRICHMENT_URL || 'http://enrichment:3001').replace(/\/$/, '');
 }
 
-function createSocToolkit({ database = db, fetchImpl = global.fetch, config = runtimeConfig() } = {}) {
+function createSocToolkit({
+  database = db, fetchImpl = global.fetch, config = runtimeConfig(),
+  actionService = createActionService(database),
+} = {}) {
   const selectAlert = `SELECT id,timestamp,source_system,source_index,elastic_alert_uuid,
     rule_id,rule_level,rule_desc,risk_score,source_severity,workflow_status,alert_reason,
     triage_status,enrichment_status,verdict,src_ip,dst_ip,username,hostname,process,
@@ -465,6 +531,36 @@ function createSocToolkit({ database = db, fetchImpl = global.fetch, config = ru
       const result = await fetchEnrichment(`/vuln/${encodeURIComponent(args.hostname)}/risk`, context);
       return { data: result, evidence: result.found ? evidence('asset', args.hostname) : [] };
     },
+
+    async request_soc_action(args, context) {
+      try {
+        const outcome = await actionService.submit({
+          actionType: args.action_type, targetId: args.target_id, parameters: args.parameters,
+          reason: args.reason, actor: context.actor || 'unknown', requestId: context.requestId || null,
+          runId: context.runId || null,
+          idempotencyKey: stableKey(`agent:${context.runId || 'unknown'}`, args),
+        });
+        const action = outcome.action_request;
+        return {
+          data: {
+            action_request: {
+              id: action.id, action_type: action.action_type, target_type: action.target_type,
+              target_id: action.target_id, status: action.status,
+              approval_required: action.approval_required, reason: action.reason,
+              result: action.result || outcome.result || null,
+            },
+            analyst_approval_required: action.status === 'pending',
+            idempotent_replay: outcome.idempotent_replay,
+          },
+          evidence: evidence('action_request', action.id),
+        };
+      } catch (error) {
+        if (error instanceof ActionError) {
+          throw new HermesError(error.code, error.message, { status: error.status, cause: error });
+        }
+        throw error;
+      }
+    },
   };
 
   function validateArguments(name, args) {
@@ -489,9 +585,14 @@ function createSocToolkit({ database = db, fetchImpl = global.fetch, config = ru
     return args;
   }
 
-  async function execute(name, args, { signal, authorization } = {}) {
-    if (authorization?.canReadSoc !== true) {
-      throw new HermesError('HERMES_TOOL_UNAUTHORIZED', 'The actor is not authorized to read SOC evidence', { status: 403 });
+  async function execute(name, args, { signal, authorization, actor, runId, requestId } = {}) {
+    const isAction = name === 'request_soc_action';
+    if (isAction ? authorization?.canRequestActions !== true : authorization?.canReadSoc !== true) {
+      throw new HermesError(
+        'HERMES_TOOL_UNAUTHORIZED',
+        isAction ? 'The actor is not authorized to request SOC actions' : 'The actor is not authorized to read SOC evidence',
+        { status: 403 }
+      );
     }
     validateArguments(name, args);
     if (signal?.aborted) throw new HermesError('HERMES_CANCELLED', 'Hermes request was cancelled', { status: 499 });
@@ -513,7 +614,8 @@ function createSocToolkit({ database = db, fetchImpl = global.fetch, config = ru
         'HERMES_TOOL_TIMEOUT', 'SOC tool did not respond in time', { status: 504 }
       )), config.hermesToolTimeoutMs);
       signal?.addEventListener('abort', abort, { once: true });
-      Promise.resolve().then(() => handler(args, { signal })).then(finish(resolve), finish(reject));
+      Promise.resolve().then(() => handler(args, { signal, actor, runId, requestId, authorization }))
+        .then(finish(resolve), finish(reject));
     });
     const cleanEvidence = (result.evidence || []).filter(item => item?.type && item?.id != null)
       .map(item => ({ type: item.type, id: compactText(item.id, 256) }));

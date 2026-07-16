@@ -6,7 +6,7 @@ const { HermesError } = require('./errors');
 const ajv = new Ajv({ allErrors: true, strict: true, allowUnionTypes: true });
 const EVIDENCE_TYPES = [
   'alert', 'incident', 'alert_group', 'asset', 'identity', 'observable', 'fetch_run',
-  'investigation', 'case',
+  'investigation', 'case', 'action_request',
 ];
 const TRIAGE_SEVERITIES = ['critical', 'high', 'medium', 'low', 'informational'];
 const TRIAGE_VERDICTS = ['true_positive', 'false_positive', 'needs_investigation', 'benign_anomaly'];

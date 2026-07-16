@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNaviga
 import {
   AlertTriangle, Bell, Blocks, BookOpenCheck, BrainCircuit, BriefcaseBusiness,
   ChevronLeft, FileText, Globe2, LayoutDashboard, Menu, Network, Search,
-  Server, Settings, ShieldAlert, Sparkles, X,
+  Server, Settings, ShieldAlert, ShieldCheck, Sparkles, X,
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Alerts from './pages/Alerts';
@@ -18,6 +18,7 @@ import Investigations from './pages/Investigations';
 import Playbooks from './pages/Playbooks';
 import Integrations from './pages/Integrations';
 import Cases from './pages/Cases';
+import Approvals from './pages/Approvals';
 import ChatWidget from './components/ChatWidget';
 import LoginPage from './components/LoginPage';
 import { api, setCsrfToken } from './lib/api';
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { to: '/investigations', icon: Search, label: 'Investigations' },
   { to: '/reports', icon: FileText, label: 'Reports' },
   { to: '/cases', icon: BriefcaseBusiness, label: 'Cases' },
+  { to: '/approvals', icon: ShieldCheck, label: 'Approvals' },
   { to: '/playbooks', icon: BookOpenCheck, label: 'Playbooks' },
   { to: '/integrations', icon: Blocks, label: 'Integrations' },
   { to: '/settings', icon: Settings, label: 'Settings' },
@@ -50,6 +52,7 @@ const PAGE_META = {
   '/investigations': ['Investigations', 'Cross-entity security search'],
   '/reports': ['Reports', 'Security intelligence and evidence'],
   '/cases': ['Cases', 'Analyst-owned incident workflows'],
+  '/approvals': ['Approval Queue', 'Controlled AI workflow actions'],
   '/playbooks': ['Playbooks', 'Recommended response procedures'],
   '/integrations': ['Integrations', 'Collector and enrichment connections'],
   '/settings': ['Settings', 'Collector and AI configuration'],
@@ -141,6 +144,7 @@ function Shell({ session, onLogout }) {
             <Route path="/investigations" element={<Investigations />} />
             <Route path="/incidents" element={<Incidents />} />
             <Route path="/cases" element={<Cases />} />
+            <Route path="/approvals" element={<Approvals />} />
             <Route path="/threat-intelligence" element={<ThreatIntelligence />} />
             <Route path="/assets" element={<Assets />} />
             <Route path="/vulnerabilities" element={<Vulnerabilities />} />

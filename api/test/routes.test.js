@@ -136,6 +136,30 @@ test('manual Hermes correlation endpoint is available and bounded by the worker'
   assert.equal(response.body.skipped_reason, 'no_new_triaged_alerts');
 });
 
+test('Phase 7 action policy is explicit and forbidden containment fails before database access', async () => {
+  db.query = async () => { throw new Error('database should not be queried'); };
+  const policy = await request(routeApp()).get('/api/action-policy');
+  assert.equal(policy.status, 200);
+  assert.equal(policy.body.version, 'phase7-v1');
+  assert.equal(policy.body.actions['case.update'].approvalRequired, true);
+  assert.equal(policy.body.actions['case.add_note'].approvalRequired, false);
+  assert.equal(policy.body.actions['host.isolate'], undefined);
+
+  const denied = await request(routeApp()).post('/api/actions').send({
+    action_type:'host.isolate', target_id:'server-1', parameters:{}, reason:'Contain endpoint',
+  });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.body.error.code, 'ACTION_FORBIDDEN');
+});
+
+test('action list rejects unsupported status and oversized pages before querying', async () => {
+  db.query = async () => { throw new Error('database should not be queried'); };
+  const badStatus = await request(routeApp()).get('/api/actions?status=approved_and_executed');
+  const badLimit = await request(routeApp()).get('/api/actions?limit=101');
+  assert.equal(badStatus.status, 400);
+  assert.equal(badLimit.status, 400);
+});
+
 test('settings permit Hermes correlation but still reject automatic closure and singleton promotion', async () => {
   const autoClose = await request(routeApp()).put('/api/settings').send({ autoclose_enabled:'true' });
   assert.equal(autoClose.status, 400);
