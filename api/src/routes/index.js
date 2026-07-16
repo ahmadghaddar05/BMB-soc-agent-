@@ -2,7 +2,7 @@
 const { Router } = require('express');
 const db = require('../db');
 const scheduler = require('../workers/scheduler');
-const { runCycle, enrichPending, triagePending, retriageAlert, correlatePending } = require('../workers/pipeline');
+const { runCycle, enrichPending, triagePending, retriageAlert } = require('../workers/pipeline');
 const { chatHermes } = require('../services/hermes');
 const { HermesError, publicHermesError } = require('../services/hermes/errors');
 const { runtimeConfig } = require('../config');
@@ -109,7 +109,9 @@ function validateSetting(key, value) {
     const number = Number(text);
     if (!Number.isFinite(number) || number < 0 || number > 1) return `${key} must be between 0 and 1`;
   }
-  if (key === 'autoclose_enabled' && text !== 'false') return 'automatic closure is disabled in Phase 1';
+  if (key === 'autoclose_enabled' && text !== 'false') return 'automatic closure remains disabled in Phase 4';
+  if (key === 'correlation_enabled' && text !== 'false') return 'correlation is disabled until Phase 5';
+  if (key === 'incident_promote_enabled' && text !== 'false') return 'incident promotion is disabled until Phase 5';
   return null;
 }
 
@@ -366,18 +368,26 @@ r.post('/scheduler/enrich-pending', async (_, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-r.post('/scheduler/triage-pending', async (_, res) => {
+r.post('/scheduler/triage-pending', async (req, res) => {
   try {
     const settings = await db.getAllSettings();
-    res.json(await triagePending(settings, 20));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    res.json(await triagePending(settings, 20, null, {
+      actor: req.user?.username || 'system:manual-triage',
+    }));
+  } catch (e) {
+    res.status(e.status || 500).json({
+      error: { code: e.code || 'HERMES_TRIAGE_FAILED', message: e.message, request_id: req.id },
+    });
+  }
 });
 
 r.post('/scheduler/correlate-now', async (_, res) => {
-  try {
-    const settings = await db.getAllSettings();
-    res.json(await correlatePending(settings));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  res.status(409).json({
+    error: {
+      code: 'CORRELATION_PHASE5_REQUIRED',
+      message: 'Correlation is disabled until its Hermes migration in Phase 5',
+    },
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -731,10 +741,16 @@ r.get('/alerts/:id', async (req, res) => {
 r.post('/alerts/:id/retriage', async (req, res) => {
   try {
     const settings = await db.getAllSettings();
-    const result = await retriageAlert(req.params.id, settings);
+    const result = await retriageAlert(req.params.id, settings, {
+      actor: req.user?.username || 'system:retriage',
+    });
     if (!result) return res.status(404).json({ error: 'Alert not found' });
     res.json(result);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    res.status(e.status || 500).json({
+      error: { code: e.code || 'HERMES_TRIAGE_FAILED', message: e.message, request_id: req.id },
+    });
+  }
 });
 
 // ────────────────────────────────────────────────────────────────────────────

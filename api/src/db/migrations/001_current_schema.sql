@@ -204,7 +204,7 @@ INSERT INTO settings(key, value) VALUES
   ('groq_model','llama-3.3-70b-versatile'),
   ('anthropic_model','claude-sonnet-4-6'),
   ('ollama_model','llama3.1:8b'),
-  ('triage_mode','hybrid'),
+  ('triage_mode','pipeline'),
   ('triage_enabled','false'),
   ('triage_token_budget','60000'),
   ('agentic_max_iterations','3'),
@@ -216,7 +216,7 @@ INSERT INTO settings(key, value) VALUES
   ('autoclose_confidence','0.85'),
   ('autoclose_max_severity','medium'),
   ('autoclose_verdicts','false_positive,benign_anomaly'),
-  ('correlation_enabled','true'),
+  ('correlation_enabled','false'),
   ('correlation_lookback_hours','24'),
   ('correlation_max_alerts','60'),
   ('correlation_new_alerts_per_cycle','20'),
@@ -225,7 +225,7 @@ INSERT INTO settings(key, value) VALUES
   ('correlation_entity_window_hours','6'),
   ('correlation_token_budget','20000'),
   ('correlation_cursor_json',''),
-  ('incident_promote_enabled','true'),
+  ('incident_promote_enabled','false'),
   ('incident_promote_verdicts','true_positive,needs_investigation'),
   ('incident_promote_min_severity','high')
 ON CONFLICT(key) DO NOTHING;

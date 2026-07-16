@@ -25,10 +25,10 @@ function Row({ label, hint, children }) {
   );
 }
 
-function Toggle({ checked, onChange }) {
+function Toggle({ checked, onChange, disabled = false }) {
   return (
-    <button onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${checked?'bg-accent':'bg-dark-500'}`}>
+    <button disabled={disabled} onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${checked?'bg-accent':'bg-dark-500'}`}>
       <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${checked?'translate-x-6':'translate-x-1'}`}/>
     </button>
   );
@@ -198,32 +198,19 @@ export default function Settings() {
       </Section>
 
       {/* ── LLM ── */}
-      <Section title="LLM / triage">
-        <Row label="Provider" hint="groq = cloud, anthropic = Claude API, ollama = local">
-          <select className="select w-40" {...field('llm_provider')}>
-            <option value="groq">Groq</option>
-            <option value="anthropic">Anthropic (Claude)</option>
-            <option value="ollama">Ollama</option>
-          </select>
-        </Row>
-        <Row label="Groq model" hint="Used when provider = groq">
-          <input className="input w-72" placeholder="llama-3.3-70b-versatile" {...field('groq_model')} />
-        </Row>
-        <Row label="Anthropic model" hint="Used when provider = anthropic (e.g. claude-sonnet-4-6, claude-opus-4-8)">
-          <input className="input w-72" placeholder="claude-sonnet-4-6" {...field('anthropic_model')} />
-        </Row>
-        <Row label="Ollama model" hint="Used when provider = ollama">
-          <input className="input w-72" placeholder="llama3.1:8b" {...field('ollama_model')} />
+      <Section title="Hermes triage">
+        <Row label="Provider" hint="Phase 4 triage fails closed if Hermes is unavailable">
+          <span className="text-sm text-cyan-300">Hermes Agent</span>
         </Row>
         <Row label="Enable AI triage"
              hint="When disabled, collection and enrichment continue without any LLM calls">
           <Toggle {...toggle('triage_enabled')} />
         </Row>
         <Row label="Triage mode"
-             hint="Hybrid screens every alert once and uses agentic tools only for ambiguous high-risk cases">
+             hint="Hybrid uses deterministic escalation after a strict Hermes screening result">
           <select className="select w-56" {...field('triage_mode')}>
-            <option value="hybrid">Hybrid (recommended)</option>
-            <option value="pipeline">Pipeline (fast, single call)</option>
+            <option value="pipeline">Pipeline (recommended, single call)</option>
+            <option value="hybrid">Hybrid (deterministic escalation)</option>
             <option value="agentic">Agentic for every alert (expensive)</option>
           </select>
         </Row>
@@ -232,13 +219,8 @@ export default function Settings() {
           <input className="input w-40" type="number" min="10000" max="500000" step="5000"
             placeholder="60000" {...field('triage_token_budget')} />
         </Row>
-        <Row label="Agentic iterations"
-             hint="Maximum investigation rounds per escalated alert (2–4; recommended 3)">
-          <input className="input w-24" type="number" min="2" max="4"
-            placeholder="3" {...field('agentic_max_iterations')} />
-        </Row>
         <Row label="Use triage cache"
-             hint="Reuses recent verdicts for genuine duplicate alert signatures">
+             hint="Reuses a verdict only for the same alert and unchanged evidence contract">
           <Toggle {...toggle('caching_enabled')} />
         </Row>
         <Row label="Cache lifetime"
@@ -246,69 +228,27 @@ export default function Settings() {
           <input className="input w-24" type="number" min="1" max="720"
             placeholder="168" {...field('triage_cache_ttl_hours')} />
         </Row>
-        <Row label="Incremental correlation"
-             hint="Correlates only newly triaged alerts and relevant recent context">
-          <Toggle {...toggle('correlation_enabled')} />
-        </Row>
-        <Row label="New alerts per correlation"
-             hint="Maximum newly triaged alerts considered in one cycle">
-          <input className="input w-24" type="number" min="1" max="50"
-            placeholder="20" {...field('correlation_new_alerts_per_cycle')} />
-        </Row>
-        <Row label="Correlation token budget"
-             hint="Bounds the size of the incremental correlation request">
-          <input className="input w-40" type="number" min="6000" max="100000" step="1000"
-            placeholder="20000" {...field('correlation_token_budget')} />
+        <Row label="Correlation" hint="Scheduled for the Hermes Phase 5 migration">
+          <span className="text-sm text-gray-500">Disabled</span>
         </Row>
         <button className="btn-primary" disabled={loading}
           onClick={()=>save({
-            llm_provider:s.llm_provider,
-            groq_model:s.groq_model,
-            anthropic_model:s.anthropic_model,
-            ollama_model:s.ollama_model,
             triage_enabled:s.triage_enabled,
-            triage_mode:s.triage_mode || 'hybrid',
+            triage_mode:s.triage_mode || 'pipeline',
             triage_token_budget:s.triage_token_budget || '60000',
-            agentic_max_iterations:s.agentic_max_iterations || '3',
             caching_enabled:s.caching_enabled,
             triage_cache_ttl_hours:s.triage_cache_ttl_hours || '168',
-            correlation_enabled:s.correlation_enabled,
-            correlation_new_alerts_per_cycle:s.correlation_new_alerts_per_cycle || '20',
-            correlation_token_budget:s.correlation_token_budget || '20000',
           })}>
-          <Save className="w-4 h-4"/> Save AI efficiency policy
+          <Save className="w-4 h-4"/> Save Hermes triage policy
         </button>
       </Section>
 
       {/* ── Auto-close ── */}
-      <Section title="Auto-close (noise reduction)">
-        <Row label="Enable auto-close"
-             hint="Automatically suppress benign alerts from the review queue">
-          <Toggle {...toggle('autoclose_enabled')} />
+      <Section title="Automatic closure">
+        <Row label="Disabled by policy"
+             hint="Phase 4 records recommendations but never executes closure">
+          <Toggle {...toggle('autoclose_enabled')} disabled />
         </Row>
-        <Row label="Min confidence" hint="Only close at or above this confidence (0–1)">
-          <input className="input w-28" type="number" min="0" max="1" step="0.05" {...field('autoclose_confidence')} />
-        </Row>
-        <Row label="Severity ceiling"
-             hint="Never auto-close anything above this severity — safety guard">
-          <select className="select w-40" {...field('autoclose_max_severity')}>
-            {['informational','low','medium','high','critical'].map(s=>(
-              <option key={s} value={s}>{s}</option>))}
-          </select>
-        </Row>
-        <Row label="Eligible verdicts" hint="Comma-separated list">
-          <input className="input w-72" placeholder="false_positive,benign_anomaly"
-            {...field('autoclose_verdicts')} />
-        </Row>
-        <button className="btn-primary" disabled={loading}
-          onClick={()=>save({
-            autoclose_enabled:      s.autoclose_enabled,
-            autoclose_confidence:   s.autoclose_confidence,
-            autoclose_max_severity: s.autoclose_max_severity,
-            autoclose_verdicts:     s.autoclose_verdicts,
-          })}>
-          <Save className="w-4 h-4"/> Save auto-close policy
-        </button>
       </Section>
 
       {/* ── Fetch history ── */}

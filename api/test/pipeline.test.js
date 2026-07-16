@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const db = require('../src/db');
 const { mapWithConcurrency, runCycle } = require('../src/workers/pipeline');
 
@@ -19,6 +21,16 @@ test('bounded concurrency preserves result order and respects its cap', async ()
   assert.deepEqual(result, values.map(value => value * 2));
   assert.ok(peak <= 4);
   assert.ok(peak > 1);
+});
+
+test('Phase 4 worker has no legacy triage, auto-close, or correlation execution path', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../src/workers/pipeline.js'), 'utf8');
+  assert.doesNotMatch(source, /services\/llm/);
+  assert.doesNotMatch(source, /\binvestigateAlert\b|\btriageHybrid\b|\btriageAlert\b/);
+  assert.doesNotMatch(source, /settings\.autoclose_enabled/);
+  assert.doesNotMatch(source, /correlatePending|promoteSingletons/);
+  assert.match(source, /AND enrichment_status='enriched'/);
+  assert.match(source, /auto_closed=false/);
 });
 
 test('mock collection and enrichment complete with AI disabled and zero AI usage', async () => {

@@ -5,6 +5,8 @@ const { HermesError } = require('./errors');
 
 const ajv = new Ajv({ allErrors: true, strict: true, allowUnionTypes: true });
 const EVIDENCE_TYPES = ['alert', 'incident', 'alert_group', 'asset', 'identity', 'observable', 'fetch_run'];
+const TRIAGE_SEVERITIES = ['critical', 'high', 'medium', 'low', 'informational'];
+const TRIAGE_VERDICTS = ['true_positive', 'false_positive', 'needs_investigation', 'benign_anomaly'];
 
 const schemas = {
   capabilities: {
@@ -145,6 +147,58 @@ const schemas = {
       },
     ],
   },
+  triageTurn: {
+    oneOf: [
+      {
+        type: 'object', required: ['type', 'tool', 'arguments'],
+        properties: {
+          type: { const: 'tool_call' },
+          tool: { type: 'string', minLength: 1, maxLength: 100 },
+          arguments: { type: 'object' },
+        },
+        additionalProperties: false,
+      },
+      {
+        type: 'object',
+        required: [
+          'type', 'severity', 'verdict', 'confidence', 'attack_stage',
+          'key_findings', 'recommended_actions', 'narrative', 'citations',
+        ],
+        properties: {
+          type: { const: 'final' },
+          severity: { enum: TRIAGE_SEVERITIES },
+          verdict: { enum: TRIAGE_VERDICTS },
+          confidence: { type: 'number', minimum: 0, maximum: 1 },
+          attack_stage: { type: 'string', minLength: 1, maxLength: 100 },
+          key_findings: {
+            type: 'array', minItems: 1, maxItems: 8,
+            items: { type: 'string', minLength: 1, maxLength: 500 },
+          },
+          recommended_actions: {
+            type: 'array', minItems: 1, maxItems: 8,
+            items: { type: 'string', minLength: 1, maxLength: 500 },
+          },
+          narrative: { type: 'string', minLength: 1, maxLength: 3000 },
+          citations: {
+            type: 'array', minItems: 1, maxItems: 20,
+            items: {
+              type: 'object', required: ['type', 'id'],
+              properties: {
+                type: { enum: EVIDENCE_TYPES },
+                id: { type: 'string', minLength: 1, maxLength: 256 },
+              },
+              additionalProperties: false,
+            },
+          },
+          limitations: {
+            type: 'array', maxItems: 8,
+            items: { type: 'string', minLength: 1, maxLength: 500 },
+          },
+        },
+        additionalProperties: false,
+      },
+    ],
+  },
 };
 
 const validators = Object.fromEntries(Object.entries(schemas).map(([name, schema]) => [name, ajv.compile(schema)]));
@@ -183,6 +237,10 @@ function parseAnalystTurn(raw) {
   return validate('analystTurn', parseJsonOutput(raw), 'HERMES_INVALID_OUTPUT');
 }
 
+function parseTriageTurn(raw) {
+  return validate('triageTurn', parseJsonOutput(raw), 'HERMES_INVALID_OUTPUT');
+}
+
 function validateCitations(output, evidence) {
   const valid = Object.fromEntries(EVIDENCE_TYPES.map(type => [type, new Set()]));
   if (Array.isArray(evidence)) {
@@ -203,4 +261,8 @@ function validateCitations(output, evidence) {
   return output;
 }
 
-module.exports = { EVIDENCE_TYPES, parseAnalystTurn, parseChatOutput, schemas, validate, validateCitations };
+module.exports = {
+  EVIDENCE_TYPES, TRIAGE_SEVERITIES, TRIAGE_VERDICTS,
+  parseAnalystTurn, parseChatOutput, parseTriageTurn,
+  schemas, validate, validateCitations,
+};

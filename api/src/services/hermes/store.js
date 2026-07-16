@@ -26,6 +26,37 @@ async function transaction(database, callback) {
 }
 
 function createAgentStore(database = db) {
+  async function beginTriage({
+    alertId, actor, requestId, promptVersion, schemaVersion,
+    mode, signature, cacheKey,
+  }) {
+    const runId = crypto.randomUUID();
+    const idempotencyKey = crypto.randomUUID();
+    await transaction(database, async client => {
+      await client.query(
+        `INSERT INTO agent_runs(
+           id,purpose,status,actor,provider,prompt_version,
+           output_schema_version,request_id,idempotency_key,input_summary
+         ) VALUES($1,'triage','running',$2,'hermes',$3,$4,$5,$6,$7::jsonb)`,
+        [runId, actor, promptVersion, schemaVersion, requestId, idempotencyKey,
+          json({ alert_id: alertId, mode, signature, cache_key: cacheKey })]
+      );
+      await client.query(
+        `INSERT INTO agent_evidence_links(run_id,evidence_type,evidence_id,relation)
+         VALUES($1,'alert',$2,'input') ON CONFLICT DO NOTHING`,
+        [runId, String(alertId)]
+      );
+      await client.query(
+        `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+         VALUES($1,'agent.run.started','agent_run',$2,'success',$3,$4::jsonb)`,
+        [actor, runId, requestId, json({
+          purpose: 'triage', alert_id: alertId, mode, provider: 'hermes',
+        })]
+      );
+    });
+    return { runId, idempotencyKey };
+  }
+
   async function beginChat({ conversationId, actor, question, requestId, promptVersion, schemaVersion }) {
     if (conversationId && !UUID_PATTERN.test(conversationId)) {
       throw new HermesError('INVALID_CONVERSATION_ID', 'conversation_id must be a valid UUID', { status: 400 });
@@ -152,7 +183,7 @@ function createAgentStore(database = db) {
     const cancelled = error?.code === 'HERMES_CANCELLED';
     const denied = [
       'HERMES_TOOL_DENIED', 'HERMES_INVALID_TOOL_ARGUMENTS', 'HERMES_TOOL_BUDGET_EXHAUSTED',
-      'HERMES_TOOL_UNAUTHORIZED',
+      'HERMES_TOOL_UNAUTHORIZED', 'HERMES_UNEXPECTED_TOOL_CALL',
     ].includes(error?.code);
     const status = cancelled ? 'cancelled' : denied ? 'denied' : 'failed';
     const outcome = cancelled ? 'cancelled' : denied ? 'denied' : 'failure';
@@ -215,6 +246,38 @@ function createAgentStore(database = db) {
     });
   }
 
+  async function completeTriage({ runId, alertId, actor, requestId, output, hermes }) {
+    await transaction(database, async client => {
+      await client.query(
+        `UPDATE agent_runs SET status='completed',model=$2,capabilities=$3::jsonb,
+           output_summary=$4::jsonb,prompt_tokens=$5,completion_tokens=$6,total_tokens=$7,
+           attempts=$8,latency_ms=$9,finished_at=NOW()
+         WHERE id=$1 AND status='running'`,
+        [runId, hermes.model, json(hermes.capabilities), json({
+          alert_id: alertId, severity: output.severity, verdict: output.verdict,
+          confidence: output.confidence, citation_count: output.citations.length,
+          triage_path: output.triage_path, result: output,
+        }), hermes.usage.prompt_tokens, hermes.usage.completion_tokens,
+          hermes.usage.total_tokens, hermes.attempts, hermes.latencyMs]
+      );
+      for (const citation of output.citations) {
+        await client.query(
+          `INSERT INTO agent_evidence_links(run_id,evidence_type,evidence_id,relation)
+           VALUES($1,$2,$3,'citation') ON CONFLICT DO NOTHING`,
+          [runId, citation.type, String(citation.id)]
+        );
+      }
+      await client.query(
+        `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+         VALUES($1,'agent.run.completed','agent_run',$2,'success',$3,$4::jsonb)`,
+        [actor, runId, requestId, json({
+          provider: 'hermes', model: hermes.model, hermes_run_id: hermes.runId,
+          alert_id: alertId, total_tokens: hermes.usage.total_tokens,
+        })]
+      );
+    });
+  }
+
   async function failChat({ runId, actor, requestId, error }) {
     const cancelled = error?.code === 'HERMES_CANCELLED';
     const status = cancelled ? 'cancelled' : 'failed';
@@ -237,9 +300,14 @@ function createAgentStore(database = db) {
     });
   }
 
+  async function failTriage({ runId, actor, requestId, error }) {
+    return failChat({ runId, actor, requestId, error });
+  }
+
   return {
-    attachHermesRun, beginChat, beginToolCall, completeChat, completeToolCall,
-    failChat, failToolCall, recordHermesStep,
+    attachHermesRun, beginChat, beginTriage, beginToolCall,
+    completeChat, completeTriage, completeToolCall,
+    failChat, failTriage, failToolCall, recordHermesStep,
     recordHermesStepFailure,
   };
 }

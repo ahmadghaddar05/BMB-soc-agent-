@@ -43,6 +43,19 @@ test('grounded analyst migration records every Hermes sub-run durably', () => {
   assert.match(sql, /agent_run_steps_hermes_run_unique/);
 });
 
+test('Phase 4 migration binds cache provenance and keeps unsafe automation disabled', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/004_hermes_triage.sql'), 'utf8');
+  for (const column of [
+    'alert_signature', 'prompt_version', 'output_schema_version',
+    'enrichment_fingerprint', 'agent_run_id', 'expires_at',
+  ]) {
+    assert.match(sql, new RegExp(`triage_cache ADD COLUMN IF NOT EXISTS ${column}`));
+  }
+  assert.match(sql, /alerts ADD COLUMN IF NOT EXISTS triage_run_id/);
+  assert.match(sql, /DELETE FROM triage_cache/);
+  assert.match(sql, /autoclose_enabled','correlation_enabled','incident_promote_enabled/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

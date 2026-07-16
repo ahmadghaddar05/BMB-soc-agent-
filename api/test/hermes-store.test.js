@@ -45,6 +45,26 @@ test('durable conversations are scoped to the authenticated actor', async () => 
   }), error => error.code === 'CONVERSATION_NOT_FOUND');
 });
 
+test('durable triage start records the alert input and audit event atomically', async () => {
+  const queries = [];
+  const client = {
+    async query(sql, params) { queries.push({ sql:String(sql), params }); return { rows:[], rowCount:1 }; },
+    release() {},
+  };
+  const store = createAgentStore({ async connect() { return client; } });
+  const started = await store.beginTriage({
+    alertId:'alert-A', actor:'scheduler', requestId:'request-triage',
+    promptVersion:'prompt-v1', schemaVersion:'schema-v1', mode:'pipeline',
+    signature:'sig', cacheKey:'cache',
+  });
+  assert.match(started.runId, /^[0-9a-f-]{36}$/);
+  assert.ok(queries.some(call => call.sql.includes("'triage','running'")));
+  assert.ok(queries.some(call => call.sql.includes("'alert',$2,'input'")));
+  assert.ok(queries.some(call => call.sql.includes("'agent.run.started'")));
+  assert.equal(queries[0].sql, 'BEGIN');
+  assert.equal(queries.at(-1).sql, 'COMMIT');
+});
+
 test('grounded tool completion persists a bounded summary, evidence links, and an audit event atomically', async () => {
   const queries = [];
   const client = {

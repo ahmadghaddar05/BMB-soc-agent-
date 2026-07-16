@@ -1,13 +1,19 @@
 'use strict';
+const crypto = require('crypto');
 const db = require('../db');
 const { fetchAlerts: fetchWazuhAlerts } = require('../services/wazuh');
 const {
   fetchAlerts: fetchElasticAlerts,
   searchAlertsCursor,
 } = require('../services/elastic');
-const { triageAlert, investigateAlert, triageHybrid } = require('../services/llm');
+const { runtimeConfig } = require('../config');
+const {
+  OUTPUT_SCHEMA_VERSION,
+  PROMPT_VERSION,
+  triageCacheIdentity,
+  triageHermes,
+} = require('../services/hermes/triage');
 const { alertSignature } = require('../services/signature');
-const { correlatePending, promoteSingletons } = require('./correlation');
 
 function getEnrichmentUrl() {
   return (process.env.ENRICHMENT_URL || 'http://enrichment:3001').replace(/\/$/, '');
@@ -163,14 +169,16 @@ async function enrichPending(limit = 100) {
 }
 
 // ── Triage enriched alerts ────────────────────────────────────────────────
-async function triagePending(settings, limit = 50, alertId = null) {
+async function triagePending(settings, limit = 50, alertId = null, {
+  actor = 'system:scheduler', bypassCache = false,
+} = {}) {
   const scopedCondition = alertId ? 'AND id=$1' : '';
   const queryParams = alertId ? [alertId, limit] : [limit];
   const limitPlaceholder = alertId ? '$2' : '$1';
   const { rows } = await db.query(
     `SELECT * FROM alerts
      WHERE triage_status='pending'
-       AND enrichment_status IN ('enriched','enrichment_failed')
+       AND enrichment_status='enriched'
        ${scopedCondition}
      ORDER BY rule_level DESC, timestamp DESC
      LIMIT ${limitPlaceholder}`,
@@ -178,49 +186,47 @@ async function triagePending(settings, limit = 50, alertId = null) {
   );
   if (!rows.length) return { triaged: 0, failed: 0, llm_calls: 0, cache_hits: 0 };
 
-  const mode = settings.triage_mode || 'hybrid';
-  const agentic = mode === 'agentic';
-  const hybrid = mode === 'hybrid';
+  const mode = ['pipeline','agentic','hybrid'].includes(settings.triage_mode)
+    ? settings.triage_mode : 'pipeline';
   const useCache = (settings.caching_enabled || 'true') === 'true';
   const cacheTtlHours = Math.min(720, Math.max(1,
     parseInt(settings.triage_cache_ttl_hours || 168, 10) || 168));
   const tokenBudget = Math.min(500000, Math.max(10000,
     parseInt(settings.triage_token_budget || 60000, 10) || 60000));
 
-  // ── Noise reduction: group near-identical alerts by signature ───────────
-  // Alerts with the same rule + same key entities are triaged ONCE; the verdict
-  // is then applied to every member of the cluster. This is the main lever for
-  // cutting LLM calls on repetitive alert storms.
-  const clusters = new Map();
-  for (const row of rows) {
-    const sig = alertSignature(row);
-    if (!clusters.has(sig)) clusters.set(sig, []);
-    clusters.get(sig).push(row);
-  }
-
+  // Each alert receives its own evidence-grounded result and run provenance.
+  // Exact cache identity can reuse a prior result only for the same alert and evidence.
   let triaged = 0, failed = 0, llm_calls = 0, cache_hits = 0;
   let llm_tokens = 0, prompt_tokens = 0, completion_tokens = 0;
   let agentic_escalations = 0, budget_exhausted = false;
+  const config = runtimeConfig();
 
-  for (const [sig, members] of clusters) {
-    const rep = members[0];
+  for (const row of rows) {
+    const sig = alertSignature(row);
+    const { cacheKey, enrichmentHash } = triageCacheIdentity(row, sig, config.hermesModel);
     try {
-      let verdict, source;
+      let verdict, source, triageRunId = null;
 
       // 1. Cache: have we already triaged this exact signature?
-      if (useCache) {
+      if (useCache && !bypassCache) {
         const c = await db.query(
-          `SELECT verdict FROM triage_cache
-           WHERE signature=$1
-             AND updated_at >= NOW() - ($2 || ' hours')::interval`,
-          [sig, String(cacheTtlHours)]
+          `SELECT verdict,agent_run_id FROM triage_cache
+           WHERE signature=$1 AND alert_signature=$2
+             AND enrichment_fingerprint=$3 AND prompt_version=$4
+             AND output_schema_version=$5 AND model=$6
+             AND expires_at>NOW() AND agent_run_id IS NOT NULL`,
+          [cacheKey, sig, enrichmentHash, PROMPT_VERSION,
+            OUTPUT_SCHEMA_VERSION, config.hermesModel]
         );
         if (c.rows.length) {
           verdict = c.rows[0].verdict;
+          triageRunId = c.rows[0].agent_run_id;
           source  = 'cache';
           cache_hits++;
           await db.query(
-            'UPDATE triage_cache SET hits=hits+1, updated_at=NOW() WHERE signature=$1', [sig]);
+            'UPDATE triage_cache SET hits=hits+1,updated_at=NOW() WHERE signature=$1',
+            [cacheKey]
+          );
         }
       }
 
@@ -228,7 +234,7 @@ async function triagePending(settings, limit = 50, alertId = null) {
       if (!verdict) {
         const expectedNextTokens = llm_calls
           ? Math.max(1500, Math.ceil(llm_tokens / llm_calls))
-          : (agentic ? 12000 : (hybrid ? 5000 : 3500));
+          : (mode === 'agentic' ? 12000 : (mode === 'hybrid' ? 5000 : 3500));
         if (llm_tokens + expectedNextTokens > tokenBudget) {
           budget_exhausted = true;
           console.warn(
@@ -238,13 +244,12 @@ async function triagePending(settings, limit = 50, alertId = null) {
           break;
         }
 
-        verdict = agentic
-          ? await investigateAlert(rep, settings)
-          : hybrid
-            ? await triageHybrid(rep, rep.enrichment || null, settings)
-            : await triageAlert(rep, rep.enrichment || null, settings);
-        source = agentic ? 'agentic' : (hybrid ? verdict.triage_path : 'llm');
-        llm_calls++;
+        verdict = await triageHermes(row, { ...settings, triage_mode: mode }, {
+          actor, requestId: crypto.randomUUID(), signature: sig, cacheKey, config,
+        });
+        triageRunId = verdict.run_id;
+        source = verdict.triage_path;
+        llm_calls += verdict.hermes_calls || 1;
         llm_tokens += parseInt(verdict.total_tokens || 0, 10) || 0;
         prompt_tokens += parseInt(verdict.prompt_tokens || 0, 10) || 0;
         completion_tokens += parseInt(verdict.completion_tokens || 0, 10) || 0;
@@ -252,79 +257,81 @@ async function triagePending(settings, limit = 50, alertId = null) {
 
         if (useCache) {
           await db.query(
-            `INSERT INTO triage_cache (signature, rule_id, verdict)
-             VALUES ($1,$2,$3)
-             ON CONFLICT (signature) DO UPDATE
-               SET verdict=EXCLUDED.verdict, updated_at=NOW()`,
-            [sig, rep.rule_id, verdict]
+            `INSERT INTO triage_cache(
+               signature,rule_id,verdict,alert_signature,prompt_version,
+               output_schema_version,model,enrichment_fingerprint,agent_run_id,expires_at
+             ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW()+($10 || ' hours')::interval)
+             ON CONFLICT(signature) DO UPDATE SET
+               rule_id=EXCLUDED.rule_id,verdict=EXCLUDED.verdict,
+               alert_signature=EXCLUDED.alert_signature,
+               prompt_version=EXCLUDED.prompt_version,
+               output_schema_version=EXCLUDED.output_schema_version,
+               model=EXCLUDED.model,
+               enrichment_fingerprint=EXCLUDED.enrichment_fingerprint,
+               agent_run_id=EXCLUDED.agent_run_id,
+               expires_at=EXCLUDED.expires_at,updated_at=NOW()`,
+            [cacheKey, row.rule_id, verdict, sig, PROMPT_VERSION,
+              OUTPUT_SCHEMA_VERSION, config.hermesModel, enrichmentHash,
+              triageRunId, String(cacheTtlHours)]
           );
         }
       }
 
-      // 3. Apply the verdict to every alert in the cluster
-      for (const row of members) {
-        const v = { ...verdict, signature: sig, triage_source: source, cluster_size: members.length };
-
-        let autoClosed = false, autoReason = null;
-        if (settings.autoclose_enabled === 'true') {
-          const eligible = (settings.autoclose_verdicts || '').split(',').map(s => s.trim());
-          const sevOrder = { informational:0, low:1, medium:2, high:3, critical:4 };
-          const ceiling  = settings.autoclose_max_severity || 'medium';
-          const minConf  = parseFloat(settings.autoclose_confidence || 0.85);
-          if (
-            eligible.includes(v.verdict) &&
-            (v.confidence || 0) >= minConf &&
-            (sevOrder[v.severity] || 0) <= (sevOrder[ceiling] || 2)
-          ) {
-            autoClosed = true;
-            autoReason = `${v.verdict} @ conf ${(v.confidence||0).toFixed(2)}, sev ${v.severity}`;
-          }
-        }
-
-        await db.query(
-          `UPDATE alerts
-           SET verdict=$1, triage_status='triaged', triaged_at=NOW(),
-               auto_closed=$2, auto_close_reason=$3, signature=$4
-           WHERE id=$5`,
-          [v, autoClosed, autoReason, sig, row.id]
-        );
-        triaged++;
-      }
+      const storedVerdict = {
+        ...verdict, signature: sig, triage_source: source, cluster_size: 1,
+      };
+      await db.query(
+        `UPDATE alerts SET verdict=$1,triage_status='triaged',triaged_at=NOW(),
+           auto_closed=false,auto_close_reason=NULL,signature=$2,triage_run_id=$3
+         WHERE id=$4`,
+        [storedVerdict, sig, triageRunId, row.id]
+      );
+      triaged++;
     } catch (err) {
       const msg = safeError(err);
-      console.error(`[triage] cluster ${sig} failed:`, msg);
-      for (const row of members) {
-        await db.query(
-          `UPDATE alerts SET triage_status='triage_failed', triage_error=$1, signature=$2 WHERE id=$3`,
-          [msg.slice(0, 500), sig, row.id]
-        );
-        failed++;
-      }
+      console.error(`[triage] alert ${row.id} failed:`, msg);
+      await db.query(
+        `UPDATE alerts SET triage_status='triage_failed',triage_error=$1,
+           signature=$2,auto_closed=false,auto_close_reason=NULL WHERE id=$3`,
+        [msg.slice(0, 500), sig, row.id]
+      );
+      failed++;
     }
   }
 
   console.log(
-    `[triage] alerts=${triaged} clusters=${clusters.size} llm_calls=${llm_calls} ` +
+    `[triage] alerts=${triaged} llm_calls=${llm_calls} ` +
     `cache_hits=${cache_hits} tokens=${llm_tokens}/${tokenBudget} mode=${mode}`
   );
   return {
-    triaged, failed, llm_calls, cache_hits, clusters: clusters.size,
+    triaged, failed, llm_calls, cache_hits, clusters: rows.length,
     llm_tokens, prompt_tokens, completion_tokens, agentic_escalations,
     token_budget: tokenBudget, budget_exhausted,
   };
 }
 
-async function retriageAlert(id, settings) {
-  const reset = await db.query(
-    `UPDATE alerts
-     SET triage_status='pending', triage_error=NULL, verdict=NULL,
-         triaged_at=NULL, auto_closed=false, auto_close_reason=NULL
-     WHERE id=$1
-     RETURNING id`,
+async function retriageAlert(id, settings, { actor = 'system:retriage' } = {}) {
+  const current = await db.query(
+    'SELECT id,enrichment_status FROM alerts WHERE id=$1',
     [id]
   );
-  if (!reset.rows.length) return null;
-  return { alert_id: id, ...(await triagePending(settings, 1, id)) };
+  if (!current.rows.length) return null;
+  if (current.rows[0].enrichment_status !== 'enriched') {
+    const error = new Error('Alert must be successfully enriched before Hermes triage');
+    error.code = 'HERMES_ENRICHMENT_REQUIRED';
+    error.status = 409;
+    throw error;
+  }
+  await db.query(
+    `UPDATE alerts SET triage_status='pending',triage_error=NULL,verdict=NULL,
+       triaged_at=NULL,auto_closed=false,auto_close_reason=NULL,triage_run_id=NULL
+     WHERE id=$1`,
+    [id]
+  );
+  return {
+    alert_id: id,
+    ...(await triagePending(settings, 1, id, { actor, bypassCache: true })),
+  };
 }
 
 // ── Full run cycle ────────────────────────────────────────────────────────
@@ -578,29 +585,9 @@ async function runCycle(trigger = 'scheduler') {
         `llm_calls=${tr.llm_calls || 0} tokens=${tr.llm_tokens || 0}`
       );
 
-      // 5. Optional AI correlation
-      if ((settings.correlation_enabled || 'true') === 'true') {
-        const cr = await correlatePending(settings, runId);
-
-        stats.incidents_created = cr.incidents_created;
-        stats.correlation_calls = cr.llm_calls || 0;
-        stats.correlation_tokens = cr.llm_tokens || 0;
-        stats.llm_calls += cr.llm_calls || 0;
-        stats.llm_tokens += cr.llm_tokens || 0;
-
-        console.log(
-          `[cycle] correlated: created=${cr.incidents_created} ` +
-          `updated=${cr.incidents_updated} considered=${cr.considered} ` +
-          `llm_calls=${cr.llm_calls || 0} tokens=${cr.llm_tokens || 0}`
-        );
-
-        if (
-          (settings.incident_promote_enabled || 'true') === 'true'
-        ) {
-          const pr = await promoteSingletons(settings, runId);
-          stats.incidents_created += pr.promoted;
-        }
-      }
+      // Correlation remains disabled until its Hermes migration in Phase 5.
+      // Never fall through to the legacy provider from a Hermes triage cycle.
+      console.log('[cycle] Phase 5 correlation is disabled');
     } else {
       console.log(
         '[cycle] AI triage and correlation disabled; ' +
@@ -621,5 +608,5 @@ async function runCycle(trigger = 'scheduler') {
 
 module.exports = {
   runCycle, ingestAlerts, enrichPending, triagePending, retriageAlert,
-  correlatePending, mapWithConcurrency,
+  mapWithConcurrency,
 };

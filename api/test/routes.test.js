@@ -102,6 +102,9 @@ test('retriage selection is scoped to the requested alert ID', async () => {
   db.getAllSettings = async () => ({});
   db.query = async (sql, params) => {
     queries.push({ sql:String(sql), params });
+    if (String(sql).includes('SELECT id,enrichment_status')) {
+      return { rows:[{ id:'alert-a', enrichment_status:'enriched' }], rowCount:1 };
+    }
     if (String(sql).includes('UPDATE alerts')) return { rows:[{ id:'alert-a' }], rowCount:1 };
     if (String(sql).includes('SELECT * FROM alerts')) return { rows:[] };
     return { rows:[] };
@@ -111,6 +114,29 @@ test('retriage selection is scoped to the requested alert ID', async () => {
   const selection = queries.find(query => query.sql.includes('SELECT * FROM alerts'));
   assert.match(selection.sql, /AND id=\$1/);
   assert.equal(selection.params[0], 'alert-a');
+});
+
+test('retriage rejects failed enrichment before starting Hermes', async () => {
+  db.getAllSettings = async () => ({});
+  db.query = async sql => String(sql).includes('SELECT id,enrichment_status')
+    ? { rows:[{ id:'alert-a', enrichment_status:'enrichment_failed' }], rowCount:1 }
+    : { rows:[], rowCount:0 };
+  const response = await request(routeApp()).post('/api/alerts/alert-a/retriage').send({});
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'HERMES_ENRICHMENT_REQUIRED');
+});
+
+test('legacy correlation endpoint stays disabled until Phase 5', async () => {
+  const response = await request(routeApp()).post('/api/scheduler/correlate-now').send({});
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, 'CORRELATION_PHASE5_REQUIRED');
+});
+
+test('settings cannot activate automatic closure or legacy correlation', async () => {
+  const autoClose = await request(routeApp()).put('/api/settings').send({ autoclose_enabled:'true' });
+  assert.equal(autoClose.status, 400);
+  const correlation = await request(routeApp()).put('/api/settings').send({ correlation_enabled:'true' });
+  assert.equal(correlation.status, 400);
 });
 
 test('missing incident update returns 404', async () => {
