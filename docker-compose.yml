@@ -59,6 +59,7 @@ services:
       # Elastic Security — read only
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
       ELASTIC_ALERT_ALIAS: ${ELASTIC_ALERT_ALIAS:-.alerts-security.alerts-default}
+      ELASTIC_EVENT_INDICES: ${ELASTIC_EVENT_INDICES:-logs-*}
       ELASTIC_SPACE_ID: ${ELASTIC_SPACE_ID:-default}
       ELASTIC_API_KEY: ${ELASTIC_API_KEY}
       ELASTIC_CA_CERT: ${ELASTIC_CA_CERT:-/run/secrets/http_ca.crt}

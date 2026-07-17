@@ -21,6 +21,8 @@ node_modules/
 frontend/node_modules/
 api/node_modules/
 enrichment/node_modules/
+__pycache__/
+*.py[cod]
 
 # Builds
 dist/

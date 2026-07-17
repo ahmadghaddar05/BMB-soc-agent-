@@ -21,7 +21,7 @@ Never invent identifiers, counts, users, hosts, IP addresses, actions, or conclu
 Never claim an action was executed unless request_soc_action returns status executed. When it returns pending, clearly say analyst approval is still required. Never describe response.simulate or response.rollback as a real endpoint, identity, firewall, Elastic, or other external change. Use the smallest number of tool calls needed.
 Return exactly one JSON object with no markdown or surrounding prose.
 To request evidence: {"type":"tool_call","tool":"exact_tool_name","arguments":{}}
-To answer: {"type":"final","answer":"string","citations":[{"type":"alert|incident|alert_group|asset|identity|observable|fetch_run|investigation|case|action_request","id":"exact supplied evidence id"}],"confidence":"low|medium|high","limitations":["string"]}
+To answer: {"type":"final","answer":"string","citations":[{"type":"alert|incident|alert_group|asset|identity|observable|fetch_run|investigation|case|action_request|raw_event","id":"exact supplied evidence id"}],"confidence":"low|medium|high","limitations":["string"]}
 Every citation must exactly match evidence returned by a tool in this investigation. Use an empty citations array when no record supports the answer.
 Allowed application tools: ${JSON.stringify(catalog)}`;
 }

@@ -28,6 +28,7 @@ function runtimeConfig(env = process.env) {
     alertSource: env.ALERT_SOURCE || 'mock',
     elasticUrl: env.ELASTICSEARCH_URL || '',
     elasticApiKey: env.ELASTIC_API_KEY || '',
+    elasticEventIndices: env.ELASTIC_EVENT_INDICES || 'logs-*',
     elasticVerifyTls: bool(env.ELASTIC_VERIFY_TLS, true),
     elasticCaCert: env.ELASTIC_CA_CERT || '',
     wazuhMode: env.WAZUH_MODE || 'mock',
@@ -81,6 +82,7 @@ function validateStartupConfig(config = runtimeConfig()) {
     if (!config.elasticUrl) errors.push('ELASTICSEARCH_URL is required when ALERT_SOURCE=elastic');
     else if (!validHttpUrl(config.elasticUrl)) errors.push('ELASTICSEARCH_URL must be a valid HTTP(S) URL');
     if (!config.elasticApiKey) errors.push('ELASTIC_API_KEY is required when ALERT_SOURCE=elastic');
+    if (!/^[A-Za-z0-9._,*-]{1,300}$/.test(config.elasticEventIndices)) errors.push('ELASTIC_EVENT_INDICES contains invalid characters');
     if (config.elasticVerifyTls && !config.elasticCaCert) errors.push('ELASTIC_CA_CERT is required when Elastic TLS verification is enabled');
     else if (config.elasticVerifyTls && !fs.existsSync(config.elasticCaCert)) errors.push('ELASTIC_CA_CERT does not exist at the configured path');
   }

@@ -4,6 +4,7 @@ const Ajv = require('ajv');
 const { isIP } = require('node:net');
 const db = require('../../db');
 const { runtimeConfig } = require('../../config');
+const elastic = require('../elastic');
 const { HermesError } = require('./errors');
 const { ActionError, createActionService, stableKey } = require('../actions');
 
@@ -61,6 +62,25 @@ const TOOL_SPECS = [
     parameters: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'integer', minimum: 1, maximum: 2147483647 } },
+    },
+  },
+  {
+    name: 'search_raw_events',
+    description: 'Search a bounded, read-only allowlist of recent raw Elastic events for policy and supporting evidence. At least one exact pivot is required; arbitrary queries, indices, and raw source payloads are not accepted.',
+    parameters: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        dataset: { enum: ['ad.security', 'database.audit', 'edr.endpoint', 'email.security', 'linux.security', 'web.application'] },
+        action: { type: 'string', minLength: 1, maxLength: 128 },
+        source_ip: { type: 'string', minLength: 1, maxLength: 64 },
+        username: { type: 'string', minLength: 1, maxLength: 128 },
+        hostname: { type: 'string', minLength: 1, maxLength: 253 },
+        process: { type: 'string', minLength: 1, maxLength: 260 },
+        url_domain: { type: 'string', minLength: 1, maxLength: 253 },
+        policy_violation: { type: 'boolean' },
+        hours: { type: 'integer', minimum: 1, maximum: 168 },
+        limit: { type: 'integer', minimum: 1, maximum: 25 },
+      },
     },
   },
   {
@@ -317,7 +337,7 @@ function enrichmentBaseUrl() {
 
 function createSocToolkit({
   database = db, fetchImpl = global.fetch, config = runtimeConfig(),
-  actionService = createActionService(database),
+  actionService = createActionService(database), elasticService = elastic,
 } = {}) {
   const selectAlert = `SELECT id,timestamp,source_system,source_index,elastic_alert_uuid,
     rule_id,rule_level,rule_desc,risk_score,source_severity,workflow_status,alert_reason,
@@ -393,6 +413,21 @@ function createSocToolkit({
           risk_score DESC NULLS LAST,timestamp DESC LIMIT $${params.length}`, params);
       const alerts = result.rows.map(publicAlert);
       return { data: { count: alerts.length, alerts }, evidence: alerts.flatMap(row => evidence('alert', row.id)) };
+    },
+
+    async search_raw_events(args) {
+      try {
+        const events = await elasticService.searchEvents(args);
+        const cleanEvents = sanitize(events);
+        return {
+          data: { count: cleanEvents.length, events: cleanEvents, raw_source_omitted: true },
+          evidence: cleanEvents.flatMap(row => evidence('raw_event', row.id)),
+        };
+      } catch (error) {
+        throw new HermesError('HERMES_TOOL_FAILED', 'Elastic raw-event search failed', {
+          status: 502, cause: error,
+        });
+      }
     },
 
     async get_alert(args) {
@@ -601,12 +636,18 @@ function createSocToolkit({
       });
     }
     const invalidIp = (name === 'pivot_observable' && args.type === 'ip' && !isIP(args.value)) ||
+      (name === 'search_raw_events' && args.source_ip && !isIP(args.source_ip)) ||
       (name === 'check_logon_context' && !isIP(args.source_ip)) ||
       (name === 'get_asset_context' && args.ip && !isIP(args.ip));
     const invalidTimestamp = name === 'check_logon_context' && !Number.isFinite(Date.parse(args.timestamp));
-    if (invalidIp || invalidTimestamp) {
+    const missingRawEventPivot = name === 'search_raw_events' && ![
+      'dataset', 'action', 'source_ip', 'username', 'hostname', 'process', 'url_domain', 'policy_violation',
+    ].some(key => Object.hasOwn(args, key));
+    if (invalidIp || invalidTimestamp || missingRawEventPivot) {
       throw new HermesError('HERMES_INVALID_TOOL_ARGUMENTS', 'Hermes returned invalid SOC tool arguments', {
-        status: 502, details: [invalidIp ? 'invalid IP address' : 'invalid timestamp'],
+        status: 502, details: [
+          invalidIp ? 'invalid IP address' : invalidTimestamp ? 'invalid timestamp' : 'an exact raw-event pivot is required',
+        ],
       });
     }
     return args;

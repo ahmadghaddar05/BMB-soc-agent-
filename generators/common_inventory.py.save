@@ -1,0 +1,2900 @@
+#!/usr/bin/env python3
+"""
+common_inventory.py
+
+Central SIEM Entity Inventory
+
+Used by:
+- Active Directory generator
+- EDR generator
+- Email generator
+- Linux generator
+- Database generator
+- Web Application generator
+
+Purpose:
+- Identity correlation
+- User behavior analytics
+- AI SOC reasoning
+- Risk scoring
+- Asset correlation
+"""
+
+import random
+import uuid
+
+
+# ============================================================
+# ORGANIZATION INFORMATION
+# ============================================================
+
+DOMAIN = "EXAMPLECORP"
+EMAIL_DOMAIN = "examplecorp.local"
+
+
+ORGANIZATION = {
+
+    "name": "ExampleCorp",
+
+    "industry": "Technology Services",
+
+    "country": "Lebanon",
+
+    "main_location": "Beirut HQ",
+
+    "security_level": "enterprise",
+
+    "timezone": "Asia/Beirut"
+
+}
+
+
+
+# ============================================================
+# NETWORK ZONES
+# ============================================================
+
+NETWORK_ZONES = {
+
+
+"CORPORATE_LAN":{
+
+    "name":"Corporate LAN",
+
+    "cidr":"192.168.10.0/24",
+
+    "trust":"medium"
+
+},
+
+
+"FINANCE_VLAN":{
+
+    "name":"Finance Network",
+
+    "cidr":"192.168.20.0/24",
+
+    "trust":"high"
+
+},
+
+
+"HR_VLAN":{
+
+    "name":"HR Network",
+
+    "cidr":"192.168.30.0/24",
+
+    "trust":"high"
+
+},
+
+
+"SERVER_ZONE":{
+
+    "name":"Server Network",
+
+    "cidr":"192.168.50.0/24",
+
+    "trust":"critical"
+
+},
+
+
+"DMZ":{
+
+    "name":"DMZ",
+
+    "cidr":"192.168.100.0/24",
+
+    "trust":"low"
+
+}
+
+}
+
+
+
+# ============================================================
+# USER INVENTORY
+# ============================================================
+
+
+USERS = [
+
+
+# ============================================================
+# OPERATIONS USERS
+# ============================================================
+
+
+{
+
+"name":"ahmad.hassan",
+
+"email":"ahmad.hassan@examplecorp.local",
+
+"department":"Operations",
+
+"host":"CORP-WS001",
+
+"ip":"192.168.10.21",
+
+"roles":["employee"],
+
+
+"identity":{
+
+    "immutable_id":"AD-EMP-00001",
+
+    "employee_id":"EMP-10001",
+
+    "account_type":"human",
+
+    "aliases":[
+        "a.hassan",
+        "ahassan"
+    ]
+
+},
+
+
+"organization":{
+
+    "department":"Operations",
+
+    "business_unit":"Operations",
+
+    "job_title":"Operations Engineer",
+
+    "manager":"operations.manager",
+
+    "location":"Beirut HQ"
+
+},
+
+
+"access":{
+
+    "privilege_level":"standard",
+
+    "ad_groups":[
+
+        "Domain Users",
+
+        "VPN-Users",
+
+        "Operations-Share"
+
+    ],
+
+    "cloud_roles":[
+
+        "Microsoft365-User"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"FIDO2",
+
+    "authentication_strength":"high",
+
+    "failed_login_count_30d":1
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "CORP-WS001"
+
+    ],
+
+    "mobile_devices":[
+
+        "IPHONE-001"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"07:30",
+
+        "end":"18:00"
+
+    },
+
+    "usual_locations":[
+
+        "Beirut HQ"
+
+    ],
+
+    "usual_servers":[
+
+        "WEBAPP01"
+
+    ],
+
+    "average_daily_logins":15,
+
+    "average_data_access_mb":300
+
+},
+
+
+"risk":{
+
+    "score":20,
+
+    "level":"low",
+
+    "previous_security_events":[],
+
+    "hr_status":"active",
+
+    "notice_period":False
+
+}
+
+},
+
+
+
+# ============================================================
+# FINANCE USERS
+# ============================================================
+
+
+{
+
+"name":"sara.khalil",
+
+"email":"sara.khalil@examplecorp.local",
+
+"department":"Finance",
+
+"host":"CORP-WS002",
+
+"ip":"192.168.10.22",
+
+"roles":["finance_user"],
+
+
+"identity":{
+
+    "immutable_id":"AD-EMP-00002",
+
+    "employee_id":"EMP-10002",
+
+    "account_type":"human",
+
+    "aliases":[
+
+        "s.khalil"
+
+    ]
+
+},
+
+
+"organization":{
+
+    "department":"Finance",
+
+    "business_unit":"Corporate Finance",
+
+    "job_title":"Financial Analyst",
+
+    "manager":"finance.manager",
+
+    "location":"Beirut HQ"
+
+},
+
+
+"access":{
+
+    "privilege_level":"standard",
+
+    "ad_groups":[
+
+        "Domain Users",
+
+        "Finance-Users",
+
+        "Finance-Reports"
+
+    ],
+
+    "cloud_roles":[
+
+        "PowerBI-Reader",
+
+        "Microsoft365-User"
+
+    ],
+
+    "database_permissions":[
+
+        {
+
+        "database":"finance_db",
+
+        "permission":"read"
+
+        }
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"FIDO2",
+
+    "authentication_strength":"high"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "CORP-WS002"
+
+    ],
+
+    "virtual_desktop":"VDI-FIN-01"
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"08:00",
+
+        "end":"17:30"
+
+    },
+
+    "usual_locations":[
+
+        "Beirut HQ"
+
+    ],
+
+    "usual_servers":[
+
+        "DB01"
+
+    ],
+
+    "average_daily_logins":20,
+
+    "average_data_access_mb":250
+
+},
+
+
+"risk":{
+
+    "score":25,
+
+    "level":"low",
+
+    "previous_security_events":[
+
+        {
+
+        "type":"phishing_click",
+
+        "date":"2026-05-12"
+
+        }
+
+    ],
+
+    "hr_status":"active"
+
+}
+
+},
+
+
+
+{
+
+"name":"nour.mansour",
+
+"email":"nour.mansour@examplecorp.local",
+
+"department":"Finance",
+
+"host":"FIN-WS001",
+
+"ip":"192.168.10.24",
+
+"roles":["finance_user"],
+
+
+"identity":{
+
+    "immutable_id":"AD-EMP-00005",
+
+    "employee_id":"EMP-10005",
+
+    "account_type":"human"
+
+},
+
+
+"organization":{
+
+    "department":"Finance",
+
+    "business_unit":"Corporate Finance",
+
+    "job_title":"Senior Accountant",
+
+    "location":"Beirut HQ"
+
+},
+
+
+"access":{
+
+    "privilege_level":"standard",
+
+    "ad_groups":[
+
+        "Finance-Users",
+
+        "Finance-Reports"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"Authenticator-App"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "FIN-WS001"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"08:00",
+
+        "end":"17:00"
+
+    },
+
+    "usual_servers":[
+
+        "DB01"
+
+    ],
+
+    "average_daily_logins":22
+
+},
+
+
+"risk":{
+
+    "score":18,
+
+    "level":"low",
+
+    "hr_status":"active"
+
+}
+
+},
+
+
+
+# ============================================================
+# SALES USER
+# ============================================================
+
+
+{
+
+"name":"john.smith",
+
+"email":"john.smith@examplecorp.local",
+
+"department":"Sales",
+
+"host":"CORP-WS003",
+
+"ip":"192.168.10.23",
+
+"roles":["employee"],
+
+
+"identity":{
+
+    "immutable_id":"AD-EMP-00003",
+
+    "employee_id":"EMP-10003",
+
+    "account_type":"human"
+
+},
+
+
+"organization":{
+
+    "department":"Sales",
+
+    "job_title":"Sales Executive",
+
+    "location":"Beirut HQ"
+
+},
+
+
+"access":{
+
+    "privilege_level":"standard",
+
+    "ad_groups":[
+
+        "Domain Users",
+
+        "Sales-Users"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"Authenticator-App"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "CORP-WS003"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"08:00",
+
+        "end":"18:00"
+
+    },
+
+    "average_daily_logins":12
+
+},
+
+
+"risk":{
+
+    "score":15,
+
+    "level":"low",
+
+    "hr_status":"active"
+
+}
+
+},
+# ============================================================
+# HR USERS
+# ============================================================
+
+
+{
+
+"name":"maya.georges",
+
+"email":"maya.georges@examplecorp.local",
+
+"department":"HR",
+
+"host":"HR-WS001",
+
+"ip":"192.168.10.25",
+
+"roles":["hr_user"],
+
+
+"identity":{
+
+    "immutable_id":"AD-EMP-00006",
+
+    "employee_id":"EMP-10006",
+
+    "account_type":"human"
+
+},
+
+
+"organization":{
+
+    "department":"Human Resources",
+
+    "business_unit":"Corporate HR",
+
+    "job_title":"HR Specialist",
+
+    "location":"Beirut HQ"
+
+},
+
+
+"access":{
+
+    "privilege_level":"standard",
+
+    "ad_groups":[
+
+        "Domain Users",
+
+        "HR-Users",
+
+        "HR-Share"
+
+    ],
+
+    "database_permissions":[
+
+        {
+
+        "database":"hr_db",
+
+        "permission":"read"
+
+        }
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"FIDO2",
+
+    "authentication_strength":"high"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "HR-WS001"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"08:00",
+
+        "end":"17:00"
+
+    },
+
+    "usual_servers":[
+
+        "WEBAPP01",
+
+        "DB01"
+
+    ],
+
+    "average_daily_logins":14
+
+},
+
+
+"risk":{
+
+    "score":12,
+
+    "level":"low",
+
+    "hr_status":"active"
+
+}
+
+},
+
+
+
+{
+
+"name":"fatima.ibrahim",
+
+"email":"fatima.ibrahim@examplecorp.local",
+
+"department":"HR",
+
+"host":"HR-WS002",
+
+"ip":"192.168.10.28",
+
+"roles":["hr_user"],
+
+
+"identity":{
+
+    "immutable_id":"AD-EMP-00007",
+
+    "employee_id":"EMP-10007",
+
+    "account_type":"human"
+
+},
+
+
+"organization":{
+
+    "department":"Human Resources",
+
+    "job_title":"Recruitment Officer",
+
+    "location":"Beirut HQ"
+
+},
+
+
+"access":{
+
+    "privilege_level":"standard",
+
+    "ad_groups":[
+
+        "Domain Users",
+
+        "HR-Users"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"Authenticator-App"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "HR-WS002"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"08:30",
+
+        "end":"17:30"
+
+    },
+
+    "average_daily_logins":10
+
+},
+
+
+"risk":{
+
+    "score":10,
+
+    "level":"low",
+
+    "hr_status":"active"
+
+}
+
+},
+
+
+
+# ============================================================
+# IT ADMINISTRATORS
+# ============================================================
+
+
+{
+
+"name":"david.wilson",
+
+"email":"david.wilson@examplecorp.local",
+
+"department":"IT",
+
+"host":"IT-ADMIN01",
+
+"ip":"192.168.10.26",
+
+"roles":["it_admin"],
+
+
+"identity":{
+
+    "immutable_id":"AD-ADM-00001",
+
+    "employee_id":"EMP-10008",
+
+    "account_type":"privileged_user"
+
+},
+
+
+"organization":{
+
+    "department":"IT",
+
+    "business_unit":"Infrastructure",
+
+    "job_title":"System Administrator",
+
+    "location":"Beirut HQ"
+
+},
+
+
+"access":{
+
+    "privilege_level":"administrator",
+
+    "ad_groups":[
+
+        "Domain Admins",
+
+        "Server Administrators",
+
+        "VPN-Admins"
+
+    ],
+
+    "cloud_roles":[
+
+        "Azure-Administrator"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"FIDO2-Hardware-Key",
+
+    "authentication_strength":"critical"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "IT-ADMIN01"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"07:00",
+
+        "end":"22:00"
+
+    },
+
+    "usual_servers":[
+
+        "DC01",
+
+        "DB01",
+
+        "WEBAPP01"
+
+    ],
+
+    "average_daily_logins":35
+
+},
+
+
+"risk":{
+
+    "score":35,
+
+    "level":"medium",
+
+    "hr_status":"active"
+
+}
+
+},
+
+
+
+{
+
+"name":"george.khouri",
+
+"email":"george.khouri@examplecorp.local",
+
+"department":"IT",
+
+"host":"IT-HELP01",
+
+"ip":"192.168.10.29",
+
+"roles":["helpdesk"],
+
+
+"identity":{
+
+    "immutable_id":"AD-EMP-00009",
+
+    "employee_id":"EMP-10009",
+
+    "account_type":"human"
+
+},
+
+
+"organization":{
+
+    "department":"IT Support",
+
+    "job_title":"Helpdesk Engineer",
+
+    "location":"Beirut HQ"
+
+},
+
+
+"access":{
+
+    "privilege_level":"limited_admin",
+
+    "ad_groups":[
+
+        "Helpdesk-L1",
+
+        "Password-Reset"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"Authenticator-App"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "IT-HELP01"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"08:00",
+
+        "end":"18:00"
+
+    }
+
+},
+
+
+"risk":{
+
+    "score":20,
+
+    "level":"low"
+
+}
+
+},
+
+
+
+# ============================================================
+# SECURITY TEAM
+# ============================================================
+
+
+{
+
+"name":"elias.nassar",
+
+"email":"elias.nassar@examplecorp.local",
+
+"department":"Security",
+
+"host":"SEC-WS001",
+
+"ip":"192.168.10.60",
+
+"roles":["soc_analyst"],
+
+
+"identity":{
+
+    "immutable_id":"AD-SEC-00001",
+
+    "employee_id":"EMP-10010",
+
+    "account_type":"human"
+
+},
+
+
+"organization":{
+
+    "department":"Cyber Security",
+
+    "job_title":"SOC Analyst",
+
+    "location":"SOC Room"
+
+},
+
+
+"access":{
+
+    "privilege_level":"security_admin",
+
+    "ad_groups":[
+
+        "SOC-Analysts",
+
+        "SIEM-Users"
+
+    ],
+
+    "applications":[
+
+        "Elastic SIEM",
+
+        "EDR Console"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"FIDO2-Hardware-Key"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "SEC-WS001"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"00:00",
+
+        "end":"23:59"
+
+    },
+
+    "usual_servers":[
+
+        "ELASTIC01"
+
+    ]
+
+},
+
+
+"risk":{
+
+    "score":15,
+
+    "level":"low"
+
+}
+
+},
+
+
+
+{
+
+"name":"jad.mattar",
+
+"email":"jad.mattar@examplecorp.local",
+
+"department":"Security",
+
+"host":"SEC-WS002",
+
+"ip":"192.168.10.61",
+
+"roles":["incident_responder"],
+
+
+"identity":{
+
+    "immutable_id":"AD-SEC-00002",
+
+    "employee_id":"EMP-10011",
+
+    "account_type":"human"
+
+},
+
+
+"organization":{
+
+    "department":"Cyber Security",
+
+    "job_title":"Incident Response Engineer"
+
+},
+
+
+"access":{
+
+    "privilege_level":"security_admin",
+
+    "ad_groups":[
+
+        "Incident-Response",
+
+        "Threat-Hunting"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"FIDO2"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "SEC-WS002"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"00:00",
+
+        "end":"23:59"
+
+    }
+
+},
+
+
+"risk":{
+
+    "score":20,
+
+    "level":"low"
+
+}
+
+},
+
+# ============================================================
+# DEVELOPMENT USERS
+# ============================================================
+
+
+{
+
+"name":"karim.haddad",
+
+"email":"karim.haddad@examplecorp.local",
+
+"department":"Development",
+
+"host":"DEV-WS001",
+
+"ip":"192.168.10.70",
+
+"roles":["developer"],
+
+
+"identity":{
+
+    "immutable_id":"AD-DEV-00001",
+
+    "employee_id":"EMP-10012",
+
+    "account_type":"human"
+
+},
+
+
+"organization":{
+
+    "department":"Software Development",
+
+    "job_title":"Software Engineer",
+
+    "location":"Beirut HQ"
+
+},
+
+
+"access":{
+
+    "privilege_level":"standard",
+
+    "ad_groups":[
+
+        "Developers",
+
+        "GitHub-Users"
+
+    ],
+
+    "applications":[
+
+        "GitHub Enterprise",
+
+        "Jira",
+
+        "Confluence"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"FIDO2"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "DEV-WS001"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"09:00",
+
+        "end":"19:00"
+
+    },
+
+    "usual_servers":[
+
+        "LINUX-APP01"
+
+    ],
+
+    "average_daily_logins":25
+
+},
+
+
+"risk":{
+
+    "score":22,
+
+    "level":"low"
+
+}
+
+},
+
+
+
+{
+
+"name":"rami.saleh",
+
+"email":"rami.saleh@examplecorp.local",
+
+"department":"Development",
+
+"host":"DEV-WS002",
+
+"ip":"192.168.10.71",
+
+"roles":["devops"],
+
+
+"identity":{
+
+    "immutable_id":"AD-DEV-00002",
+
+    "employee_id":"EMP-10013",
+
+    "account_type":"human"
+
+},
+
+
+"organization":{
+
+    "department":"DevOps",
+
+    "job_title":"DevOps Engineer"
+
+},
+
+
+"access":{
+
+    "privilege_level":"elevated",
+
+    "ad_groups":[
+
+        "DevOps",
+
+        "Kubernetes-Admins"
+
+    ],
+
+    "cloud_roles":[
+
+        "AWS-Developer",
+
+        "Azure-Contributor"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"FIDO2"
+
+},
+
+
+"assets":{
+
+    "assigned_devices":[
+
+        "DEV-WS002"
+
+    ]
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"00:00",
+
+        "end":"23:59"
+
+    }
+
+},
+
+
+"risk":{
+
+    "score":40,
+
+    "level":"medium"
+
+}
+
+},
+
+
+
+# ============================================================
+# DATABASE / CLOUD ADMIN
+# ============================================================
+
+
+{
+
+"name":"tony.azar",
+
+"email":"tony.azar@examplecorp.local",
+
+"department":"Database",
+
+"host":"DBA-WS001",
+
+"ip":"192.168.10.72",
+
+"roles":["database_admin"],
+
+
+"identity":{
+
+    "immutable_id":"AD-DBA-00001",
+
+    "employee_id":"EMP-10014",
+
+    "account_type":"privileged_user"
+
+},
+
+
+"organization":{
+
+    "department":"Database",
+
+    "job_title":"Database Administrator"
+
+},
+
+
+"access":{
+
+    "privilege_level":"administrator",
+
+    "ad_groups":[
+
+        "Database-Admins"
+
+    ],
+
+    "database_permissions":[
+
+        {
+
+        "database":"ALL",
+
+        "permission":"admin"
+
+        }
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"FIDO2-Hardware-Key"
+
+},
+
+
+"behavior":{
+
+    "usual_servers":[
+
+        "DB01",
+
+        "DB02"
+
+    ]
+
+},
+
+
+"risk":{
+
+    "score":45,
+
+    "level":"medium"
+
+}
+
+},
+
+
+
+{
+
+"name":"samer.younes",
+
+"email":"samer.younes@examplecorp.local",
+
+"department":"Cloud",
+
+"host":"CLOUD-WS001",
+
+"ip":"192.168.10.73",
+
+"roles":["cloud_admin"],
+
+
+"identity":{
+
+    "immutable_id":"AD-CLOUD-00001",
+
+    "employee_id":"EMP-10015",
+
+    "account_type":"privileged_user"
+
+},
+
+
+"organization":{
+
+    "department":"Cloud Infrastructure",
+
+    "job_title":"Cloud Administrator"
+
+},
+
+
+"access":{
+
+    "privilege_level":"administrator",
+
+    "cloud_roles":[
+
+        "AWS-Administrator",
+
+        "Azure-Global-Admin"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"Hardware-Key"
+
+},
+
+
+"risk":{
+
+    "score":55,
+
+    "level":"high"
+
+}
+
+},
+
+
+
+# ============================================================
+# MANAGEMENT
+# ============================================================
+
+
+{
+
+"name":"michael.jones",
+
+"email":"michael.jones@examplecorp.local",
+
+"department":"Management",
+
+"host":"EXEC-WS001",
+
+"ip":"192.168.10.80",
+
+"roles":["executive"],
+
+
+"identity":{
+
+    "immutable_id":"AD-EXEC-00001",
+
+    "employee_id":"EMP-10016",
+
+    "account_type":"human"
+
+},
+
+
+"organization":{
+
+    "department":"Management",
+
+    "job_title":"Operations Director"
+
+},
+
+
+"access":{
+
+    "privilege_level":"standard",
+
+    "ad_groups":[
+
+        "Executives"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":True,
+
+    "mfa_method":"FIDO2"
+
+},
+
+
+"risk":{
+
+    "score":30,
+
+    "level":"medium"
+
+}
+
+},
+
+
+
+# ============================================================
+# SERVICE ACCOUNTS
+# ============================================================
+
+
+{
+
+"name":"svc-backup",
+
+"email":"svc-backup@examplecorp.local",
+
+"department":"IT",
+
+"host":"DC01",
+
+"ip":"192.168.10.10",
+
+"roles":["service_account"],
+
+
+"identity":{
+
+    "immutable_id":"AD-SVC-00001",
+
+    "account_type":"service"
+
+},
+
+
+"access":{
+
+    "privilege_level":"high",
+
+    "ad_groups":[
+
+        "Backup Operators"
+
+    ]
+
+},
+
+
+"authentication":{
+
+    "mfa_enabled":False,
+
+    "authentication_type":"certificate"
+
+},
+
+
+"behavior":{
+
+    "normal_hours":{
+
+        "start":"00:00",
+
+        "end":"23:59"
+
+    },
+
+    "non_interactive":True
+
+},
+
+
+"risk":{
+
+    "score":60,
+
+    "level":"high"
+
+}
+
+},
+
+
+
+{
+
+"name":"svc-sql",
+
+"email":"svc-sql@examplecorp.local",
+
+"department":"Database",
+
+"host":"DB01",
+
+"ip":"192.168.10.50",
+
+"roles":["service_account"],
+
+
+"identity":{
+
+    "immutable_id":"AD-SVC-00002",
+
+    "account_type":"service"
+
+},
+
+
+"access":{
+
+    "privilege_level":"high"
+
+},
+
+
+"behavior":{
+
+    "non_interactive":True,
+
+    "allowed_hosts":[
+
+        "DB01"
+
+    ]
+
+},
+
+
+"risk":{
+
+    "score":50,
+
+    "level":"medium"
+
+}
+
+},
+
+
+
+{
+
+"name":"svc-web",
+
+"email":"svc-web@examplecorp.local",
+
+"department":"Application",
+
+"host":"WEBAPP01",
+
+"ip":"192.168.10.40",
+
+"roles":["service_account"],
+
+
+"identity":{
+
+    "immutable_id":"AD-SVC-00003",
+
+    "account_type":"service"
+
+},
+
+
+"access":{
+
+    "privilege_level":"medium"
+
+},
+
+
+"behavior":{
+
+    "non_interactive":True,
+
+    "allowed_hosts":[
+
+        "WEBAPP01"
+
+    ]
+
+},
+
+
+"risk":{
+
+    "score":40,
+
+    "level":"medium"
+
+}
+
+}
+]
+
+# ============================================================
+# SERVER INVENTORY
+# ============================================================
+
+
+SERVERS={
+
+
+"DC01":{
+
+"name":"DC01",
+
+"ip":"192.168.10.10",
+
+"role":"domain_controller",
+
+"criticality":"critical",
+
+"os":{
+
+"type":"windows",
+
+"name":"Windows Server 2022"
+
+}
+
+},
+
+
+"MAILGW01":{
+
+"name":"MAILGW01",
+
+"ip":"192.168.10.6",
+
+"role":"mail_gateway",
+
+"criticality":"high",
+
+"os":{
+
+"type":"linux",
+
+"name":"Ubuntu Server"
+
+}
+
+},
+
+
+"LINUX-WEB01":{
+
+"name":"LINUX-WEB01",
+
+"ip":"192.168.10.31",
+
+"role":"web_server",
+
+"criticality":"high",
+
+"os":{
+
+"type":"linux",
+
+"name":"Ubuntu 22.04"
+
+}
+
+},
+
+
+"LINUX-APP01":{
+
+"name":"LINUX-APP01",
+
+"ip":"192.168.10.32",
+
+"role":"application_server",
+
+"criticality":"high",
+
+"os":{
+
+"type":"linux",
+
+"name":"Ubuntu 22.04"
+
+}
+
+},
+
+
+"WEBAPP01":{
+
+"name":"WEBAPP01",
+
+"ip":"192.168.10.40",
+
+"role":"web_application",
+
+"criticality":"high",
+
+"os":{
+
+"type":"linux",
+
+"name":"Ubuntu 22.04"
+
+}
+
+},
+
+
+"DB01":{
+
+"name":"DB01",
+
+"ip":"192.168.10.50",
+
+"role":"database",
+
+"criticality":"critical",
+
+"os":{
+
+"type":"linux",
+
+"name":"Ubuntu 22.04"
+
+}
+
+},
+
+
+"ELASTIC01":{
+
+"name":"ELASTIC01",
+
+"ip":"10.1.244.52",
+
+"role":"siem",
+
+"criticality":"critical",
+
+"os":{
+
+"type":"linux",
+
+"name":"Ubuntu Server"
+
+}
+
+},
+
+
+"AI-DASH01":{
+
+"name":"AI-DASH01",
+
+"ip":"10.1.244.110",
+
+     "role":"ai_dashboard",
+
+     "criticality":"high",
+
+     "os":{
+
+     "type":"linux",
+
+     "name":"Ubuntu Server"
+
+    }
+
+  }
+
+
+}
+
+"LINUX-JUMP01":{
+
+    "name":"LINUX-JUMP01",
+
+    "ip":"192.168.10.33",
+
+    "role":"linux_jump_server",
+
+    "criticality":"high",
+
+    "os":{
+
+        "type":"linux",
+
+        "name":"Ubuntu Server",
+
+        "version":"22.04"
+
+    }
+
+},
+# ============================================================
+# SIMULATION NETWORK CONSTANTS
+# ============================================================
+
+
+# Documentation-only attacker / external IPs
+# RFC 5737 reserved ranges
+
+DOC_IPS = [
+
+    "198.51.100.24",
+
+    "192.0.2.77",
+
+    "203.0.113.55"
+
+]
+
+
+
+# Trusted external services
+
+GOOD_EXTERNAL_IPS = [
+
+    "13.107.42.14",
+
+    "20.190.160.20",
+
+    "140.82.112.4"
+
+]
+
+# ============================================================
+# COMPATIBILITY HELPER FUNCTIONS
+# ============================================================
+
+
+def choose_user(role=None):
+
+    if role:
+
+        candidates = [
+
+            u for u in USERS
+
+            if role in u.get(
+                "roles",
+                []
+            )
+
+        ]
+
+        if candidates:
+
+            return random.choice(
+                candidates
+            )
+
+
+    return random.choice(
+        USERS
+    )
+
+
+
+
+
+{
+  "_index": ".ds-logs-edr.endpoint-default-2026.07.03-000001",
+  "_id": "AZ9LlTonBbrOKVK3Kmox",
+  "_version": 1,
+  "_source": {
+    "agent": {
+      "id": "b12799d433f14891",
+      "type": "edr-agent",
+      "version": "5.2.0"
+    },
+    "source": {
+      "port": 56351,
+      "ip": "192.168.10.60"
+    },
+    "tags": [
+      "edr",
+      "endpoint",
+      "behavior-analysis",
+      "demo"
+    ],
+    "logstash": {
+      "udp": {
+        "source_ip": "127.0.0.1"
+      }
+    },
+    "@timestamp": "2026-07-10T10:32:10.538Z",
+    "ecs": {
+      "version": "8.17.0"
+    },
+    "related": {
+      "hosts": [
+        "SEC-WS001"
+      ],
+      "ip": [
+        "192.168.10.60"
+      ],
+      "user": [
+        "elias.nassar"
+      ]
+    },
+    "service": {
+      "name": "BITS",
+      "state": "running"
+    },
+    "data_stream": {
+      "namespace": "default",
+      "type": "logs",
+      "dataset": "edr.endpoint"
+    },
+    "host": {
+      "hostname": "SEC-WS001",
+      "os": {
+        "name": "Windows 11 Enterprise",
+        "family": "windows",
+        "type": "windows",
+        "version": "23H2"
+      },
+      "ip": [
+        "192.168.10.60"
+      ],
+      "name": "SEC-WS001",
+      "id": "5db50a27-2220-5ad5-9417-3a462e8f9651"
+    },
+    "event": {
+      "severity": 1,
+      "original": "{\"@timestamp\":\"2026-07-10T10:32:10.538Z\",\"ecs\":{\"version\":\"8.17.0\"},\"data_stream\":{\"type\":\"logs\",\"dataset\":\"edr.endpoint\",\"namespace\":\"default\"},\"event\":{\"id\":\"407632e2-4297-4219-b45e-8116cfdc2b67\",\"kind\":\"event\",\"category\":[\"host\"],\"action\":\"service-status\",\"outcome\":\"success\",\"severity\":1,\"risk_score\":10,\"module\":\"edr\"},\"agent\":{\"type\":\"edr-agent\",\"version\":\"5.2.0\",\"id\":\"b12799d433f14891\"},\"tags\":[\"edr\",\"endpoint\",\"behavior-analysis\",\"demo\"],\"user\":{\"name\":\"elias.nassar\",\"email\":\"elias.nassar@examplecorp.local\",\"id\":\"AD-SEC-00001\",\"domain\":\"EXAMPLECORP\",\"department\":\"Security\",\"roles\":[\"soc_analyst\"],\"privilege\":\"security_admin\",\"risk_score\":15},\"host\":{\"name\":\"SEC-WS001\",\"hostname\":\"SEC-WS001\",\"id\":\"5db50a27-2220-5ad5-9417-3a462e8f9651\",\"ip\":[\"192.168.10.60\"],\"os\":{\"type\":\"windows\",\"family\":\"windows\",\"name\":\"Windows 11 Enterprise\",\"version\":\"23H2\"}},\"related\":{\"ip\":[\"192.168.10.60\"],\"hosts\":[\"SEC-WS001\"],\"user\":[\"elias.nassar\"]},\"source\":{\"ip\":\"192.168.10.60\",\"port\":56351},\"behavior\":{\"working_hours\":{\"normal\":true,\"reason\":\"inside working hours\"},\"risk_factors\":[0,20,0],\"analysis\":{\"score\":35,\"level\":\"medium\"}},\"service\":{\"name\":\"BITS\",\"state\":\"running\"}}",
+      "risk_score": 10,
+      "kind": "event",
+      "module": "edr",
+      "action": "service-status",
+      "id": "407632e2-4297-4219-b45e-8116cfdc2b67",
+      "category": [
+        "host"
+      ],
+      "dataset": "edr.endpoint",
+      "outcome": "success"
+    },
+    "behavior": {
+      "working_hours": {
+        "normal": true,
+        "reason": "inside working hours"
+      },
+      "risk_factors": [
+        0,
+        20,
+        0
+      ],
+      "analysis": {
+        "score": 35,
+        "level": "medium"
+      }
+    },
+    "user": {
+      "risk_score": 15,
+      "roles": [
+        "soc_analyst"
+      ],
+      "domain": "EXAMPLECORP",
+      "name": "elias.nassar",
+      "privilege": "security_admin",
+      "id": "AD-SEC-00001",
+      "department": "Security",
+      "email": "elias.nassar@examplecorp.local"
+    }
+  },
+  "fields": {
+    "event.category": [
+      "host"
+    ],
+    "host.os.name.text": [
+      "Windows 11 Enterprise"
+    ],
+    "user.department": [
+      "Security"
+    ],
+    "host.hostname": [
+      "SEC-WS001"
+    ],
+    "behavior.working_hours.reason": [
+      "inside working hours"
+    ],
+    "behavior.analysis.level": [
+      "medium"
+    ],
+    "host.os.version": [
+      "23H2"
+    ],
+    "host.os.name": [
+      "Windows 11 Enterprise"
+    ],
+    "source.ip": [
+      "192.168.10.60"
+    ],
+    "user.privilege": [
+      "security_admin"
+    ],
+    "host.name": [
+      "SEC-WS001"
+    ],
+    "event.kind": [
+      "event"
+    ],
+    "event.outcome": [
+      "success"
+    ],
+    "event.severity": [
+      1
+    ],
+    "event.original": [
+      "{\"@timestamp\":\"2026-07-10T10:32:10.538Z\",\"ecs\":{\"version\":\"8.17.0\"},\"data_stream\":{\"type\":\"logs\",\"dataset\":\"edr.endpoint\",\"namespace\":\"default\"},\"event\":{\"id\":\"407632e2-4297-4219-b45e-8116cfdc2b67\",\"kind\":\"event\",\"category\":[\"host\"],\"action\":\"service-status\",\"outcome\":\"success\",\"severity\":1,\"risk_score\":10,\"module\":\"edr\"},\"agent\":{\"type\":\"edr-agent\",\"version\":\"5.2.0\",\"id\":\"b12799d433f14891\"},\"tags\":[\"edr\",\"endpoint\",\"behavior-analysis\",\"demo\"],\"user\":{\"name\":\"elias.nassar\",\"email\":\"elias.nassar@examplecorp.local\",\"id\":\"AD-SEC-00001\",\"domain\":\"EXAMPLECORP\",\"department\":\"Security\",\"roles\":[\"soc_analyst\"],\"privilege\":\"security_admin\",\"risk_score\":15},\"host\":{\"name\":\"SEC-WS001\",\"hostname\":\"SEC-WS001\",\"id\":\"5db50a27-2220-5ad5-9417-3a462e8f9651\",\"ip\":[\"192.168.10.60\"],\"os\":{\"type\":\"windows\",\"family\":\"windows\",\"name\":\"Windows 11 Enterprise\",\"version\":\"23H2\"}},\"related\":{\"ip\":[\"192.168.10.60\"],\"hosts\":[\"SEC-WS001\"],\"user\":[\"elias.nassar\"]},\"source\":{\"ip\":\"192.168.10.60\",\"port\":56351},\"behavior\":{\"working_hours\":{\"normal\":true,\"reason\":\"inside working hours\"},\"risk_factors\":[0,20,0],\"analysis\":{\"score\":35,\"level\":\"medium\"}},\"service\":{\"name\":\"BITS\",\"state\":\"running\"}}"
+    ],
+    "host.os.type": [
+      "windows"
+    ],
+    "user.id": [
+      "AD-SEC-00001"
+    ],
+    "behavior.working_hours.normal": [
+      true
+    ],
+    "data_stream.type": [
+      "logs"
+    ],
+    "event.risk_score": [
+      10
+    ],
+    "related.user": [
+      "elias.nassar"
+    ],
+    "tags": [
+      "edr",
+      "endpoint",
+      "behavior-analysis",
+      "demo"
+    ],
+    "service.state": [
+      "running"
+    ],
+    "user.risk_score": [
+      15
+    ],
+    "agent.id": [
+      "b12799d433f14891"
+    ],
+    "source.port": [
+      56351
+    ],
+    "ecs.version": [
+      "8.17.0"
+    ],
+    "service.name.text": [
+      "BITS"
+    ],
+    "agent.version": [
+      "5.2.0"
+    ],
+    "related.hosts": [
+      "SEC-WS001"
+    ],
+    "host.os.family": [
+      "windows"
+    ],
+    "behavior.risk_factors": [
+      0,
+      20,
+      0
+    ],
+    "user.name": [
+      "elias.nassar"
+    ],
+    "logstash.udp.source_ip": [
+      "127.0.0.1"
+    ],
+    "host.ip": [
+      "192.168.10.60"
+    ],
+    "agent.type": [
+      "edr-agent"
+    ],
+    "event.module": [
+      "edr"
+    ],
+    "related.ip": [
+      "192.168.10.60"
+    ],
+    "user.email": [
+      "elias.nassar@examplecorp.local"
+    ],
+    "user.domain": [
+      "EXAMPLECORP"
+    ],
+    "host.id": [
+      "5db50a27-2220-5ad5-9417-3a462e8f9651"
+    ],
+    "behavior.analysis.score": [
+      35
+    ],
+    "service.name": [
+      "BITS"
+    ],
+    "data_stream.namespace": [
+      "default"
+    ],
+    "event.action": [
+      "service-status"
+    ],
+    "@timestamp": [
+      "2026-07-10T10:32:10.538Z"
+    ],
+    "data_stream.dataset": [
+      "edr.endpoint"
+    ],
+    "event.id": [
+      "407632e2-4297-4219-b45e-8116cfdc2b67"
+    ],
+    "event.dataset": [
+      "edr.endpoint"
+    ],
+    "user.name.text": [
+      "elias.nassar"
+    ],
+    "user.roles": [
+      "soc_analyst"
+    ]
+  }
+}
+def user_doc(user):
+
+    organization = user.get(
+        "organization",
+        {}
+    )
+
+    identity = user.get(
+        "identity",
+        {}
+    )
+
+    authentication = user.get(
+        "authentication",
+        {}
+    )
+
+    access = user.get(
+        "access",
+        {}
+    )
+
+    risk = user.get(
+        "risk",
+        {}
+    )
+
+
+    return {
+
+
+        # Identity
+
+        "name":
+        user.get(
+            "name"
+        ),
+
+
+        "email":
+        user.get(
+            "email"
+        ),
+
+
+        "id":
+        identity.get(
+            "immutable_id"
+        ),
+
+
+        "employee_id":
+        identity.get(
+            "employee_id"
+        ),
+
+
+        "account_type":
+        identity.get(
+            "account_type",
+            "human"
+        ),
+
+
+
+        # Organization
+
+        "department":
+        user.get(
+            "department",
+            organization.get(
+                "department"
+            )
+        ),
+
+
+        "business_unit":
+        organization.get(
+            "business_unit"
+        ),
+
+
+        "job_title":
+        organization.get(
+            "job_title"
+        ),
+
+
+        "manager":
+        organization.get(
+            "manager"
+        ),
+
+
+        "location":
+        organization.get(
+            "location"
+        ),
+
+
+
+        # Access
+
+        "roles":
+        user.get(
+            "roles",
+            []
+        ),
+
+
+        "privilege":
+        access.get(
+            "privilege_level",
+            "standard"
+        ),
+
+
+        "ad_groups":
+        access.get(
+            "ad_groups",
+            []
+        ),
+
+
+        "cloud_roles":
+        access.get(
+            "cloud_roles",
+            []
+        ),
+
+
+
+        # Authentication
+
+        "authentication":{
+
+
+            "mfa_enabled":
+            authentication.get(
+                "mfa_enabled",
+                False
+            ),
+
+
+            "mfa_method":
+            authentication.get(
+                "mfa_method"
+            ),
+
+
+            "authentication_strength":
+            authentication.get(
+                "authentication_strength"
+            )
+
+        },
+
+
+
+        # Risk
+
+        "risk_score":
+        risk.get(
+            "score",
+            0
+        ),
+
+
+        "risk_level":
+        risk.get(
+            "level"
+        ),
+
+
+        "hr_status":
+        risk.get(
+            "hr_status"
+        )
+
+    }
+
+
+
+
+def workstation_host_doc(user):
+
+
+    return {
+
+        "name":
+        user.get(
+            "host"
+        ),
+
+
+        "hostname":
+        user.get(
+            "host"
+        ),
+
+
+        "id":
+        str(
+            uuid.uuid5(
+                uuid.NAMESPACE_DNS,
+                user.get("host")
+            )
+        ),
+
+
+        "ip":[
+
+            user.get(
+                "ip"
+            )
+
+        ],
+
+
+        "os":{
+
+            "type":
+            "windows",
+
+            "family":
+            "windows",
+
+            "name":
+            "Windows 11 Enterprise",
+
+            "version":
+            "23H2"
+
+        }
+
+    }
+
+
+
+
+
+def server_host_doc(name):
+
+
+    server=SERVERS[name]
+
+
+    return {
+
+        "name":
+        server["name"],
+
+
+        "hostname":
+        server["name"],
+
+
+        "id":
+        str(
+            uuid.uuid5(
+                uuid.NAMESPACE_DNS,
+                server["name"]
+            )
+        ),
+
+
+        "ip":[
+
+            server["ip"]
+
+        ],
+
+
+        "os":
+        server["os"]
+
+    }
+
+
+
+
+
+def server_ip(name):
+
+    return SERVERS[name]["ip"]
+
+
+
+
+
+def server_name(name):
+
+    return SERVERS[name]["name"]
+
+
+
+
+
+def related_for_user_host(
+
+    user,
+
+    extra_ips=None,
+
+    extra_hosts=None,
+
+    extra_users=None
+
+):
+
+
+    ips=[
+
+        user.get(
+            "ip"
+        )
+
+    ]
+
+
+    hosts=[
+
+        user.get(
+            "host"
+        )
+
+    ]
+
+
+    users=[
+
+        user.get(
+            "name"
+        )
+
+    ]
+
+
+
+    if extra_ips:
+
+        ips.extend(
+            extra_ips
+        )
+
+
+    if extra_hosts:
+
+        hosts.extend(
+            extra_hosts
+        )
+
+
+    if extra_users:
+
+        users.extend(
+            extra_users
+        )
+
+
+    return {
+
+        "ip":
+        list(
+            filter(
+                None,
+                ips
+            )
+        ),
+
+
+        "hosts":
+        list(
+            filter(
+                None,
+                hosts
+            )
+        ),
+
+
+        "user":
+        list(
+            filter(
+                None,
+                users
+            )
+        )
+
+    }

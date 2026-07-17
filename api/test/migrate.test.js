@@ -110,6 +110,18 @@ test('Phase 9 migration creates approval-gated reversible response simulation re
   assert.match(sql, /state IN \('active','reverted'\)/);
 });
 
+test('raw-event evidence migration preserves existing evidence types and adds durable citations', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/010_raw_event_evidence.sql'), 'utf8');
+  for (const evidenceType of [
+    'alert', 'incident', 'investigation', 'case', 'action_request',
+    'autonomous_run', 'simulated_response', 'raw_event',
+  ]) {
+    assert.match(sql, new RegExp(`'${evidenceType}'`));
+  }
+  assert.match(sql, /DROP CONSTRAINT IF EXISTS agent_evidence_links_evidence_type_check/);
+  assert.match(sql, /ADD CONSTRAINT agent_evidence_links_evidence_type_check/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

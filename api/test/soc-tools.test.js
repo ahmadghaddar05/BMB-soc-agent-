@@ -96,6 +96,37 @@ test('enrichment tools use only fixed service paths and URL-encode model values'
   assert.deepEqual(result.evidence, [{ type: 'identity', id: 'alice/admin' }]);
 });
 
+test('raw Elastic event search requires an exact pivot and returns citable bounded evidence', async () => {
+  const calls = [];
+  const elasticService = {
+    async searchEvents(args) {
+      calls.push(args);
+      return [{
+        id:'logs-edr.endpoint-default:event-1', timestamp:'2026-07-17T08:00:00Z',
+        dataset:'edr.endpoint', action:'unauthorized-game-launch', username:'maya.georges',
+        policy:{ violation:true, security_alert:false },
+      }];
+    },
+  };
+  const toolkit = createSocToolkit({ database:{}, elasticService, config });
+  const result = await toolkit.execute('search_raw_events', {
+    username:'maya.georges', policy_violation:true, hours:24, limit:10,
+  }, authorized);
+  assert.equal(calls.length, 1);
+  assert.equal(result.data.events[0].policy.security_alert, false);
+  assert.deepEqual(result.evidence, [{
+    type:'raw_event', id:'logs-edr.endpoint-default:event-1',
+  }]);
+  await assert.rejects(
+    toolkit.execute('search_raw_events', { hours:24, limit:10 }, authorized),
+    error => error.code === 'HERMES_INVALID_TOOL_ARGUMENTS'
+  );
+  await assert.rejects(
+    toolkit.execute('search_raw_events', { source_ip:'invalid' }, authorized),
+    error => error.code === 'HERMES_INVALID_TOOL_ARGUMENTS'
+  );
+});
+
 test('controlled action tool requires separate action permission and delegates only to the policy service', async () => {
   const submitted = [];
   const actionService = {
