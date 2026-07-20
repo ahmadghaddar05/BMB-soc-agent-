@@ -36,6 +36,7 @@ describe('authenticated application flows', () => {
     window.history.replaceState({}, '', path);
     root = createRoot(container);
     await act(async () => root.render(<App />));
+    await vi.dynamicImportSettled();
     await settle();
   }
 
@@ -65,7 +66,7 @@ describe('authenticated application flows', () => {
     expect(calls.some(url => url.endsWith('/alerts/alert-1'))).toBe(true);
   });
 
-  it('loads dashboard activity within the alerts API page-size contract', async () => {
+  it('loads the auditable executive contract without sampling a page of raw alerts', async () => {
     vi.stubGlobal('ResizeObserver', class {
       observe() {}
       unobserve() {}
@@ -77,17 +78,85 @@ describe('authenticated application flows', () => {
       calls.push(url);
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
-      if (url.endsWith('/stats')) return jsonResponse({ alerts:{ total:1, grouped_activities:1 }, incidents:{ total:0, open:0 }, recent_runs:[], severity_split:[], top_src_ips:[] });
+      if (url.endsWith('/executive/overview?days=30')) return jsonResponse({
+        generated_at:new Date().toISOString(), window_days:30,
+        health:{ score:91, status:'healthy', drivers:[] },
+        business_risks:{ total:1, by_impact:{ high:1, medium:0, low:0 } },
+        automation:{ activities_seen:10, triaged:9, triage_rate:90, primary_metric:'ai_triage_coverage', end_to_end_completion_supported:false, fully_automated_closed:null, autonomous_completion_rate:null },
+        time_saved:{ hours:2.5, period_days:30, methodology:'Transparent workflow estimate.' },
+        risk_trend:[], top_assets:[],
+      });
       if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:false, scheduler_running:false }, latest_run:null });
-      if (url.includes('/alert-groups?')) return jsonResponse({ total:0, groups:[] });
-      if (url.includes('/alerts?')) return jsonResponse({ total:1, alerts:[{ id:'elastic:1', timestamp:new Date().toISOString(), rule_level:12 }] });
+      if (url.endsWith('/agent/status')) return jsonResponse({ enabled:true, readiness:{ scheduler:true, triage:true, correlation:true, autonomous:true }, recent_operations:[] });
       return jsonResponse({});
     });
 
     await renderAt('/dashboard');
 
-    expect(calls.some(url => url.includes('/alerts?page=1&limit=200&from='))).toBe(true);
-    expect(calls.some(url => url.includes('limit=1000'))).toBe(false);
+    expect(calls.some(url => url.endsWith('/executive/overview?days=30'))).toBe(true);
+    expect(calls.some(url => url.includes('/alerts?'))).toBe(false);
+    expect(document.body.textContent).toContain('Global Security Health Index');
+    expect(document.body.textContent).toContain('AI Automation Efficiency');
+    expect(document.body.textContent).toContain('90%');
+    expect(document.body.textContent).toContain('automatic incident closure and external containment are not enabled');
+    expect(document.body.textContent).not.toContain('Live Security Feed');
+  });
+
+  it('renders dedicated monitoring with specific titles and source severity', async () => {
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/alert-groups?page=1&limit=50')) return jsonResponse({ total:1, groups:[{
+        representative_alert_id:'elastic:credential-1', group_key:'credential-1',
+        rule_desc:'Critical Security Event Detected', event_action:'credential-dumping',
+        source_severity:'high', rule_level:12, hostname:'DEV-WS002', event_dataset:'edr.endpoint',
+        last_seen:new Date().toISOString(), occurrence_count:1,
+      }] });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:true } });
+      return jsonResponse({});
+    });
+
+    await renderAt('/live-monitoring');
+
+    expect(document.body.textContent).toContain('Live Monitoring');
+    expect(document.body.textContent).toContain('Credential dumping attempt');
+    expect(document.body.textContent).not.toContain('Critical Security Event Detected');
+    expect(document.body.textContent).toContain('high');
+  });
+
+  it('uses one URL-backed executive drawer and closes it with Escape', async () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/executive/overview?days=30')) return jsonResponse({
+        generated_at:new Date().toISOString(), window_days:30,
+        health:{ score:82, status:'healthy', drivers:[] },
+        business_risks:{ total:1, by_impact:{ high:1, medium:0, low:0 } },
+        automation:{ activities_seen:1, triaged:1, triage_rate:100 },
+        time_saved:{ hours:0.1, period_days:30 }, risk_trend:[], top_assets:[],
+      });
+      if (url.endsWith('/agent/status')) return jsonResponse({ enabled:true, readiness:{}, recent_operations:[] });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:true } });
+      if (url.includes('/incidents?status=open&page=1&limit=100')) return jsonResponse({ total:1, incidents:[{ id:7, title:'Potential identity compromise', severity:'high', status:'open' }] });
+      return jsonResponse({});
+    });
+
+    await renderAt('/dashboard');
+    const trigger = document.querySelector('[aria-label="Review active business risks"]');
+    expect(trigger).toBeTruthy();
+    await act(async () => trigger.click());
+    await settle();
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(document.body.textContent).toContain('Active business risks');
+    expect(window.location.search).toContain('detail=risk-summary');
+
+    await act(async () => document.dispatchEvent(new window.KeyboardEvent('keydown', { key:'Escape', bubbles:true })));
+    await settle();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(window.location.search).not.toContain('detail=');
   });
 
   it('updates incident status through the protected API workflow', async () => {

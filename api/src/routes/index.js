@@ -23,6 +23,13 @@ const SEVERITIES = new Set(['critical','high','medium','low','informational']);
 const VERDICTS = new Set(['true_positive','false_positive','needs_investigation','benign_anomaly']);
 const TRIAGE_STATUSES = new Set(['pending','triaged','triage_failed','skipped']);
 const ENRICHMENT_STATUSES = new Set(['pending','enriched','enrichment_failed','skipped']);
+const EXECUTIVE_WINDOWS = new Set([7,30,90]);
+const EXECUTIVE_TIME_ASSUMPTIONS = Object.freeze({
+  triage_per_activity: 8,
+  correlation_per_incident: 20,
+  investigation_creation: 15,
+  analyst_note: 5,
+});
 
 function pagination(query, { defaultLimit = 50, maxLimit = 200 } = {}) {
   const page = Number(query.page ?? 1);
@@ -67,6 +74,38 @@ function dateRangeError(from, to) {
 
 function positiveRecordId(value, name) {
   return optionalInteger(value, name, 1, Number.MAX_SAFE_INTEGER);
+}
+
+function numericCount(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function boundedPressure(value) {
+  return Math.min(1, Math.max(0, Number(value) || 0));
+}
+
+function executiveRiskPressure({ total, critical, high, pending, highImpact, mediumImpact, lowImpact }) {
+  const exposure = total > 0
+    ? boundedPressure((critical + (high * 0.6)) / total)
+    : 0;
+  const weightedOpenRisks = highImpact + (mediumImpact * 0.5) + (lowImpact * 0.2);
+  const incidents = boundedPressure(weightedOpenRisks / 10);
+  const backlog = total > 0 ? boundedPressure(pending / total) : 0;
+  return {
+    exposure,
+    incidents,
+    backlog,
+    weightedOpenRisks,
+    total: boundedPressure((exposure * 0.5) + (incidents * 0.3) + (backlog * 0.2)),
+  };
+}
+
+function healthBand(score) {
+  if (score >= 90) return 'secure';
+  if (score >= 75) return 'guarded';
+  if (score >= 60) return 'elevated';
+  return 'at_risk';
 }
 
 const SETTING_KEYS = new Set([
@@ -442,6 +481,16 @@ r.get('/agent/status', async (_, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+r.get('/agent/operations/:id', async (req, res) => {
+  try {
+    const idError = positiveRecordId(req.params.id, 'operation id');
+    if (idError) return res.status(400).json({ error: idError });
+    const result = await db.query('SELECT * FROM autonomous_operations WHERE id=$1', [req.params.id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Automation record not found' });
+    res.json(result.rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 r.post('/agent/run-now', async (req, res) => {
   try {
     if (scheduler.status().cycle_active) {
@@ -490,7 +539,7 @@ r.get('/alerts', async (req, res) => {
     const params = [];
     let i = 1;
 
-    if (severity)           { conditions.push(`verdict->>'severity'=$${i++}`);           params.push(severity); }
+    if (severity)           { conditions.push(`COALESCE(source_severity, verdict->>'severity')=$${i++}`); params.push(severity); }
     if (verdict)            { conditions.push(`verdict->>'verdict'=$${i++}`);             params.push(verdict); }
     if (triage_status)      { conditions.push(`triage_status=$${i++}`);                   params.push(triage_status); }
     if (enrichment_status)  { conditions.push(`enrichment_status=$${i++}`);               params.push(enrichment_status); }
@@ -501,7 +550,7 @@ r.get('/alerts', async (req, res) => {
     if (level_max !== undefined && level_max !== '') { conditions.push(`rule_level<=$${i++}`); params.push(Number(level_max)); }
     if (from)               { conditions.push(`timestamp>=$${i++}`);                      params.push(from); }
     if (to)                 { conditions.push(`timestamp<=$${i++}`);                      params.push(to); }
-    if (search)             { conditions.push(`(id ILIKE $${i} OR rule_desc ILIKE $${i} OR COALESCE(full_log,'') ILIKE $${i} OR COALESCE(src_ip,'') ILIKE $${i} OR COALESCE(username,'') ILIKE $${i} OR COALESCE(hostname,'') ILIKE $${i})`);
+    if (search)             { conditions.push(`(id ILIKE $${i} OR rule_desc ILIKE $${i} OR COALESCE(full_log,'') ILIKE $${i} OR COALESCE(src_ip,'') ILIKE $${i} OR COALESCE(username,'') ILIKE $${i} OR COALESCE(hostname,'') ILIKE $${i} OR COALESCE(agent_name,'') ILIKE $${i} OR COALESCE(target_db,'') ILIKE $${i} OR COALESCE(event_dataset,'') ILIKE $${i} OR COALESCE(alert_reason,'') ILIKE $${i} OR COALESCE(event_action,'') ILIKE $${i} OR COALESCE(enrichment #>> '{dst_asset,hostname}','') ILIKE $${i} OR COALESCE(enrichment #>> '{src_asset,hostname}','') ILIKE $${i})`);
                               params.push(`%${search}%`); i++; }
 
     const where = conditions.join(' AND ');
@@ -510,6 +559,8 @@ r.get('/alerts', async (req, res) => {
       db.query(
         `SELECT id, timestamp, rule_id, rule_level, rule_desc, rule_groups,
                 agent_name, src_ip, dst_ip, username, hostname, target_db, process,
+                source_severity, risk_score, workflow_status, alert_reason,
+                event_dataset, event_category, event_action,
                 mitre_techniques, mitre_tactics,
                 enrichment_status, triage_status, verdict, enrichment,
                 auto_closed, auto_close_reason, fetched_at
@@ -633,8 +684,18 @@ r.get('/alert-groups', async (req, res) => {
 
     if (search) {
       conditions.push(
-        `(rule_desc ILIKE $${i} ` +
-        `OR alert_reason ILIKE $${i})`
+        `(id ILIKE $${i} ` +
+        `OR group_key ILIKE $${i} ` +
+        `OR rule_desc ILIKE $${i} ` +
+        `OR COALESCE(alert_reason, '') ILIKE $${i} ` +
+        `OR COALESCE(event_action, '') ILIKE $${i} ` +
+        `OR COALESCE(event_dataset, '') ILIKE $${i} ` +
+        `OR COALESCE(agent_name, '') ILIKE $${i} ` +
+        `OR COALESCE(hostname, '') ILIKE $${i} ` +
+        `OR COALESCE(target_db, '') ILIKE $${i} ` +
+        `OR COALESCE(username, '') ILIKE $${i} ` +
+        `OR COALESCE(enrichment #>> '{dst_asset,hostname}', '') ILIKE $${i} ` +
+        `OR COALESCE(enrichment #>> '{src_asset,hostname}', '') ILIKE $${i})`
       );
       params.push(`%${search}%`);
       i++;
@@ -653,7 +714,10 @@ r.get('/alert-groups', async (req, res) => {
           rule_desc,
           source_severity,
           risk_score,
+          alert_reason,
           event_dataset,
+          event_category,
+          event_action,
           username,
           hostname,
           src_ip,
@@ -688,7 +752,10 @@ r.get('/alert-groups', async (req, res) => {
           rule_desc,
           source_severity,
           risk_score,
+          alert_reason,
           event_dataset,
+          event_category,
+          event_action,
           username,
           hostname,
           src_ip,
@@ -715,7 +782,10 @@ r.get('/alert-groups', async (req, res) => {
         latest.rule_desc,
         latest.source_severity,
         latest.risk_score,
+        latest.alert_reason,
         latest.event_dataset,
+        latest.event_category,
+        latest.event_action,
         latest.username,
         latest.hostname,
         latest.src_ip,
@@ -861,7 +931,7 @@ r.get('/incidents/:id', async (req, res) => {
     const inc = r.rows[0];
     // Attach the full alerts
     const alerts = await db.query(
-      'SELECT * FROM alerts WHERE id = ANY($1)', [inc.alert_ids]
+      'SELECT * FROM alerts WHERE id = ANY($1) ORDER BY timestamp ASC, id ASC', [inc.alert_ids]
     );
     res.json({ ...inc, alerts: alerts.rows });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1082,6 +1152,408 @@ r.post('/chat', async (req, res) => {
 // ────────────────────────────────────────────────────────────────────────────
 // Dashboard stats
 // ────────────────────────────────────────────────────────────────────────────
+// Executive security posture. Every score is derived from stored SOC records;
+// the response exposes the weighting and time-saving assumptions used.
+r.get('/executive/overview', async (req, res) => {
+  try {
+    const days = req.query.days == null || req.query.days === ''
+      ? 30
+      : Number(req.query.days);
+    if (!Number.isInteger(days) || !EXECUTIVE_WINDOWS.has(days)) {
+      return res.status(400).json({ error: 'days must be one of 7, 30, or 90' });
+    }
+
+    const severityExpression = `COALESCE(
+      NULLIF(source_severity, ''),
+      NULLIF(verdict->>'severity', ''),
+      CASE
+        WHEN rule_level >= 12 THEN 'critical'
+        WHEN rule_level >= 9 THEN 'high'
+        WHEN rule_level >= 5 THEN 'medium'
+        WHEN rule_level >= 1 THEN 'low'
+        ELSE 'informational'
+      END
+    )`;
+
+    const [
+      activitySummaryResult,
+      businessRiskSummaryResult,
+      businessRiskItemsResult,
+      fetchMetricsResult,
+      riskTrendResult,
+      topAssetsResult,
+    ] = await Promise.all([
+      db.query(`
+        /* executive_activity_summary */
+        WITH activities AS (
+          SELECT DISTINCT ON (COALESCE(group_key, id))
+            COALESCE(group_key, id) AS activity_id,
+            ${severityExpression} AS severity,
+            triage_status
+          FROM alerts a
+          WHERE timestamp >= NOW() - ($1::int * INTERVAL '1 day')
+          ORDER BY COALESCE(group_key, id), timestamp DESC, id DESC
+        )
+        SELECT
+          COUNT(*)::int AS total,
+          (COUNT(*) FILTER (WHERE severity = 'critical'))::int AS critical,
+          (COUNT(*) FILTER (WHERE severity = 'high'))::int AS high,
+          (COUNT(*) FILTER (WHERE severity = 'medium'))::int AS medium,
+          (COUNT(*) FILTER (WHERE severity IN ('low', 'informational')))::int AS low,
+          (COUNT(*) FILTER (WHERE triage_status = 'pending'))::int AS triage_pending,
+          (COUNT(*) FILTER (WHERE triage_status = 'triaged'))::int AS triaged
+        FROM activities
+      `, [days]),
+
+      db.query(`
+        /* executive_business_risk_summary */
+        SELECT
+          COUNT(*)::int AS total,
+          (COUNT(*) FILTER (WHERE severity IN ('critical', 'high')))::int AS high,
+          (COUNT(*) FILTER (WHERE severity = 'medium'))::int AS medium,
+          (COUNT(*) FILTER (
+            WHERE severity IS NULL OR severity NOT IN ('critical', 'high', 'medium')
+          ))::int AS low
+        FROM incidents
+        WHERE status = 'open'
+      `),
+
+      db.query(`
+        /* executive_business_risk_items */
+        SELECT
+          id,
+          title,
+          severity,
+          confidence,
+          attack_stages,
+          common_entities,
+          alert_ids,
+          narrative,
+          recommended_actions,
+          first_seen,
+          last_seen,
+          status,
+          owner,
+          CASE
+            WHEN severity IN ('critical', 'high') THEN 'high'
+            WHEN severity = 'medium' THEN 'medium'
+            ELSE 'low'
+          END AS business_impact,
+          COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count
+        FROM incidents
+        WHERE status = 'open'
+        ORDER BY
+          CASE severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+            ELSE 5
+          END,
+          last_seen DESC NULLS LAST,
+          id DESC
+        LIMIT 12
+      `),
+
+      db.query(`
+        /* executive_fetch_metrics */
+        SELECT
+          COALESCE(SUM(stored), 0)::int AS stored,
+          COALESCE(SUM(triaged), 0)::int AS triaged,
+          COALESCE(SUM(incidents_created), 0)::int AS incidents_created,
+          COALESCE(SUM(investigations_created), 0)::int AS investigations_created,
+          COALESCE(SUM(investigation_notes_added), 0)::int AS investigation_notes_added,
+          COALESCE(SUM(case_notes_added), 0)::int AS case_notes_added,
+          COALESCE(SUM(approvals_requested), 0)::int AS approvals_requested,
+          COALESCE(SUM(autonomous_failures), 0)::int AS autonomous_failures
+        FROM fetch_runs
+        WHERE started_at >= NOW() - ($1::int * INTERVAL '1 day')
+      `, [days]),
+
+      db.query(`
+        /* executive_risk_trend */
+        WITH days AS (
+          SELECT generate_series(
+            CURRENT_DATE - ($1::int - 1),
+            CURRENT_DATE,
+            INTERVAL '1 day'
+          )::date AS day
+        ),
+        activities AS (
+          SELECT DISTINCT ON (COALESCE(group_key, id))
+            COALESCE(group_key, id) AS activity_id,
+            timestamp,
+            ${severityExpression} AS severity,
+            triage_status
+          FROM alerts
+          WHERE timestamp >= CURRENT_DATE - ($1::int - 1)
+          ORDER BY COALESCE(group_key, id), timestamp DESC, id DESC
+        ),
+        daily_activities AS (
+          SELECT
+            timestamp::date AS day,
+            COUNT(*)::int AS activities,
+            (COUNT(*) FILTER (WHERE severity = 'critical'))::int AS critical,
+            (COUNT(*) FILTER (WHERE severity = 'high'))::int AS high,
+            (COUNT(*) FILTER (WHERE severity = 'medium'))::int AS medium,
+            (COUNT(*) FILTER (WHERE severity IN ('low', 'informational')))::int AS low,
+            (COUNT(*) FILTER (WHERE triage_status = 'pending'))::int AS pending
+          FROM activities
+          GROUP BY timestamp::date
+        ),
+        daily_incidents AS (
+          SELECT
+            created_at::date AS day,
+            COUNT(*)::int AS incidents_created,
+            (COUNT(*) FILTER (WHERE severity IN ('critical', 'high')))::int AS high_impact,
+            (COUNT(*) FILTER (WHERE severity = 'medium'))::int AS medium_impact,
+            (COUNT(*) FILTER (WHERE severity IN ('low', 'informational')))::int AS low_impact
+          FROM incidents
+          WHERE created_at >= CURRENT_DATE - ($1::int - 1)
+          GROUP BY created_at::date
+        )
+        SELECT
+          days.day,
+          COALESCE(daily_activities.activities, 0)::int AS activities,
+          COALESCE(daily_activities.critical, 0)::int AS critical,
+          COALESCE(daily_activities.high, 0)::int AS high,
+          COALESCE(daily_activities.medium, 0)::int AS medium,
+          COALESCE(daily_activities.low, 0)::int AS low,
+          COALESCE(daily_activities.pending, 0)::int AS pending,
+          COALESCE(daily_incidents.incidents_created, 0)::int AS incidents_created,
+          COALESCE(daily_incidents.high_impact, 0)::int AS high_impact,
+          COALESCE(daily_incidents.medium_impact, 0)::int AS medium_impact,
+          COALESCE(daily_incidents.low_impact, 0)::int AS low_impact
+        FROM days
+        LEFT JOIN daily_activities USING (day)
+        LEFT JOIN daily_incidents USING (day)
+        ORDER BY days.day
+      `, [days]),
+
+      db.query(`
+        /* executive_top_assets */
+        WITH evidence AS (
+          SELECT DISTINCT ON (COALESCE(group_key, id))
+            COALESCE(group_key, id) AS activity_id,
+            timestamp,
+            ${severityExpression} AS severity,
+            COALESCE(
+              NULLIF(enrichment #>> '{dst_asset,hostname}', ''),
+              NULLIF(enrichment #>> '{src_asset,hostname}', ''),
+              NULLIF(hostname, ''),
+              NULLIF(target_db, ''),
+              NULLIF(event_dataset, '')
+            ) AS asset_name,
+            COALESCE(
+              NULLIF(enrichment #>> '{dst_asset,ci_type}', ''),
+              NULLIF(enrichment #>> '{src_asset,ci_type}', ''),
+              CASE
+                WHEN target_db IS NOT NULL THEN 'database'
+                WHEN hostname IS NOT NULL THEN 'host'
+                ELSE 'service'
+              END
+            ) AS asset_type
+          FROM alerts
+          WHERE timestamp >= NOW() - ($1::int * INTERVAL '1 day')
+            AND source_system = 'elastic'
+            AND group_key IS NOT NULL
+          ORDER BY COALESCE(group_key, id), timestamp DESC, id DESC
+        )
+        SELECT
+          asset_name AS name,
+          asset_type AS type,
+          COUNT(*)::int AS activity_count,
+          (COUNT(*) FILTER (WHERE severity IN ('critical', 'high')))::int AS high_risk_activity_count,
+          CASE
+            WHEN BOOL_OR(severity IN ('critical', 'high')) THEN 'high'
+            WHEN BOOL_OR(severity = 'medium') THEN 'medium'
+            ELSE 'low'
+          END AS business_impact,
+          MAX(timestamp) AS last_seen
+        FROM evidence
+        WHERE asset_name IS NOT NULL
+        GROUP BY asset_name, asset_type
+        ORDER BY high_risk_activity_count DESC, activity_count DESC, last_seen DESC
+        LIMIT 5
+      `, [days]),
+    ]);
+
+    const activityRow = activitySummaryResult.rows[0] || {};
+    const riskRow = businessRiskSummaryResult.rows[0] || {};
+    const runRow = fetchMetricsResult.rows[0] || {};
+    const activity = {
+      total: numericCount(activityRow.total),
+      critical: numericCount(activityRow.critical),
+      high: numericCount(activityRow.high),
+      medium: numericCount(activityRow.medium),
+      low: numericCount(activityRow.low),
+      pending: numericCount(activityRow.triage_pending),
+      triaged: numericCount(activityRow.triaged),
+    };
+    const businessRiskCounts = {
+      total: numericCount(riskRow.total),
+      high: numericCount(riskRow.high),
+      medium: numericCount(riskRow.medium),
+      low: numericCount(riskRow.low),
+    };
+    const pressure = executiveRiskPressure({
+      ...activity,
+      highImpact: businessRiskCounts.high,
+      mediumImpact: businessRiskCounts.medium,
+      lowImpact: businessRiskCounts.low,
+    });
+    const healthScore = Math.max(0, Math.min(100, Math.round((1 - pressure.total) * 100)));
+
+    const runMetrics = {
+      stored: numericCount(runRow.stored),
+      triaged: numericCount(runRow.triaged),
+      incidentsCreated: numericCount(runRow.incidents_created),
+      investigationsCreated: numericCount(runRow.investigations_created),
+      investigationNotesAdded: numericCount(runRow.investigation_notes_added),
+      caseNotesAdded: numericCount(runRow.case_notes_added),
+      approvalsRequested: numericCount(runRow.approvals_requested),
+      failures: numericCount(runRow.autonomous_failures),
+    };
+    const noteCount = runMetrics.investigationNotesAdded + runMetrics.caseNotesAdded;
+    const minutesSaved =
+      (runMetrics.triaged * EXECUTIVE_TIME_ASSUMPTIONS.triage_per_activity) +
+      (runMetrics.incidentsCreated * EXECUTIVE_TIME_ASSUMPTIONS.correlation_per_incident) +
+      (runMetrics.investigationsCreated * EXECUTIVE_TIME_ASSUMPTIONS.investigation_creation) +
+      (noteCount * EXECUTIVE_TIME_ASSUMPTIONS.analyst_note);
+
+    const riskTrend = riskTrendResult.rows.map(row => {
+      const daily = {
+        total: numericCount(row.activities),
+        critical: numericCount(row.critical),
+        high: numericCount(row.high),
+        pending: numericCount(row.pending),
+      };
+      const incidentsCreated = numericCount(row.incidents_created);
+      const telemetrySufficient = daily.total > 0 || incidentsCreated > 0;
+      const dailyPressure = telemetrySufficient ? executiveRiskPressure({
+        ...daily,
+        highImpact: numericCount(row.high_impact),
+        mediumImpact: numericCount(row.medium_impact),
+        lowImpact: numericCount(row.low_impact),
+      }) : null;
+      const date = row.day instanceof Date
+        ? row.day.toISOString().slice(0, 10)
+        : String(row.day).slice(0, 10);
+      return {
+        date,
+        risk_score: dailyPressure ? Math.round(dailyPressure.total * 100) : null,
+        telemetry_sufficient: telemetrySufficient,
+        activities: daily.total,
+        critical: daily.critical,
+        high: daily.high,
+        medium: numericCount(row.medium),
+        low: numericCount(row.low),
+        pending: daily.pending,
+        incidents_created: incidentsCreated,
+      };
+    });
+
+    res.json({
+      generated_at: new Date().toISOString(),
+      window_days: days,
+      health: {
+        score: healthScore,
+        status: healthBand(healthScore),
+        telemetry_sufficient: activity.total > 0,
+        drivers: [
+          {
+            key: 'critical_high_exposure',
+            label: 'Critical and high-risk activity exposure',
+            value: activity.critical + activity.high,
+            total: activity.total,
+            pressure: Number(pressure.exposure.toFixed(4)),
+          },
+          {
+            key: 'open_business_risks',
+            label: 'Severity-weighted open business risks',
+            value: Number(pressure.weightedOpenRisks.toFixed(1)),
+            total: 10,
+            pressure: Number(pressure.incidents.toFixed(4)),
+          },
+          {
+            key: 'triage_backlog',
+            label: 'Activities awaiting triage',
+            value: activity.pending,
+            total: activity.total,
+            pressure: Number(pressure.backlog.toFixed(4)),
+          },
+        ],
+        methodology: {
+          derived: true,
+          weights: {
+            critical_high_exposure: 0.5,
+            open_business_risks: 0.3,
+            triage_backlog: 0.2,
+          },
+          high_severity_weight: 0.6,
+          incident_impact_weights: { high: 1, medium: 0.5, low: 0.2 },
+          incident_pressure_reference: 10,
+          description: 'Health is 100 minus weighted exposure, open-risk, and pending-triage pressure.',
+        },
+      },
+      business_risks: {
+        total: businessRiskCounts.total,
+        by_impact: {
+          high: businessRiskCounts.high,
+          medium: businessRiskCounts.medium,
+          low: businessRiskCounts.low,
+        },
+        items: businessRiskItemsResult.rows,
+        methodology: {
+          scope: 'currently open incidents',
+          derived_from: 'incident severity',
+          mapping: {
+            high: ['critical', 'high'],
+            medium: ['medium'],
+            low: ['low', 'informational', 'unknown'],
+          },
+        },
+      },
+      automation: {
+        activities_seen: activity.total,
+        triaged: activity.triaged,
+        triage_rate: activity.total > 0
+          ? Number(((activity.triaged / activity.total) * 100).toFixed(1))
+          : 0,
+        primary_metric: 'ai_triage_coverage',
+        end_to_end_completion_supported: false,
+        fully_automated_closed: null,
+        autonomous_completion_rate: null,
+        correlated_incidents_created: runMetrics.incidentsCreated,
+        investigations_created: runMetrics.investigationsCreated,
+        investigation_notes_added: runMetrics.investigationNotesAdded,
+        case_notes_added: runMetrics.caseNotesAdded,
+        approvals_requested: runMetrics.approvalsRequested,
+        failures: runMetrics.failures,
+        scope_note: 'The reported percentage is AI triage coverage. This platform can correlate evidence and create internal SOC workflow records, but it does not automatically close correlated incidents or perform external containment.',
+      },
+      time_saved: {
+        estimated: true,
+        minutes: minutesSaved,
+        hours: Number((minutesSaved / 60).toFixed(1)),
+        period_days: days,
+        assumptions_minutes: EXECUTIVE_TIME_ASSUMPTIONS,
+        inputs: {
+          triaged_activities: runMetrics.triaged,
+          correlated_incidents: runMetrics.incidentsCreated,
+          investigations_created: runMetrics.investigationsCreated,
+          analyst_notes_added: noteCount,
+        },
+        methodology: 'Estimated from completed workflow outputs and explicit task-time assumptions; token usage is not treated as human time.',
+      },
+      risk_trend: riskTrend,
+      top_assets: topAssetsResult.rows,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 r.get('/stats', async (_, res) => {
   try {
     const [alertStats, incidentStats, recentRuns, severitySplit, topSrcIps, alertActivity] = await Promise.all([

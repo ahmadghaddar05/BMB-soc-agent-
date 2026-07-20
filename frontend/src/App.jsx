@@ -1,50 +1,59 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, Bell, Blocks, BookOpenCheck, BrainCircuit, BriefcaseBusiness,
-  ChevronLeft, FileText, Globe2, LayoutDashboard, Menu, Network, Search,
-  Server, Settings, ShieldAlert, ShieldCheck, ShieldOff, Sparkles, X,
+  AlertTriangle, BriefcaseBusiness, ChevronLeft, FileText, Globe2, LayoutDashboard,
+  Menu, RadioTower, Search, Server, Settings, ShieldAlert, ShieldCheck, ShieldOff,
+  Sparkles, X,
 } from 'lucide-react';
-import Dashboard from './pages/Dashboard';
-import Alerts from './pages/Alerts';
-import Incidents from './pages/Incidents';
-import SettingsPage from './pages/Settings';
-import Reports from './pages/Reports';
-import AITriage from './pages/AITriage';
-import ThreatIntelligence from './pages/ThreatIntelligence';
-import Assets from './pages/Assets';
-import Vulnerabilities from './pages/Vulnerabilities';
-import Investigations from './pages/Investigations';
-import Playbooks from './pages/Playbooks';
-import Integrations from './pages/Integrations';
-import Cases from './pages/Cases';
-import Approvals from './pages/Approvals';
-import Responses from './pages/Responses';
 import ChatWidget from './components/ChatWidget';
 import LoginPage from './components/LoginPage';
 import { api, setCsrfToken } from './lib/api';
 import './index.css';
 
-const NAV_ITEMS = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
-  { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
-  { to: '/alerts', icon: Bell, label: 'Alerts' },
-  { to: '/ai-triage', icon: BrainCircuit, label: 'AI Triage' },
-  { to: '/threat-intelligence', icon: Globe2, label: 'Threat Intelligence' },
-  { to: '/assets', icon: Server, label: 'Assets' },
-  { to: '/vulnerabilities', icon: ShieldAlert, label: 'Vulnerabilities' },
-  { to: '/investigations', icon: Search, label: 'Investigations' },
-  { to: '/reports', icon: FileText, label: 'Reports' },
-  { to: '/cases', icon: BriefcaseBusiness, label: 'Cases' },
-  { to: '/approvals', icon: ShieldCheck, label: 'Approvals' },
-  { to: '/responses', icon: ShieldOff, label: 'Response Lab' },
-  { to: '/playbooks', icon: BookOpenCheck, label: 'Playbooks' },
-  { to: '/integrations', icon: Blocks, label: 'Integrations' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const LiveMonitoring = lazy(() => import('./pages/LiveMonitoring'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+const Incidents = lazy(() => import('./pages/Incidents'));
+const SettingsPage = lazy(() => import('./pages/Settings'));
+const Reports = lazy(() => import('./pages/Reports'));
+const AITriage = lazy(() => import('./pages/AITriage'));
+const ThreatIntelligence = lazy(() => import('./pages/ThreatIntelligence'));
+const Assets = lazy(() => import('./pages/Assets'));
+const Vulnerabilities = lazy(() => import('./pages/Vulnerabilities'));
+const Investigations = lazy(() => import('./pages/Investigations'));
+const Playbooks = lazy(() => import('./pages/Playbooks'));
+const Integrations = lazy(() => import('./pages/Integrations'));
+const Cases = lazy(() => import('./pages/Cases'));
+const Approvals = lazy(() => import('./pages/Approvals'));
+const Responses = lazy(() => import('./pages/Responses'));
+
+const NAV_GROUPS = [
+  { label:'Executive', items:[
+    { to:'/dashboard', icon:LayoutDashboard, label:'Overview' },
+    { to:'/reports', icon:FileText, label:'Reports' },
+  ] },
+  { label:'Operations', items:[
+    { to:'/live-monitoring', icon:RadioTower, label:'Live Monitoring' },
+    { to:'/incidents', icon:AlertTriangle, label:'Incidents' },
+    { to:'/alerts', icon:ShieldAlert, label:'Technical Triage' },
+    { to:'/investigations', icon:Search, label:'Investigations' },
+    { to:'/cases', icon:BriefcaseBusiness, label:'Cases' },
+    { to:'/approvals', icon:ShieldCheck, label:'Approvals' },
+    { to:'/responses', icon:ShieldOff, label:'Response Lab' },
+  ] },
+  { label:'Intelligence', items:[
+    { to:'/assets', icon:Server, label:'Assets' },
+    { to:'/threat-intelligence', icon:Globe2, label:'Threat Intelligence' },
+    { to:'/vulnerabilities', icon:ShieldAlert, label:'Vulnerabilities' },
+  ] },
+  { label:'Administration', items:[
+    { to:'/settings', icon:Settings, label:'Settings' },
+  ] },
 ];
 
 const PAGE_META = {
   '/dashboard': ['BMB AI-SOC', 'Executive Security Overview'],
+  '/live-monitoring': ['Live Monitoring', 'Auto-refreshed Elastic security activity'],
   '/alerts': ['Alert Triage Workspace', 'Investigate and respond to security activity'],
   '/incidents': ['Incident Command', 'Correlated attack story and containment'],
   '/ai-triage': ['AI Triage', 'Model-assisted alert prioritization'],
@@ -73,7 +82,6 @@ function Shell({ session, onLogout }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [platformHealth, setPlatformHealth] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -105,12 +113,15 @@ function Shell({ session, onLogout }) {
         </div>
 
         <nav className="sidebar-nav sidebar-nav-dense" aria-label="Primary navigation">
-          {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-            <NavLink key={to} to={to} title={collapsed ? label : undefined} onClick={() => setMobileOpen(false)} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
-              <Icon className="nav-icon" />
-              {!collapsed && <span>{label}</span>}
-            </NavLink>
-          ))}
+          {NAV_GROUPS.map(group => <div className="nav-group" key={group.label}>
+            {!collapsed && <p className="nav-group-label">{group.label}</p>}
+            {group.items.map(({ to, icon: Icon, label }) => (
+              <NavLink key={to} to={to} title={collapsed ? label : undefined} onClick={() => setMobileOpen(false)} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+                <Icon className="nav-icon" />
+                {!collapsed && <span>{label}</span>}
+              </NavLink>
+            ))}
+          </div>)}
         </nav>
 
         <div className="sidebar-footer">
@@ -132,16 +143,16 @@ function Shell({ session, onLogout }) {
           </form>
           <div className="topbar-actions">
             <button className="ask-ai-button" onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant'))}><Sparkles size={15} /><span>Ask AI Analyst</span></button>
-            <button className="icon-button notification-button" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen(value => !value)}><Bell size={18} /><span /></button>
             <button className="analyst-profile" onClick={onLogout} title="Sign out"><div><strong>{session.user.username}</strong><small>{session.user.role}</small></div><span className="avatar">{session.user.username.slice(0,2).toUpperCase()}<i /></span></button>
           </div>
         </header>
-        {notificationsOpen && <div className="notification-popover"><div><strong>Security notifications</strong><button onClick={() => setNotificationsOpen(false)}><X /></button></div><button onClick={() => { navigate('/alerts?severity=critical'); setNotificationsOpen(false); }}><ShieldAlert /><span><strong>Review critical alerts</strong><small>Open the current critical investigation queue.</small></span></button><button onClick={() => { navigate('/incidents'); setNotificationsOpen(false); }}><AlertTriangle /><span><strong>Open incidents</strong><small>Continue correlated incident response.</small></span></button></div>}
 
         <main className="workspace-scroll">
+          <Suspense fallback={<div className="auth-loading" role="status"><span /><p>Loading workspace…</p></div>}>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/live-monitoring" element={<LiveMonitoring />} />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/ai-triage" element={<AITriage />} />
             <Route path="/investigations" element={<Investigations />} />
@@ -158,6 +169,7 @@ function Shell({ session, onLogout }) {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+          </Suspense>
         </main>
       </section>
       <ChatWidget />

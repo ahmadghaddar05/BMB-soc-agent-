@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle, Bot, Check, ChevronDown, CircleUserRound, Clock3, Download,
   FileText, Fingerprint, Link2, LockKeyhole, Monitor, Network, RefreshCw,
   Server, Shield, ShieldAlert, ShieldCheck, Sparkles, Target, UserRound, Users, X,
 } from 'lucide-react';
 import { api, fmtTs, sevClass } from '../lib/api';
+import { activityTitle, humanize, severityOf } from '../lib/executive';
 import InfoTip from '../components/InfoTip';
 
 const TACTIC_LABELS = {
@@ -44,6 +46,8 @@ function IncidentEmpty() {
 }
 
 export default function Incidents({ workspace = 'incidents' }) {
+  const [searchParams] = useSearchParams();
+  const requestedIncident = searchParams.get('incident');
   const [incidents, setIncidents] = useState([]);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState('open');
@@ -60,14 +64,20 @@ export default function Incidents({ workspace = 'incidents' }) {
     setLoading(true);
     try {
       const data = await api(`/incidents?status=${status}&page=1&limit=50`);
-      const rows = data.incidents || [];
+      let rows = data.incidents || [];
+      if (requestedIncident && !rows.some(item => String(item.id) === String(requestedIncident))) {
+        const requested = await api(`/incidents/${encodeURIComponent(requestedIncident)}`).catch(() => null);
+        if (requested) rows = [requested, ...rows];
+      }
       setIncidents(rows);
       setTotal(data.total || 0);
-      setSelectedId(current => rows.some(item => String(item.id) === String(current)) ? current : rows[0]?.id || null);
+      setSelectedId(current => requestedIncident && rows.some(item => String(item.id) === String(requestedIncident))
+        ? requestedIncident
+        : rows.some(item => String(item.id) === String(current)) ? current : rows[0]?.id || null);
     } catch {
       setIncidents([]); setTotal(0); setSelectedId(null);
     } finally { setLoading(false); }
-  }, [status]);
+  }, [requestedIncident, status]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -108,8 +118,8 @@ export default function Incidents({ workspace = 'incidents' }) {
   }
 
   const alertCount = model.alerts.length || detail.alert_ids?.length || 0;
-  const highCount = model.alerts.filter(item => Number(item.rule_level) >= 9).length;
-  const mediumCount = model.alerts.filter(item => Number(item.rule_level) >= 6 && Number(item.rule_level) < 9).length;
+  const highCount = model.alerts.filter(item => ['critical','high'].includes(severityOf(item))).length;
+  const mediumCount = model.alerts.filter(item => severityOf(item) === 'medium').length;
 
   return (
     <div className="incident-command">
@@ -141,20 +151,20 @@ export default function Incidents({ workspace = 'incidents' }) {
             <div className="attack-path">
               {(model.alerts.length ? model.alerts.slice(0,6) : [{ rule_desc: detail.title, timestamp: detail.first_seen, mitre_tactics: model.stages }]).map((alert, index) => {
                 const stage = alert.mitre_tactics?.[0] || model.stages[index % Math.max(1, model.stages.length)] || 'unknown'; const Icon = stageIcon(stage);
-                return <article key={alert.id || index} className={Number(alert.rule_level) >= 12 ? 'critical' : index > 2 ? 'elevated' : ''}><time>{compactTime(alert.timestamp)}</time><span className="attack-node"><Icon /></span><strong>{alert.rule_desc || 'Correlated activity'}</strong><small>{alert.username || alert.hostname || alert.src_ip || TACTIC_LABELS[stage]}</small><em>{alert.mitre_techniques?.[0] || TACTIC_LABELS[stage]}</em></article>;
+                return <article key={alert.id || index} className={severityOf(alert) === 'critical' ? 'critical' : index > 2 ? 'elevated' : ''}><time>{compactTime(alert.timestamp)}</time><span className="attack-node"><Icon /></span><strong>{activityTitle(alert)}</strong><small>{alert.username || alert.hostname || alert.src_ip || TACTIC_LABELS[stage]}</small><em>{alert.mitre_techniques?.[0] || TACTIC_LABELS[stage]}</em></article>;
               })}
             </div>
           </section>
 
           <div className="incident-lower-grid">
-            <section className="incident-panel evidence-panel"><div className="incident-panel-title"><h2>Key Evidence</h2><button onClick={() => setShowAllEvidence(value => !value)}>{showAllEvidence ? 'Show key evidence' : 'View all evidence ↗'}</button></div><div className="incident-evidence-table"><div className="evidence-head"><span>Time</span><span>Event</span><span>Source</span><span>Details</span><span>Severity</span></div>{model.alerts.slice(0,showAllEvidence ? model.alerts.length : 7).map((alert,index)=><article key={alert.id || index}><time>{fmtTs(alert.timestamp)}</time><strong>{alert.rule_desc || 'Security event'}</strong><span>{alert.agent_name || alert.decoder || 'Elastic'}</span><p>{[alert.src_ip, alert.username, alert.hostname].filter(Boolean).join(' → ') || 'Normalized event evidence'}</p><em className={Number(alert.rule_level) >= 12 ? 'critical' : Number(alert.rule_level) >= 9 ? 'high' : 'medium'}>{Number(alert.rule_level) >= 12 ? 'Critical' : Number(alert.rule_level) >= 9 ? 'High' : 'Medium'}</em></article>)}</div></section>
+            <section className="incident-panel evidence-panel"><div className="incident-panel-title"><h2>Key Evidence</h2><button onClick={() => setShowAllEvidence(value => !value)}>{showAllEvidence ? 'Show key evidence' : 'View all evidence ↗'}</button></div><div className="incident-evidence-table"><div className="evidence-head"><span>Time</span><span>Event</span><span>Source</span><span>Details</span><span>Severity</span></div>{model.alerts.slice(0,showAllEvidence ? model.alerts.length : 7).map((alert,index)=>{ const severity=severityOf(alert); return <article key={alert.id || index}><time>{fmtTs(alert.timestamp)}</time><strong>{activityTitle(alert)}</strong><span>{alert.agent_name || alert.decoder || 'Elastic'}</span><p>{[alert.src_ip, alert.username, alert.hostname].filter(Boolean).join(' → ') || 'Normalized event evidence'}</p><em className={severity}>{humanize(severity)}</em></article>; })}</div></section>
 
             <section className="incident-panel containment-panel"><div className="incident-panel-title"><h2>Recommended Containment</h2><span>{(completedActions[String(detail.id)] || []).length} acknowledged</span></div><div className="module-notice"><ShieldAlert />Planning only — these controls record local review and do not execute containment.</div><div className="containment-list">{(detail.recommended_actions || ['Disable the affected account','Isolate affected hosts','Revoke active sessions','Reset credentials']).slice(0,5).map((action,index)=>{ const done=(completedActions[String(detail.id)] || []).includes(index); return <article key={index} className={done ? 'complete' : ''}><span>{done ? <Check /> : index === 0 ? <UserRound /> : index === 1 ? <Monitor /> : <LockKeyhole />}</span><div><strong>{action}</strong><small>{done ? 'Acknowledged in this analyst session; no action was executed' : 'Review recommendation before using an approved response system'}</small></div><button onClick={() => toggleContainment(index)}>{done ? 'Undo review' : 'Acknowledge'}</button></article>;})}</div></section>
           </div>
         </main>
 
         <aside className="incident-side-column">
-          <section className="incident-panel live-activity-panel"><div className="incident-panel-title"><h2>Live Activity</h2><span><i />Live</span></div><div>{model.alerts.slice(-7).reverse().map((alert,index)=><article key={alert.id || index}><i className={Number(alert.rule_level) >= 12 ? 'critical' : Number(alert.rule_level) >= 9 ? 'high' : ''} /><time>{compactTime(alert.timestamp)}</time><p>{alert.rule_desc || 'Correlated activity'}<small>{alert.hostname || alert.username || alert.src_ip || 'Elastic'}</small></p><em>{Number(alert.rule_level) >= 12 ? 'Critical' : Number(alert.rule_level) >= 9 ? 'High' : 'Medium'}</em></article>)}</div></section>
+          <section className="incident-panel live-activity-panel"><div className="incident-panel-title"><h2>Recent Activity</h2><span>Stored evidence</span></div><div>{model.alerts.slice(-7).reverse().map((alert,index)=>{ const severity=severityOf(alert); return <article key={alert.id || index}><i className={severity} /><time>{compactTime(alert.timestamp)}</time><p>{activityTitle(alert)}<small>{alert.hostname || alert.username || alert.src_ip || 'Elastic'}</small></p><em>{humanize(severity)}</em></article>; })}</div></section>
           <section className="incident-panel incident-ai"><div className="incident-panel-title"><h2>BMB AI Assistant</h2><span className="beta">Beta</span></div><div className="ai-summary"><Bot /><p><strong>Here’s what I found so far.</strong>{detail.narrative || 'This incident contains correlated security activity. Review the attack path and containment actions before changing its status.'}</p></div><button onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant'))}>Explain attack path</button></section>
         </aside>
       </div>

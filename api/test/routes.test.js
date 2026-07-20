@@ -40,6 +40,145 @@ test('individual alert search supplies every SQL placeholder', async () => {
   assert.deepEqual(response.body.alerts, []);
 });
 
+test('individual alerts filter on source severity and expose descriptive Elastic fields', async () => {
+  let selectSql = '';
+  const alert = {
+    id:'elastic:1', source_severity:'critical', risk_score:94,
+    alert_reason:'Credential dumping behavior detected',
+    event_action:'credential-dump', event_category:['process'], event_dataset:'edr.endpoint',
+  };
+  db.query = async (sql, params = []) => {
+    assert.ok(highestPlaceholder(sql) <= params.length);
+    if (String(sql).includes('COUNT(*) AS n')) return { rows:[{ n:'1' }] };
+    selectSql = String(sql);
+    return { rows:[alert] };
+  };
+
+  const response = await request(routeApp()).get('/api/alerts?severity=critical&page=1&limit=20');
+  assert.equal(response.status, 200);
+  assert.match(selectSql, /COALESCE\(source_severity, verdict->>'severity'\)=\$1/);
+  for (const field of ['source_severity','alert_reason','event_action','event_category','event_dataset']) {
+    assert.match(selectSql, new RegExp(`\\b${field}\\b`));
+    assert.deepEqual(response.body.alerts[0][field], alert[field]);
+  }
+});
+
+test('grouped alerts expose specific titles and search technical and asset identifiers', async () => {
+  let groupsSql = '';
+  const group = {
+    representative_alert_id:'elastic:1', group_key:'group-1', source_severity:'critical',
+    alert_reason:'Credential dumping behavior detected', event_action:'credential-dump',
+    event_category:['process'], event_dataset:'edr.endpoint', occurrence_count:2,
+  };
+  db.query = async (sql, params = []) => {
+    assert.ok(highestPlaceholder(sql) <= params.length);
+    if (String(sql).includes('COUNT(DISTINCT group_key)')) return { rows:[{ n:1 }] };
+    groupsSql = String(sql);
+    return { rows:[group] };
+  };
+
+  const response = await request(routeApp()).get('/api/alert-groups?page=1&limit=20&search=DB01');
+  assert.equal(response.status, 200);
+  for (const field of ['alert_reason','event_action','event_category','event_dataset']) {
+    assert.ok((groupsSql.match(new RegExp(`\\b${field}\\b`, 'g')) || []).length >= 3);
+    assert.deepEqual(response.body.groups[0][field], group[field]);
+  }
+  for (const field of ['id','group_key','agent_name','hostname','target_db','username']) {
+    assert.match(groupsSql, new RegExp(`COALESCE\\(${field}|\\b${field} ILIKE`));
+  }
+});
+
+test('executive overview returns an auditable aggregate contract with no fabricated containment', async () => {
+  const incident = {
+    id:42, title:'Coordinated identity compromise', severity:'critical', confidence:0.91,
+    attack_stages:['credential_access'], common_entities:{ users:['maya.georges'] },
+    alert_ids:['elastic:1','elastic:2'], narrative:'Correlated evidence across two systems.',
+    recommended_actions:['Validate identity activity'], first_seen:'2026-07-19T10:00:00.000Z',
+    last_seen:'2026-07-19T10:10:00.000Z', status:'open', owner:null,
+    business_impact:'high', alert_count:2,
+  };
+  const asset = {
+    name:'Customer Database', type:'database', activity_count:8,
+    high_risk_activity_count:3, business_impact:'high', last_seen:'2026-07-19T10:10:00.000Z',
+  };
+  db.query = async (sql, params = []) => {
+    const text = String(sql);
+    assert.ok(highestPlaceholder(text) <= params.length);
+    if (text.includes('executive_activity_summary')) return { rows:[{
+      total:100, critical:5, high:10, medium:20, low:65,
+      triage_pending:20, triaged:75,
+    }] };
+    if (text.includes('executive_business_risk_summary')) {
+      return { rows:[{ total:5, high:2, medium:2, low:1 }] };
+    }
+    if (text.includes('executive_business_risk_items')) return { rows:[incident] };
+    if (text.includes('executive_fetch_metrics')) return { rows:[{
+      stored:100, triaged:75, incidents_created:2, investigations_created:3,
+      investigation_notes_added:4, case_notes_added:5, approvals_requested:1,
+      autonomous_failures:1,
+    }] };
+    if (text.includes('executive_risk_trend')) return { rows:[{
+      day:'2026-07-19', activities:10, critical:1, high:2, medium:3, low:4,
+      pending:2, incidents_created:1, high_impact:1, medium_impact:0, low_impact:0,
+    }] };
+    if (text.includes('executive_top_assets')) return { rows:[asset] };
+    throw new Error(`Unexpected query: ${text}`);
+  };
+
+  const response = await request(routeApp()).get('/api/executive/overview');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.window_days, 30);
+  assert.match(response.body.generated_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(response.body.health.score, 81);
+  assert.equal(response.body.health.status, 'guarded');
+  assert.equal(response.body.health.methodology.derived, true);
+  assert.deepEqual(response.body.business_risks.by_impact, { high:2, medium:2, low:1 });
+  assert.equal(response.body.business_risks.items[0].title, incident.title);
+  assert.equal(response.body.automation.triage_rate, 75);
+  assert.equal(response.body.automation.primary_metric, 'ai_triage_coverage');
+  assert.equal(response.body.automation.end_to_end_completion_supported, false);
+  assert.equal(response.body.automation.autonomous_completion_rate, null);
+  assert.match(response.body.automation.scope_note, /does not automatically close/);
+  assert.equal(response.body.time_saved.minutes, 730);
+  assert.equal(response.body.time_saved.hours, 12.2);
+  assert.match(response.body.time_saved.methodology, /token usage is not treated as human time/);
+  assert.equal(response.body.risk_trend[0].date, '2026-07-19');
+  assert.equal(response.body.risk_trend[0].telemetry_sufficient, true);
+  assert.equal(typeof response.body.risk_trend[0].risk_score, 'number');
+  assert.deepEqual(response.body.top_assets, [asset]);
+});
+
+test('durable automation operation details remain addressable by id', async () => {
+  const operation = { id:42, operation_type:'add_case_note', source_type:'case', source_id:'7', status:'completed' };
+  db.query = async (sql, params = []) => {
+    assert.match(String(sql), /FROM autonomous_operations WHERE id=\$1/);
+    assert.deepEqual(params, ['42']);
+    return { rows:[operation] };
+  };
+  const response = await request(routeApp()).get('/api/agent/operations/42');
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, operation);
+});
+
+test('executive overview only accepts documented windows and applies the selected window', async () => {
+  db.query = async () => { throw new Error('database should not be queried'); };
+  const invalid = await request(routeApp()).get('/api/executive/overview?days=14');
+  assert.equal(invalid.status, 400);
+  assert.match(invalid.body.error.message, /7, 30, or 90/);
+
+  const parameterized = [];
+  db.query = async (sql, params = []) => {
+    assert.ok(highestPlaceholder(sql) <= params.length);
+    if (highestPlaceholder(sql)) parameterized.push(params);
+    return { rows:[] };
+  };
+  const valid = await request(routeApp()).get('/api/executive/overview?days=7');
+  assert.equal(valid.status, 200);
+  assert.equal(valid.body.window_days, 7);
+  assert.equal(parameterized.length, 4);
+  assert.ok(parameterized.every(params => params.length === 1 && params[0] === 7));
+});
+
 test('invalid pagination is rejected before querying the database', async () => {
   db.query = async () => { throw new Error('database should not be queried'); };
   const response = await request(routeApp()).get('/api/alerts?page=0&limit=1000');
