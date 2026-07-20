@@ -149,10 +149,10 @@ describe('authenticated application flows', () => {
 
     expect(calls.some(url => url.endsWith('/executive/overview?days=30'))).toBe(true);
     expect(calls.some(url => url.includes('/alerts?'))).toBe(false);
-    expect(document.body.textContent).toContain('Global Security Health Index');
-    expect(document.body.textContent).toContain('AI Triage Coverage');
+    expect(document.body.textContent).toContain('Cyber Risk Exposure');
+    expect(document.body.textContent).toContain('AI triage coverage');
     expect(document.body.textContent).toContain('90%');
-    expect(document.body.textContent).toContain('automatic incident closure and external containment are not enabled');
+    expect(document.body.textContent).toContain('External actions executed: 0');
     expect(document.body.textContent).not.toContain('Live Security Feed');
   });
 
@@ -199,7 +199,7 @@ describe('authenticated application flows', () => {
     });
 
     await renderAt('/dashboard');
-    const trigger = document.querySelector('[aria-label="Review active business risks"]');
+    const trigger = document.querySelector('[aria-label="Review supporting evidence for Open Critical Incidents"]');
     expect(trigger).toBeTruthy();
     await act(async () => trigger.click());
     await settle();

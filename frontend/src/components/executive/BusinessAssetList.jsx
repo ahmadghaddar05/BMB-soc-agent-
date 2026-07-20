@@ -5,7 +5,7 @@ export default function BusinessAssetList({ assets = [], onSelect }) {
   const max = Math.max(1, ...assets.map(item => asNumber(item.exposure ?? item.activity_count ?? item.count)));
   return (
     <section className="rounded-2xl border border-[#1d374b] bg-[#0b1722] p-5 shadow-[0_18px_45px_rgba(0,0,0,.14)] md:p-6" aria-labelledby="target-assets-title">
-      <div><p className="text-xs font-semibold uppercase tracking-[.12em] text-[#8098aa]">Business exposure</p><h2 id="target-assets-title" className="mt-1.5 text-lg font-semibold tracking-[-.02em] text-[#f0f6fa]">Most Targeted Business Assets</h2><p className="mt-1 text-sm text-[#8098aa]">Ranked by high-risk and total security activity, without exposing raw IPs.</p></div>
+      <div><p className="text-xs font-semibold text-[#8098aa]">Supporting exposure</p><h2 id="target-assets-title" className="mt-1.5 text-lg font-semibold tracking-[-.02em] text-[#f0f6fa]">Most exposed observed assets</h2><p className="mt-1 text-xs leading-5 text-[#8098aa]">Technical hosts, databases, and datasets ranked from stored activity. These are not yet mapped to business services.</p></div>
       <div className="mt-5 space-y-2.5">
         {assets.length ? assets.slice(0,5).map((asset, index) => {
           const value = asNumber(asset.exposure ?? asset.activity_count ?? asset.count);
@@ -18,7 +18,7 @@ export default function BusinessAssetList({ assets = [], onSelect }) {
             </div>
             <span className="mt-3 block h-1 overflow-hidden rounded-full bg-[#162d3e]"><i className="block h-full rounded-full bg-gradient-to-r from-[#397eff] to-[#36c5f0]" style={{ width:`${Math.max(4, value / max * 100)}%` }} /></span>
           </button>;
-        }) : <div className="grid min-h-[270px] place-items-center rounded-xl border border-dashed border-[#244159] bg-[#09151f]"><div className="max-w-[240px] text-center"><Building2 className="mx-auto mb-3 text-[#365a72]" /><strong className="text-sm text-[#c3d3de]">No mapped assets yet</strong><p className="mt-2 text-xs leading-5 text-[#657e91]">Asset exposure will appear after hostname, database, or CMDB context is collected.</p></div></div>}
+        }) : <div className="grid min-h-[270px] place-items-center rounded-xl border border-dashed border-[#244159] bg-[#09151f]"><div className="max-w-[240px] text-center"><Building2 className="mx-auto mb-3 text-[#365a72]" /><strong className="text-sm text-[#c3d3de]">No mapped technical assets</strong><p className="mt-2 text-xs leading-5 text-[#657e91]">Hostname, database, dataset, or CMDB context is required.</p></div></div>}
       </div>
     </section>
   );

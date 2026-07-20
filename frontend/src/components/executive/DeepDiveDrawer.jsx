@@ -28,6 +28,7 @@ function evidenceFromState(state) {
   if (state.selection?.type === 'asset') return state.data?.alerts || [];
   if (state.selection?.type === 'automation' && state.data?.alert) return [state.data.alert];
   if (state.selection?.type === 'risk-summary') return state.data?.incidents || [];
+  if (state.selection?.type === 'metric') return state.data?.evidence || [];
   return [];
 }
 
@@ -58,6 +59,12 @@ function drawerCopy(state) {
         : 'No matching stored security activity was found for this asset.',
     };
   }
+  if (selection.type === 'metric') {
+    return {
+      title:data?.title || 'Executive metric evidence', eyebrow:'Metric definition and evidence',
+      summary:data?.summary || 'This metric is grounded in the stored evidence and limitations shown here.',
+    };
+  }
   const win = operationWin(data || {});
   const incident = data?.incident;
   const verdict = asObject(data?.alert?.verdict);
@@ -71,6 +78,7 @@ function impactFor(state, evidence) {
   const incident = incidentFromState(state);
   if (incident?.severity) return incident.severity;
   if (state.selection?.type === 'risk-summary') return 'mixed';
+  if (state.selection?.type === 'metric') return 'unknown';
   return evidence.sort((a, b) => ({ critical:4, high:3, medium:2, low:1 }[severityOf(b)] || 0) - ({ critical:4, high:3, medium:2, low:1 }[severityOf(a)] || 0))[0]
     ? severityOf(evidence[0]) : 'unknown';
 }
