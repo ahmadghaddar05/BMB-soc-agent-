@@ -102,7 +102,7 @@ Phase 9 adds `response.simulate` and `response.rollback` to that same controlled
 - `SOC_AUTH_DISABLED=true` is rejected in production.
 - Security headers, request IDs, JSON size limits, and login/chat rate limits are enabled.
 
-This is a Phase 1 access boundary with one administrator identity, not full multi-user RBAC.
+This is a single-user access boundary, not full multi-user RBAC. The authenticated account's presentation role is selected with `SOC_USER_ROLE` (`executive`, `soc_analyst`, or `administrator`); changing it invalidates no existing credentials, but requires a new login session to receive the new role.
 
 ## Database lifecycle
 

@@ -31,6 +31,14 @@ test('production cannot disable authentication and warns when HTTPS cookies are 
   assert.ok(result.warnings.some(message => message.includes('SOC_COOKIE_SECURE')));
 });
 
+test('authenticated dashboard role is restricted to supported experiences', () => {
+  const valid = validateStartupConfig(runtimeConfig({ ...base, SOC_USER_ROLE:'soc_analyst' }));
+  assert.equal(valid.ok, true);
+  const invalid = validateStartupConfig(runtimeConfig({ ...base, SOC_USER_ROLE:'superuser' }));
+  assert.equal(invalid.ok, false);
+  assert.ok(invalid.errors.includes('SOC_USER_ROLE must be executive, soc_analyst, or administrator'));
+});
+
 test('Hermes-required startup fails closed without its server credential', () => {
   const result = validateStartupConfig(runtimeConfig({ ...base, HERMES_REQUIRED:'true' }));
   assert.equal(result.ok, false);

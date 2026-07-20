@@ -14,10 +14,11 @@ process.env.SOC_SESSION_SECRET = '0123456789abcdef0123456789abcdef';
 const { createApp } = require('../src');
 const { sessionFor, signPayload, verifyPayload } = require('../src/middleware/auth');
 
-function authApp() {
+function authApp(role = 'administrator') {
   process.env.SOC_AUTH_DISABLED = 'false';
   process.env.SOC_ADMIN_USERNAME = 'analyst';
   process.env.SOC_ADMIN_PASSWORD = 'correct-horse-battery';
+  process.env.SOC_USER_ROLE = role;
   process.env.SOC_SESSION_SECRET = '0123456789abcdef0123456789abcdef';
   return createApp();
 }
@@ -43,6 +44,16 @@ test('login creates an HttpOnly session and session endpoint returns CSRF token'
   const session = await request(app).get('/api/auth/session').set('Cookie', cookie);
   assert.equal(session.status, 200);
   assert.equal(session.body.user.role, 'administrator');
+});
+
+test('login session uses the configured production role', async () => {
+  const app = authApp('executive');
+  const login = await request(app).post('/api/auth/login').send({ username:'analyst', password:'correct-horse-battery' });
+  assert.equal(login.status, 200);
+  assert.equal(login.body.user.role, 'executive');
+  const session = await request(app).get('/api/auth/session').set('Cookie', login.headers['set-cookie'][0]);
+  assert.equal(session.status, 200);
+  assert.equal(session.body.user.role, 'executive');
 });
 
 test('invalid login and missing CSRF are rejected', async () => {

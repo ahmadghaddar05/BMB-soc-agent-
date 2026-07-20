@@ -19,6 +19,7 @@ function runtimeConfig(env = process.env) {
     authDisabled: bool(env.SOC_AUTH_DISABLED, false),
     adminUsername: env.SOC_ADMIN_USERNAME || 'admin',
     adminPassword: env.SOC_ADMIN_PASSWORD || '',
+    userRole: env.SOC_USER_ROLE || 'administrator',
     sessionSecret: env.SOC_SESSION_SECRET || '',
     apiKey: env.SOC_API_KEY || '',
     sessionTtlMinutes: Math.min(1440, Math.max(15, parseInt(env.SOC_SESSION_TTL_MINUTES || '480', 10) || 480)),
@@ -74,6 +75,9 @@ function validateStartupConfig(config = runtimeConfig()) {
   if (!config.authDisabled) {
     if (config.sessionSecret.length < 32) errors.push('SOC_SESSION_SECRET must be at least 32 characters');
     if (config.adminPassword.length < 12) errors.push('SOC_ADMIN_PASSWORD must be at least 12 characters');
+    if (!['executive','soc_analyst','administrator'].includes(config.userRole)) {
+      errors.push('SOC_USER_ROLE must be executive, soc_analyst, or administrator');
+    }
   }
   if (config.apiKey && config.apiKey.length < 24) warnings.push('SOC_API_KEY should be at least 24 characters');
   if (config.nodeEnv === 'production' && !config.cookieSecure) warnings.push('SOC_COOKIE_SECURE is false; use true when the UI is served over HTTPS');

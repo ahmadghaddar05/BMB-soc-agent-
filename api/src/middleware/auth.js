@@ -44,7 +44,7 @@ function verifyPayload(token, secret) {
 function sessionFor(username, config = runtimeConfig()) {
   return {
     sub: username,
-    role: 'administrator',
+    role: config.userRole || 'administrator',
     csrf: crypto.randomBytes(24).toString('base64url'),
     exp: Date.now() + config.sessionTtlMinutes * 60 * 1000,
   };
