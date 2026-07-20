@@ -43,6 +43,46 @@ export function humanize(value) {
     .replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
+function stableHash(value) {
+  let hash = 2166136261;
+  for (const character of String(value || '')) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).toUpperCase().padStart(8, '0');
+}
+
+export function displayReference(prefix, value) {
+  if (value == null || value === '') return `${prefix}-UNASSIGNED`;
+  return `${prefix}-${stableHash(value).slice(0, 8)}`;
+}
+
+export function alertReference(item) {
+  const value = typeof item === 'object' && item !== null
+    ? item.id || item.representative_alert_id || item.elastic_alert_uuid || item.group_key
+    : item;
+  return displayReference('ALT', value);
+}
+
+export function investigationReference(value) {
+  const id = typeof value === 'object' && value !== null ? value.id : value;
+  return displayReference('INV', id);
+}
+
+export function caseReference(value) {
+  const id = typeof value === 'object' && value !== null ? value.id : value;
+  return displayReference('CASE', id);
+}
+
+export function actionReference(value) {
+  const id = typeof value === 'object' && value !== null ? value.id : value;
+  return displayReference('REQ', id);
+}
+
+export function friendlyEvidenceText(value) {
+  return String(value || '').replace(/elastic:[A-Za-z0-9_:.\-]+/g, match => alertReference(match));
+}
+
 function isGenericTitle(value) {
   const normalized = String(value || '').trim().toLowerCase();
   return !normalized || GENERIC_DETECTION_NAMES.has(normalized) || /^critical security (event|activity)/.test(normalized);

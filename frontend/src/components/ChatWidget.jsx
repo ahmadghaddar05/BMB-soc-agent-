@@ -29,8 +29,17 @@ export default function ChatWidget() {
     }
   }, [messages, open]);
 
+  const sendRef = useRef(null);
+  sendRef.current = send;
+
   useEffect(() => {
-    const openAssistant = () => setOpen(true);
+    const openAssistant = event => {
+      setOpen(true);
+      const prompt = event.detail?.prompt;
+      if (!prompt) return;
+      if (event.detail?.autoSend) window.setTimeout(() => sendRef.current?.(prompt), 0);
+      else setInput(prompt);
+    };
     window.addEventListener('open-soc-assistant', openAssistant);
     return () => window.removeEventListener('open-soc-assistant', openAssistant);
   }, []);

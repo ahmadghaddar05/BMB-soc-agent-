@@ -6,7 +6,7 @@ import {
   Shield, ShieldAlert, ShieldCheck, Sparkles, User, X, Zap,
 } from 'lucide-react';
 import { api, fmtTs, sevClass, verdictLabel } from '../lib/api';
-import { activityTitle, severityOf } from '../lib/executive';
+import { activityTitle, alertReference, severityOf } from '../lib/executive';
 import InfoTip from '../components/InfoTip';
 
 function json(value) {
@@ -20,8 +20,7 @@ function sourceSeverity(alert) {
 }
 
 function shortId(alert) {
-  const id = alert?.id || alert?.representative_alert_id || 'pending';
-  return id.length > 22 ? `${id.slice(0, 19)}…` : id;
+  return alertReference(alert);
 }
 
 function entity(alert) {
@@ -113,9 +112,9 @@ function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, on
         <div className="detail-header-actions"><button className={pinned ? 'active' : ''} onClick={onPin} title={pinned ? 'Unpin investigation' : 'Pin investigation'}><Pin /></button><button className={expanded ? 'active' : ''} onClick={onExpand} title={expanded ? 'Restore panel' : 'Expand'}><Maximize2 /></button><button onClick={onClose} title="Close panel"><X /></button></div>
       </div>
       <div className="detail-actions">
-        <button className="detail-action primary" onClick={onInvestigate}><PlayCircle />Investigate</button>
+        <button className="detail-action primary" onClick={onInvestigate} title="Open the investigation builder with this alert preselected"><PlayCircle />Build investigation</button>
         <button className="detail-action" onClick={onRetriage} disabled={busy}><Sparkles />{busy ? 'Queuing…' : 'Re-run AI'}</button>
-        <button className={`detail-action ${escalated ? 'is-complete' : ''}`} onClick={onEscalate}><ShieldCheck />{escalated ? 'Marked locally' : 'Mark escalation locally'}</button>
+        <button className={`detail-action ${escalated ? 'is-complete' : ''}`} onClick={onEscalate} title="Add a browser-only reminder for analyst review"><ShieldCheck />{escalated ? 'Review flagged' : 'Flag for review'}</button>
       </div>
       <div className="detail-tabs">{['overview','evidence','entities','response'].map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}</button>)}</div>
 
@@ -257,7 +256,7 @@ export default function Alerts({ workspace = 'alerts' }) {
           </div>
           <div className="workspace-pagination"><span>{total ? `${(page - 1) * 20 + 1}–${Math.min(page * 20, total)} of ${total.toLocaleString()}` : '0 alerts'}</span><div><button disabled={page <= 1} onClick={() => setPage(value => value - 1)}>‹</button><b>{page}</b><button disabled={page >= pages} onClick={() => setPage(value => value + 1)}>›</button></div><select><option>20 / page</option></select></div>
         </section>
-        <AlertDetail alert={detail || selected} onClose={() => { setSelected(null); setDetail(null); setExpanded(false); }} onRetriage={retriage} busy={retriaging} expanded={expanded} onExpand={() => setExpanded(value => !value)} pinned={pinnedIds.includes((detail || selected)?.id)} onPin={() => persistList('bmb-pinned-alerts',setPinnedIds,pinnedIds,(detail || selected)?.id)} escalated={escalatedIds.includes((detail || selected)?.id)} onEscalate={() => { const id=(detail || selected)?.id; persistList('bmb-escalated-alerts',setEscalatedIds,escalatedIds,id); setNotice(escalatedIds.includes(id) ? 'Local escalation marker removed.' : 'Marked for escalation in this browser only; no external workflow was triggered.'); }} onInvestigate={() => navigate(`/investigations?search=${encodeURIComponent((detail || selected)?.id || entity(detail || selected))}`)} />
+        <AlertDetail alert={detail || selected} onClose={() => { setSelected(null); setDetail(null); setExpanded(false); }} onRetriage={retriage} busy={retriaging} expanded={expanded} onExpand={() => setExpanded(value => !value)} pinned={pinnedIds.includes((detail || selected)?.id)} onPin={() => persistList('bmb-pinned-alerts',setPinnedIds,pinnedIds,(detail || selected)?.id)} escalated={escalatedIds.includes((detail || selected)?.id)} onEscalate={() => { const id=(detail || selected)?.id; persistList('bmb-escalated-alerts',setEscalatedIds,escalatedIds,id); setNotice(escalatedIds.includes(id) ? 'Analyst-review flag removed.' : 'Flagged for analyst review in this browser. This does not execute a response action.'); }} onInvestigate={() => navigate(`/investigations?search=${encodeURIComponent((detail || selected)?.id || entity(detail || selected))}`)} />
       </div>
     </div>
   );

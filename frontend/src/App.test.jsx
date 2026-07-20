@@ -107,11 +107,11 @@ describe('authenticated application flows', () => {
       const url = String(input);
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
-      if (url.endsWith('/alert-groups?page=1&limit=50')) return jsonResponse({ total:1, groups:[{
-        representative_alert_id:'elastic:credential-1', group_key:'credential-1',
+      if (url.endsWith('/alerts?page=1&limit=100')) return jsonResponse({ total:1, alerts:[{
+        id:'elastic:credential-1',
         rule_desc:'Critical Security Event Detected', event_action:'credential-dumping',
         source_severity:'high', rule_level:12, hostname:'DEV-WS002', event_dataset:'edr.endpoint',
-        last_seen:new Date().toISOString(), occurrence_count:1,
+        timestamp:new Date().toISOString(), triage_status:'pending',
       }] });
       if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:true } });
       return jsonResponse({});
@@ -286,14 +286,14 @@ describe('authenticated application flows', () => {
     const evidenceToggle = document.querySelector('.row-check');
     expect(evidenceToggle).toBeTruthy();
     await act(async () => evidenceToggle.click());
-    const create = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Create from 1 alert'));
+    const create = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Create investigation (1)'));
     await act(async () => create.click());
     await settle();
 
     const post = requests.find(item => item.url.endsWith('/investigations') && item.options.method === 'POST');
     expect(JSON.parse(post.options.body)).toMatchObject({ search_query:'maya', alert_ids:['elastic:alert-1'] });
     expect(post.options.headers['X-CSRF-Token']).toBe('csrf-token');
-    expect(document.body.textContent).toContain('Stored securely on the SOC server');
+    expect(document.body.textContent).toContain('Server-backed workspaces');
   });
 
   it('persists case ownership through the protected case API', async () => {
@@ -351,7 +351,7 @@ describe('authenticated application flows', () => {
     });
 
     await renderAt('/approvals');
-    expect(document.body.textContent).toContain('Phase 9 safety boundary');
+    expect(document.body.textContent).toContain('Human Review Queue');
     expect(document.body.textContent).toContain('Assign accountable incident ownership');
     const textarea = document.querySelector('.approval-decision textarea');
     await act(async () => {
@@ -360,7 +360,7 @@ describe('authenticated application flows', () => {
       );
       textarea.dispatchEvent(new Event('input', { bubbles:true }));
     });
-    const approve = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Approve and execute'));
+    const approve = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Approve internal action'));
     await act(async () => approve.click());
     await settle();
 
@@ -394,15 +394,15 @@ describe('authenticated application flows', () => {
     });
 
     await renderAt('/responses');
-    expect(document.body.textContent).toContain('Simulation only — zero external side effects');
+    expect(document.body.textContent).toContain('Response Simulation Lab');
     expect(document.body.textContent).toContain('server-1');
-    expect(document.body.textContent).toContain('active confirmed in BMB simulation ledger');
+    expect(document.body.textContent).toContain('active confirmed in the BMB simulation ledger');
     const textarea = document.querySelector('.response-rollback textarea');
     await act(async () => {
       Object.getOwnPropertyDescriptor(globalThis.HTMLTextAreaElement.prototype, 'value').set.call(textarea, 'Exercise completed safely');
       textarea.dispatchEvent(new Event('input', { bubbles:true }));
     });
-    const rollback = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Request approved rollback'));
+    const rollback = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Request rollback review'));
     await act(async () => rollback.click());
     await settle();
 

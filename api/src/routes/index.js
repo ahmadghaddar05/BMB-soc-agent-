@@ -969,20 +969,46 @@ r.get('/pivot', async (req, res) => {
     const indicatorError = optionalText(indicator, 'indicator', 500);
     if (indicatorError) return res.status(400).json({ error: indicatorError });
 
+    const searchTerm = `%${indicator}%`;
     const [alerts, incidents] = await Promise.all([
       db.query(
-        `SELECT id, timestamp, rule_level, rule_desc, src_ip, dst_ip,
-                username, hostname, triage_status, verdict
+        `SELECT id, timestamp, rule_level, rule_desc, source_severity, risk_score,
+                src_ip, dst_ip, username, hostname, agent_name, process,
+                event_dataset, event_action, alert_reason, triage_status, verdict
          FROM alerts
-         WHERE src_ip=$1 OR username=$1 OR hostname LIKE $2
+         WHERE id ILIKE $1
+            OR COALESCE(src_ip, '') ILIKE $1
+            OR COALESCE(dst_ip, '') ILIKE $1
+            OR COALESCE(username, '') ILIKE $1
+            OR COALESCE(hostname, '') ILIKE $1
+            OR COALESCE(agent_name, '') ILIKE $1
+            OR COALESCE(process, '') ILIKE $1
+            OR COALESCE(target_db, '') ILIKE $1
+            OR COALESCE(event_dataset, '') ILIKE $1
+            OR COALESCE(event_action, '') ILIKE $1
+            OR COALESCE(alert_reason, '') ILIKE $1
+            OR COALESCE(rule_desc, '') ILIKE $1
+            OR COALESCE(enrichment::text, '') ILIKE $1
          ORDER BY timestamp DESC LIMIT 100`,
-        [indicator, `%${indicator}%`]
+        [searchTerm]
       ),
       db.query(
         `SELECT id, title, severity, status, first_seen, last_seen
-         FROM incidents
-         WHERE $1 = ANY(alert_ids) OR common_entities::text ILIKE $2`,
-        [indicator, `%${indicator}%`]
+         FROM incidents i
+         WHERE COALESCE(i.common_entities::text, '') ILIKE $1
+            OR COALESCE(i.title, '') ILIKE $1
+            OR EXISTS (
+              SELECT 1 FROM alerts a
+              WHERE a.id = ANY(i.alert_ids)
+                AND (
+                  a.id ILIKE $1 OR COALESCE(a.src_ip, '') ILIKE $1
+                  OR COALESCE(a.dst_ip, '') ILIKE $1 OR COALESCE(a.username, '') ILIKE $1
+                  OR COALESCE(a.hostname, '') ILIKE $1 OR COALESCE(a.agent_name, '') ILIKE $1
+                  OR COALESCE(a.process, '') ILIKE $1 OR COALESCE(a.target_db, '') ILIKE $1
+                )
+            )
+         ORDER BY i.last_seen DESC`,
+        [searchTerm]
       ),
     ]);
 

@@ -88,6 +88,50 @@ test('grouped alerts expose specific titles and search technical and asset ident
   }
 });
 
+test('identity pivots search alert evidence and incidents linked through matching alerts', async () => {
+  let alertSql = '';
+  let incidentSql = '';
+  const alert = {
+    id:'elastic:identity-1', timestamp:'2026-07-20T08:00:00.000Z',
+    username:'maya.georges', hostname:'HR-WS001', event_action:'successful-login',
+  };
+  const incident = {
+    id:17, title:'Coordinated identity activity', severity:'high', status:'open',
+  };
+  db.query = async (sql, params = []) => {
+    const text = String(sql);
+    assert.ok(highestPlaceholder(text) <= params.length);
+    assert.deepEqual(params, ['%maya.georges%']);
+    if (text.includes('SELECT id, timestamp')) {
+      alertSql = text;
+      return { rows:[alert] };
+    }
+    incidentSql = text;
+    return { rows:[incident] };
+  };
+
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok:false });
+  try {
+    const response = await request(routeApp()).get('/api/pivot?indicator=maya.georges');
+    assert.equal(response.status, 200);
+    assert.equal(response.body.alert_count, 1);
+    assert.equal(response.body.incident_count, 1);
+    assert.deepEqual(response.body.alerts, [alert]);
+    assert.deepEqual(response.body.incidents, [incident]);
+  } finally {
+    global.fetch = originalFetch;
+  }
+
+  for (const field of ['src_ip','dst_ip','username','hostname','agent_name','process','event_dataset','event_action','alert_reason','enrichment']) {
+    assert.match(alertSql, new RegExp(`\\b${field}\\b`));
+  }
+  assert.match(incidentSql, /EXISTS\s*\(/);
+  assert.match(incidentSql, /a\.username/);
+  assert.match(incidentSql, /a\.hostname/);
+  assert.match(incidentSql, /a\.target_db/);
+});
+
 test('executive overview returns an auditable aggregate contract with no fabricated containment', async () => {
   const incident = {
     id:42, title:'Coordinated identity compromise', severity:'critical', confidence:0.91,

@@ -77,7 +77,7 @@ export default function Dashboard() {
   ].filter(Boolean);
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_52%_-12%,rgba(40,101,145,.13),transparent_36%)] px-4 py-6 text-[#8da4b7] sm:px-6 lg:px-8">
+    <div className="executive-dashboard min-h-full bg-[radial-gradient(circle_at_52%_-12%,rgba(40,101,145,.13),transparent_36%)] px-4 py-6 text-[#8da4b7] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1680px]">
         <header className="mb-6 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>

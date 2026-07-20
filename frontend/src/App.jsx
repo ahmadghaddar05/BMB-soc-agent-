@@ -2,10 +2,11 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, BriefcaseBusiness, ChevronLeft, FileText, Globe2, LayoutDashboard,
-  Menu, RadioTower, Search, Server, Settings, ShieldAlert, ShieldCheck, ShieldOff,
-  Sparkles, X,
+  Menu, Moon, RadioTower, Search, Server, Settings, ShieldAlert, ShieldCheck, ShieldOff,
+  Sparkles, Sun, X,
 } from 'lucide-react';
 import ChatWidget from './components/ChatWidget';
+import SelectionAssistant from './components/SelectionAssistant';
 import LoginPage from './components/LoginPage';
 import { api, setCsrfToken } from './lib/api';
 import './index.css';
@@ -30,7 +31,6 @@ const Responses = lazy(() => import('./pages/Responses'));
 const NAV_GROUPS = [
   { label:'Executive', items:[
     { to:'/dashboard', icon:LayoutDashboard, label:'Overview' },
-    { to:'/reports', icon:FileText, label:'Reports' },
   ] },
   { label:'Operations', items:[
     { to:'/live-monitoring', icon:RadioTower, label:'Live Monitoring' },
@@ -47,6 +47,7 @@ const NAV_GROUPS = [
     { to:'/vulnerabilities', icon:ShieldAlert, label:'Vulnerabilities' },
   ] },
   { label:'Administration', items:[
+    { to:'/reports', icon:FileText, label:'Reports' },
     { to:'/settings', icon:Settings, label:'Settings' },
   ] },
 ];
@@ -83,6 +84,7 @@ function Shell({ session, onLogout }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [platformHealth, setPlatformHealth] = useState(null);
+  const [theme, setTheme] = useState(() => localStorage.getItem('bmb-theme') || 'light');
   const location = useLocation();
   const navigate = useNavigate();
   const [title, subtitle] = PAGE_META[location.pathname] || PAGE_META['/dashboard'];
@@ -94,6 +96,12 @@ function Shell({ session, onLogout }) {
     const timer = setInterval(loadHealth, 30000);
     return () => { active = false; clearInterval(timer); };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    localStorage.setItem('bmb-theme', theme);
+  }, [theme]);
 
   function submitSearch(event) {
     event.preventDefault();
@@ -142,6 +150,9 @@ function Shell({ session, onLogout }) {
             <kbd>Enter</kbd>
           </form>
           <div className="topbar-actions">
+            <button className="theme-toggle" onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+              {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
+            </button>
             <button className="ask-ai-button" onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant'))}><Sparkles size={15} /><span>Ask AI Analyst</span></button>
             <button className="analyst-profile" onClick={onLogout} title="Sign out"><div><strong>{session.user.username}</strong><small>{session.user.role}</small></div><span className="avatar">{session.user.username.slice(0,2).toUpperCase()}<i /></span></button>
           </div>
@@ -173,6 +184,7 @@ function Shell({ session, onLogout }) {
         </main>
       </section>
       <ChatWidget />
+      <SelectionAssistant />
     </div>
   );
 }

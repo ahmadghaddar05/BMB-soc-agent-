@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity, AlertTriangle, ChevronDown, ChevronUp, Clock3, Database,
   Pause, Play, RefreshCw, Search, Server, ShieldCheck, User, X,
 } from 'lucide-react';
 import { api } from '../lib/api';
-import { activityTitle, businessAssetLabel, severityOf } from '../lib/executive';
+import { activityTitle, alertReference, businessAssetLabel, humanize, severityOf } from '../lib/executive';
 
 const REFRESH_INTERVAL_MS = 15_000;
 
@@ -23,7 +23,7 @@ const TIME_RANGES = {
 };
 
 function activityId(activity) {
-  return activity.group_key || activity.representative_alert_id || activity.id;
+  return activity.id || activity.representative_alert_id || activity.group_key;
 }
 
 function representativeId(activity) {
@@ -35,7 +35,7 @@ function activityTimestamp(activity) {
 }
 
 function activitySignature(activity) {
-  return `${activityTimestamp(activity) || ''}:${Number(activity.occurrence_count || 1)}`;
+  return `${activityTimestamp(activity) || ''}:${activity.triage_status || 'pending'}`;
 }
 
 function sourceLabel(activity) {
@@ -70,6 +70,7 @@ export default function LiveMonitoring() {
   const [viewUpdatedAt, setViewUpdatedAt] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [filters, setFilters] = useState({ severity: 'all', source: 'all', time: '24h', search: '' });
+  const [page, setPage] = useState(1);
 
   const pausedRef = useRef(false);
   const mountedRef = useRef(false);
@@ -84,19 +85,19 @@ export default function LiveMonitoring() {
     displayedSignaturesRef.current = buildSignatureMap(nextActivities);
   }
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     if (refreshingRef.current) return;
     refreshingRef.current = true;
     if (mountedRef.current) setRefreshing(true);
 
     try {
       const [activityData, collectorData] = await Promise.all([
-        api('/alert-groups?page=1&limit=50'),
+        api(`/alerts?page=${page}&limit=100`),
         api('/collector/status'),
       ]);
       if (!mountedRef.current) return;
 
-      const nextActivities = activityData.groups || [];
+      const nextActivities = activityData.alerts || [];
       const checkedAt = new Date();
       setCollector(collectorData);
       setLastCheckedAt(checkedAt);
@@ -126,7 +127,7 @@ export default function LiveMonitoring() {
         setRefreshing(false);
       }
     }
-  }
+  }, [page]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -136,7 +137,7 @@ export default function LiveMonitoring() {
       mountedRef.current = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [refresh]);
 
   const sources = useMemo(() => (
     [...new Set(activities.map(sourceLabel).filter(Boolean))].sort((a, b) => a.localeCompare(b))
@@ -195,7 +196,7 @@ export default function LiveMonitoring() {
   }
 
   return (
-    <section className="min-h-full bg-[#07111b] px-4 py-5 text-slate-100 sm:px-6 lg:px-8" aria-labelledby="live-monitoring-title">
+    <section className="live-monitoring-page min-h-full bg-[#07111b] px-4 py-5 text-slate-100 sm:px-6 lg:px-8" aria-labelledby="live-monitoring-title">
       <header className="mx-auto flex max-w-[1600px] flex-col gap-4 border-b border-slate-700/50 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-300">
@@ -206,7 +207,7 @@ export default function LiveMonitoring() {
             Live Monitoring
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-            The newest grouped security activities from Elastic, automatically refreshed every 15 seconds.
+            Individual Elastic alert records in newest-first order, automatically refreshed every 15 seconds.
           </p>
         </div>
 
@@ -335,7 +336,7 @@ export default function LiveMonitoring() {
 
             <div className="flex items-center justify-between gap-3 xl:justify-end">
               <span className="whitespace-nowrap text-sm text-slate-400">
-                {filteredActivities.length} of {Math.min(total, 50).toLocaleString()} loaded
+                {filteredActivities.length} of {activities.length} loaded
               </span>
               {hasFilters && (
                 <button
@@ -369,7 +370,7 @@ export default function LiveMonitoring() {
                     <th className="px-3 py-3">Business asset</th>
                     <th className="px-3 py-3">Source</th>
                     <th className="px-3 py-3">Last observed</th>
-                    <th className="px-3 py-3 text-right">Occurrences</th>
+                    <th className="px-3 py-3 text-right">AI state</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -402,10 +403,18 @@ export default function LiveMonitoring() {
               </div>
             </div>
           )}
+          <div className="flex items-center justify-between gap-4 border-t border-slate-700/50 px-4 py-3 text-sm text-slate-400">
+            <span>{total ? `${((page - 1) * 100 + 1).toLocaleString()}–${Math.min(page * 100, total).toLocaleString()} of ${total.toLocaleString()} individual alerts` : 'No alert records'}</span>
+            <div className="flex items-center gap-2">
+              <button type="button" disabled={page === 1} onClick={() => setPage(value => Math.max(1, value - 1))} className="rounded-lg border border-slate-600 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+              <span className="min-w-16 text-center">Page {page}</span>
+              <button type="button" disabled={page * 100 >= total} onClick={() => setPage(value => value + 1)} className="rounded-lg border border-slate-600 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+            </div>
+          </div>
         </div>
 
         <p className="mt-3 text-xs leading-5 text-slate-500">
-          Showing the newest 50 grouped activities. Technical identifiers are available in expanded details and the triage workspace.
+          Showing raw alert records rather than grouped activity. Human-readable references are used here; full Elastic identifiers remain available in expanded technical details.
         </p>
       </div>
     </section>
@@ -419,10 +428,10 @@ function ActivityCard({ activity, id, technicalId, severity, expanded, onToggle 
   return <article className="p-4">
     <button type="button" onClick={onToggle} aria-expanded={expanded} aria-controls={`mobile-activity-details-${id}`} className="w-full rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50">
       <span className="flex items-start justify-between gap-3">
-        <span className="min-w-0"><strong className="block text-sm font-semibold leading-5 text-slate-100">{title}</strong><span className="mt-1 block truncate text-xs text-slate-500">{technicalId || 'Technical identifier unavailable'}</span></span>
+        <span className="min-w-0"><strong className="block text-sm font-semibold leading-5 text-slate-100">{title}</strong><span className="mt-1 block truncate text-xs text-slate-500">{alertReference(activity)}</span></span>
         {expanded ? <ChevronUp className="mt-1 h-4 w-4 flex-none text-slate-400" /> : <ChevronDown className="mt-1 h-4 w-4 flex-none text-slate-400" />}
       </span>
-      <span className="mt-3 flex flex-wrap items-center gap-2"><span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold capitalize ${severityStyle}`}>{severity}</span><span className="text-xs font-medium text-slate-300">{businessAssetLabel(activity)}</span><span className="text-xs text-slate-500">{Number(activity.occurrence_count || 1).toLocaleString()} occurrence{Number(activity.occurrence_count || 1) === 1 ? '' : 's'}</span></span>
+      <span className="mt-3 flex flex-wrap items-center gap-2"><span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold capitalize ${severityStyle}`}>{severity}</span><span className="text-xs font-medium text-slate-300">{businessAssetLabel(activity)}</span><span className="text-xs text-slate-500">AI {humanize(activity.triage_status || 'pending')}</span></span>
       <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500"><span>{sourceLabel(activity)}</span><time>{formatTimestamp(activityTimestamp(activity))}</time></span>
     </button>
     {expanded && <div id={`mobile-activity-details-${id}`} className="mt-4 border-t border-slate-700/60 pt-4"><dl className="grid gap-4 sm:grid-cols-2"><Detail icon={Server} label="Host" value={activity.hostname || activity.agent_name || 'Not resolved'} /><Detail icon={User} label="Identity" value={activity.username || 'Not resolved'} /><Detail icon={Database} label="Dataset" value={activity.event_dataset || activity.decoder || 'Elastic'} /><Detail icon={AlertTriangle} label="Detection action" value={activity.event_action || activity.alert_reason || title} /></dl><Link to={triageTarget} className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg border border-cyan-400/35 bg-cyan-400/[0.08] px-4 text-sm font-semibold text-cyan-200">Open technical triage</Link></div>}
@@ -451,7 +460,7 @@ function ActivityRows({ activity, id, technicalId, severity, expanded, onToggle 
             </span>
             <span className="min-w-0">
               <strong className="block text-sm font-semibold leading-5 text-slate-100">{title}</strong>
-              <span className="mt-1 block truncate text-xs text-slate-500">{technicalId || 'Technical identifier unavailable'}</span>
+              <span className="mt-1 block truncate text-xs text-slate-500">{alertReference(activity)}</span>
             </span>
             {expanded ? <ChevronUp className="mt-2 h-4 w-4 flex-none text-slate-400" /> : <ChevronDown className="mt-2 h-4 w-4 flex-none text-slate-400" />}
           </button>
@@ -465,7 +474,7 @@ function ActivityRows({ activity, id, technicalId, severity, expanded, onToggle 
         </td>
         <td className="px-3 py-3.5 text-sm text-slate-400">{sourceLabel(activity)}</td>
         <td className="whitespace-nowrap px-3 py-3.5 text-sm text-slate-400">{formatTimestamp(activityTimestamp(activity))}</td>
-        <td className="px-3 py-3.5 text-right font-mono text-sm tabular-nums text-slate-300">{Number(activity.occurrence_count || 1).toLocaleString()}</td>
+        <td className="px-3 py-3.5 text-right text-xs font-semibold text-slate-300">{humanize(activity.triage_status || 'pending')}</td>
       </tr>
       {expanded && (
         <tr id={`activity-details-${id}`} className="border-b border-slate-700/60 bg-[#08131e]">
@@ -480,6 +489,7 @@ function ActivityRows({ activity, id, technicalId, severity, expanded, onToggle 
                 <Detail label="Destination address" value={activity.dst_ip || 'Not provided'} />
                 <Detail label="First observed" value={formatTimestamp(activity.first_seen || activity.timestamp)} />
                 <Detail label="Last observed" value={formatTimestamp(activityTimestamp(activity))} />
+                <Detail label="Elastic technical ID" value={technicalId || 'Not provided'} />
               </dl>
               <div className="flex items-end lg:justify-end">
                 <Link
