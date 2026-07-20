@@ -62,10 +62,25 @@ export const ROLE_NAVIGATION = Object.freeze({
   ],
   [ROLES.ADMINISTRATOR]: [
     {
-      label: 'Administration',
+      label: 'Platform Operations',
       items: [
         { to: '/integrations', icon: 'integrations', label: 'Integrations' },
+        { to: '/collector-health', icon: 'collector', label: 'Collector Health' },
+        { to: '/ai-configuration', icon: 'ai', label: 'AI Configuration' },
+      ],
+    },
+    {
+      label: 'Governance',
+      items: [
+        { to: '/users-access', icon: 'users', label: 'Users & Access' },
+        { to: '/audit-governance', icon: 'audit', label: 'Audit & Governance' },
+        { to: '/data-retention', icon: 'retention', label: 'Data Retention' },
         { to: '/reports', icon: 'reports', label: 'Reports' },
+      ],
+    },
+    {
+      label: 'System',
+      items: [
         { to: '/settings', icon: 'settings', label: 'Settings' },
       ],
     },
@@ -73,21 +88,26 @@ export const ROLE_NAVIGATION = Object.freeze({
 });
 
 export const ROUTE_ACCESS = Object.freeze({
-  '/dashboard': [ROLES.EXECUTIVE, ROLES.ADMINISTRATOR],
-  '/live-monitoring': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/alerts': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/ai-triage': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/investigations': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/incidents': [ROLES.EXECUTIVE, ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/cases': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/approvals': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/responses': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/threat-intelligence': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/assets': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/vulnerabilities': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
+  '/dashboard': [ROLES.EXECUTIVE],
+  '/live-monitoring': [ROLES.SOC_ANALYST],
+  '/alerts': [ROLES.SOC_ANALYST],
+  '/ai-triage': [ROLES.SOC_ANALYST],
+  '/investigations': [ROLES.SOC_ANALYST],
+  '/incidents': [ROLES.EXECUTIVE, ROLES.SOC_ANALYST],
+  '/cases': [ROLES.SOC_ANALYST],
+  '/approvals': [ROLES.SOC_ANALYST],
+  '/responses': [ROLES.SOC_ANALYST],
+  '/threat-intelligence': [ROLES.SOC_ANALYST],
+  '/assets': [ROLES.SOC_ANALYST],
+  '/vulnerabilities': [ROLES.SOC_ANALYST],
   '/reports': [ROLES.EXECUTIVE, ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
-  '/playbooks': [ROLES.SOC_ANALYST, ROLES.ADMINISTRATOR],
+  '/playbooks': [ROLES.SOC_ANALYST],
   '/integrations': [ROLES.ADMINISTRATOR],
+  '/collector-health': [ROLES.ADMINISTRATOR],
+  '/ai-configuration': [ROLES.ADMINISTRATOR],
+  '/users-access': [ROLES.ADMINISTRATOR],
+  '/audit-governance': [ROLES.ADMINISTRATOR],
+  '/data-retention': [ROLES.ADMINISTRATOR],
   '/settings': [ROLES.ADMINISTRATOR],
 });
 

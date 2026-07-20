@@ -1,6 +1,7 @@
 'use strict';
 
 const { Router } = require('express');
+const { requireRoles } = require('../middleware/auth');
 const db = require('../db');
 
 const router = Router();
@@ -65,7 +66,7 @@ router.get('/investigations', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-router.post('/investigations', async (req, res) => {
+router.post('/investigations', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const { title, search_query = '', alert_ids } = req.body || {};
     const error = text(title, 'title', { required: true, max: 200 }) ||
@@ -131,7 +132,7 @@ router.get('/investigations/:id', async (req, res) => {
   }
 });
 
-router.patch('/investigations/:id', async (req, res) => {
+router.patch('/investigations/:id', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const body = req.body || {};
     const allowed = ['title', 'status', 'owner'];
@@ -173,7 +174,7 @@ router.patch('/investigations/:id', async (req, res) => {
   }
 });
 
-router.delete('/investigations/:id', async (req, res) => {
+router.delete('/investigations/:id', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const values = auditValues(req, 'investigation.deleted', 'investigation', req.params.id);
     const result = await db.query(
@@ -194,7 +195,7 @@ router.delete('/investigations/:id', async (req, res) => {
   }
 });
 
-router.post('/investigations/:id/notes', async (req, res) => {
+router.post('/investigations/:id/notes', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const error = text(req.body?.body, 'body', { required: true, max: 4000 });
     if (error) return res.status(400).json({ error });
@@ -256,7 +257,7 @@ router.get('/cases/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-router.patch('/cases/:id', async (req, res) => {
+router.patch('/cases/:id', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const idError = positiveInteger(req.params.id, 'case id');
     if (idError) return res.status(400).json({ error: idError });
@@ -293,7 +294,7 @@ router.patch('/cases/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-router.post('/cases/:id/notes', async (req, res) => {
+router.post('/cases/:id/notes', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const idError = positiveInteger(req.params.id, 'case id');
     if (idError) return res.status(400).json({ error: idError });

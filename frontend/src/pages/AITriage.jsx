@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bot, BrainCircuit, Check, CircleAlert, RefreshCw, ShieldCheck, Sparkles, WandSparkles } from 'lucide-react';
 import { api, sevClass, verdictLabel } from '../lib/api';
 import { parseJson, severityOf, entityOf, relativeTime } from '../lib/soc';
+import { activityTitle } from '../lib/executive';
 
 export default function AITriage() {
   const [rows, setRows] = useState([]);
@@ -11,9 +12,11 @@ export default function AITriage() {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const query = new URLSearchParams({ limit: 50 });
       if (status) query.set('triage_status', status);
@@ -21,7 +24,7 @@ export default function AITriage() {
       setRows(alerts.alerts || []);
       setStats(summary.alerts || {});
       setSelected(current => current.filter(id => (alerts.alerts || []).some(row => row.id === id)));
-    } catch (error) { setMessage(error.message); }
+    } catch (loadError) { setError(loadError.message || 'The AI triage queue could not be loaded.'); }
     finally { setLoading(false); }
   }, [status]);
 
@@ -35,23 +38,23 @@ export default function AITriage() {
 
   async function runSelected() {
     if (!selectedRows.length) return;
-    setRunning(true); setMessage('');
+    setRunning(true); setMessage(''); setError('');
     try {
       for (const row of selectedRows) await api(`/alerts/${encodeURIComponent(row.id)}/retriage`, { method: 'POST' });
       setMessage(`${selectedRows.length} alert${selectedRows.length === 1 ? '' : 's'} sent through AI triage.`);
       setSelected([]);
       await load();
-    } catch (error) { setMessage(error.message); }
+    } catch (runError) { setError(runError.message || 'Selected alerts could not be reprocessed.'); }
     finally { setRunning(false); }
   }
 
   async function runPending() {
-    setRunning(true); setMessage('');
+    setRunning(true); setMessage(''); setError('');
     try {
       const result = await api('/scheduler/triage-pending', { method: 'POST' });
       setMessage(`Triage cycle complete: ${result.triaged || 0} triaged, ${result.failed || 0} failed.`);
       await load();
-    } catch (error) { setMessage(error.message); }
+    } catch (runError) { setError(runError.message || 'The pending triage cycle could not be completed.'); }
     finally { setRunning(false); }
   }
 
@@ -71,14 +74,15 @@ export default function AITriage() {
     <div className="module-metrics">{metrics.map(([label, value, Icon, tone]) => <article key={label} className={`metric-card tone-${tone}`}><span><Icon /></span><div><small>{label}</small><strong>{Number(value || 0).toLocaleString()}</strong></div></article>)}</div>
 
     {message && <div className="module-notice">{message}</div>}
+    {error && <div className="module-notice danger" role="alert"><span>{error}</span><button type="button" onClick={load} disabled={loading}>Retry queue</button></div>}
 
     <section className="module-panel">
       <div className="panel-heading"><div><Bot /><span><strong>Model work queue</strong><small>Every row is backed by a stored Elastic alert</small></span></div><div className="segmented">{[['pending','Pending'],['triaged','Triaged'],['triage_failed','Failed'],['','All']].map(([value,label]) => <button key={label} className={status === value ? 'active' : ''} onClick={() => setStatus(value)}>{label}</button>)}</div></div>
       <div className="batch-bar"><span>{selected.length} selected</span><button onClick={() => setSelected(rows.map(row => row.id))}>Select page</button><button onClick={() => setSelected([])}>Clear</button><button className="primary-action small" disabled={!selected.length || running} onClick={runSelected}><Sparkles />Re-run selected</button></div>
       <div className="module-table-wrap"><table className="module-table"><thead><tr><th></th><th>Alert</th><th>Entity</th><th>Source severity</th><th>AI decision</th><th>Confidence</th><th>State</th><th>Observed</th></tr></thead><tbody>{rows.map(row => {
         const verdict = parseJson(row.verdict); const confidence = verdict.confidence == null ? null : Math.round(verdict.confidence * 100);
-        return <tr key={row.id} className={selected.includes(row.id) ? 'selected' : ''}><td><button className={`row-check ${selected.includes(row.id) ? 'checked' : ''}`} onClick={() => toggle(row.id)}>{selected.includes(row.id) && <Check />}</button></td><td><strong>{row.rule_desc || 'Security alert'}</strong><small>{row.id}</small></td><td><strong>{entityOf(row)}</strong><small>{row.username || row.src_ip || 'No secondary entity'}</small></td><td><span className={`badge ${sevClass(severityOf(row))}`}>{severityOf(row)}</span></td><td>{verdict.verdict ? verdictLabel(verdict.verdict) : 'Awaiting model'}</td><td>{confidence == null ? '—' : <span className="confidence-cell"><i><b style={{width:`${confidence}%`}} /></i>{confidence}%</span>}</td><td><span className={`state-dot state-${row.triage_status}`}>{row.triage_status || 'pending'}</span></td><td>{relativeTime(row.timestamp)}</td></tr>;
-      })}</tbody></table>{!loading && !rows.length && <div className="module-empty"><BrainCircuit /><strong>No alerts in this queue</strong><span>Choose another state or run the next collection cycle.</span></div>}</div>
+        return <tr key={row.id} className={selected.includes(row.id) ? 'selected' : ''}><td><button className={`row-check ${selected.includes(row.id) ? 'checked' : ''}`} onClick={() => toggle(row.id)}>{selected.includes(row.id) && <Check />}</button></td><td><strong>{activityTitle(row)}</strong><small>{row.id}</small></td><td><strong>{entityOf(row)}</strong><small>{row.username || row.src_ip || 'No secondary entity'}</small></td><td><span className={`badge ${sevClass(severityOf(row))}`}>{severityOf(row)}</span></td><td>{verdict.verdict ? verdictLabel(verdict.verdict) : 'Awaiting model'}</td><td>{confidence == null ? '—' : <span className="confidence-cell"><i><b style={{width:`${confidence}%`}} /></i>{confidence}%</span>}</td><td><span className={`state-dot state-${row.triage_status}`}>{row.triage_status || 'pending'}</span></td><td>{relativeTime(row.timestamp)}</td></tr>;
+      })}</tbody></table>{!loading && !error && !rows.length && <div className="module-empty"><BrainCircuit /><strong>No alerts in this queue</strong><span>Choose another state or run the next collection cycle.</span></div>}</div>
     </section>
   </div>;
 }

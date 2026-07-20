@@ -14,6 +14,7 @@ const { createApp } = require('../src');
 const originalQuery = db.query;
 const originalSettings = db.getAllSettings;
 const originalSetSetting = db.setSetting;
+const originalSetSettingsAtomic = db.setSettingsAtomic;
 
 function routeApp() {
   process.env.SOC_AUTH_DISABLED = 'true';
@@ -24,11 +25,55 @@ test.afterEach(() => {
   db.query = originalQuery;
   db.getAllSettings = originalSettings;
   db.setSetting = originalSetSetting;
+  db.setSettingsAtomic = originalSetSettingsAtomic;
 });
 
 function highestPlaceholder(sql) {
   return Math.max(0, ...[...String(sql).matchAll(/\$(\d+)/g)].map(match => Number(match[1])));
 }
+
+test('administrator runtime summary exposes configuration state without credentials', async () => {
+  const response = await request(routeApp()).get('/api/admin/runtime');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.authentication.current_role, 'administrator');
+  assert.equal(response.body.authentication.multi_user_directory_supported, false);
+  assert.equal(response.body.ai_provider.provider, 'Hermes');
+  assert.equal(Object.prototype.hasOwnProperty.call(response.body.ai_provider, 'api_key'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(response.body.alert_source, 'elastic_api_key'), false);
+});
+
+test('administrator audit feed is bounded and applies supported filters', async () => {
+  db.query = async (sql, params = []) => {
+    assert.ok(highestPlaceholder(sql) <= params.length);
+    if (String(sql).includes('COUNT(*)::int AS n')) return { rows:[{ n:1 }] };
+    assert.match(String(sql), /actor ILIKE/);
+    assert.match(String(sql), /outcome=\$2/);
+    return { rows:[{ id:1, actor:'analyst', event_type:'case.updated', outcome:'success', metadata:{} }] };
+  };
+  const response = await request(routeApp()).get('/api/admin/audit-events?actor=analyst&outcome=success&limit=20');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 1);
+  assert.equal(response.body.audit_events[0].event_type, 'case.updated');
+
+  const invalid = await request(routeApp()).get('/api/admin/audit-events?outcome=unknown');
+  assert.equal(invalid.status, 400);
+});
+
+test('data governance reports stored coverage and explicitly absent retention policies', async () => {
+  db.getAllSettings = async () => ({ triage_cache_ttl_hours:'72' });
+  db.query = async sql => {
+    if (String(sql).includes('FROM alerts')) return { rows:[{ total:10, oldest:'2026-07-01', newest:'2026-07-20' }] };
+    if (String(sql).includes('FROM audit_events')) return { rows:[{ total:4, oldest:'2026-07-10', newest:'2026-07-20' }] };
+    if (String(sql).includes('FROM fetch_runs')) return { rows:[{ total:3, oldest:'2026-07-12', newest:'2026-07-20' }] };
+    return { rows:[{ total:2, next_expiry:'2026-07-21', last_expiry:'2026-07-22' }] };
+  };
+  const response = await request(routeApp()).get('/api/admin/data-governance');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.stores.alerts.total, 10);
+  assert.equal(response.body.policies.triage_cache_ttl_hours, 72);
+  assert.equal(response.body.policies.postgres_automatic_retention_configured, false);
+  assert.equal(response.body.policies.elastic_source_lifecycle, 'managed_outside_bmb');
+});
 
 test('individual alert search supplies every SQL placeholder', async () => {
   db.query = async (sql, params = []) => {
@@ -373,7 +418,7 @@ test('simulated response list rejects invalid state, type, and pagination before
 test('settings permit Hermes correlation but still reject automatic closure and singleton promotion', async () => {
   const autoClose = await request(routeApp()).put('/api/settings').send({ autoclose_enabled:'true' });
   assert.equal(autoClose.status, 400);
-  db.setSetting = async () => {};
+  db.setSettingsAtomic = async () => {};
   db.getAllSettings = async () => ({ correlation_enabled:'true' });
   const correlation = await request(routeApp()).put('/api/settings').send({ correlation_enabled:'true' });
   assert.equal(correlation.status, 200);
@@ -381,8 +426,36 @@ test('settings permit Hermes correlation but still reject automatic closure and 
   assert.equal(promotion.status, 400);
 });
 
+test('settings updates delegate one atomic audited change set', async () => {
+  let recorded = null;
+  db.setSettingsAtomic = async (entries, context) => { recorded = { entries, context }; };
+  db.getAllSettings = async () => ({ triage_enabled:'true', correlation_enabled:'true' });
+  const response = await request(routeApp()).put('/api/settings').send({
+    triage_enabled:'true', correlation_enabled:'true',
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(recorded.entries, [['triage_enabled', 'true'], ['correlation_enabled', 'true']]);
+  assert.equal(recorded.context.actor, 'development');
+  assert.ok(recorded.context.requestId);
+});
+
+test('Elastic collector controls accept only bounded values consumed by the pipeline', async () => {
+  let recorded = null;
+  db.setSettingsAtomic = async entries => { recorded = entries; };
+  db.getAllSettings = async () => ({});
+  const accepted = await request(routeApp()).put('/api/settings').send({
+    elastic_lookback_minutes:'1440', elastic_min_risk_score:'48', elastic_limit:'200',
+  });
+  assert.equal(accepted.status, 200);
+  assert.deepEqual(recorded, [
+    ['elastic_lookback_minutes', '1440'], ['elastic_min_risk_score', '48'], ['elastic_limit', '200'],
+  ]);
+  const rejected = await request(routeApp()).put('/api/settings').send({ elastic_min_risk_score:'101' });
+  assert.equal(rejected.status, 400);
+});
+
 test('Phase 9 autonomous and simulated-response policy settings remain explicitly opt-in', async () => {
-  db.setSetting = async () => {};
+  db.setSettingsAtomic = async () => {};
   db.getAllSettings = async () => ({ autonomous_agent_enabled:'true' });
   const enabled = await request(routeApp()).put('/api/settings').send({
     autonomous_agent_enabled:'true', autonomous_lookback_hours:'24',

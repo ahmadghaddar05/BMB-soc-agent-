@@ -11,13 +11,51 @@ const reports = require('../services/reports');
 const workflows = require('./workflows');
 const actions = require('./actions');
 const responses = require('./responses');
+const admin = require('./admin');
 const { POLICY_VERSION: AUTONOMOUS_POLICY_VERSION, runAutonomousAgent } = require('../workers/autonomous');
+const { requireRoles } = require('../middleware/auth');
 
 const r = Router();
 
+const ANALYST_READ_PREFIXES = Object.freeze([
+  '/health', '/collector/status', '/agent/status', '/alerts', '/alert-groups',
+  '/incidents', '/pivot', '/stats', '/investigations', '/cases', '/actions',
+  '/action-policy', '/responses', '/reports',
+]);
+
+const EXECUTIVE_READ_PREFIXES = Object.freeze([
+  '/health', '/collector/status', '/agent/status', '/executive/overview', '/incidents',
+]);
+
+function pathMatchesPrefix(path, prefix) {
+  return path === prefix || path.startsWith(`${prefix}/`);
+}
+
+function requireRoleReadAccess(req, res, next) {
+  if (!['GET', 'HEAD'].includes(req.method)) return next();
+  if (req.path === '/health') return next();
+
+  const role = req.user?.role;
+  if (role === 'administrator') return next();
+
+  if (role === 'soc_analyst' && ANALYST_READ_PREFIXES.some(prefix => pathMatchesPrefix(req.path, prefix))) {
+    return next();
+  }
+
+  if (role === 'executive') {
+    const executiveReport = req.path === '/reports/alerts' || req.path === '/reports/incidents';
+    if (executiveReport && req.query.detailed !== 'true' && req.query.type !== 'detailed') return next();
+    if (EXECUTIVE_READ_PREFIXES.some(prefix => pathMatchesPrefix(req.path, prefix))) return next();
+  }
+
+  return res.status(403).json({ error: 'This role cannot access the requested resource' });
+}
+
+r.use(requireRoleReadAccess);
 r.use(workflows);
 r.use(actions);
 r.use(responses);
+r.use('/admin', admin);
 
 const SEVERITIES = new Set(['critical','high','medium','low','informational']);
 const VERDICTS = new Set(['true_positive','false_positive','needs_investigation','benign_anomaly']);
@@ -110,6 +148,8 @@ function healthBand(score) {
 
 const SETTING_KEYS = new Set([
   'scheduler_enabled','interval_minutes','lookback_minutes','min_level','limit',
+  'elastic_cursor_enabled','elastic_lookback_minutes','elastic_min_risk_score','elastic_limit',
+  'elastic_cursor_page_size','elastic_cursor_max_pages','elastic_cursor_delay_seconds',
   'triage_mode','triage_enabled',
   'autoclose_enabled','autoclose_confidence','autoclose_max_severity','autoclose_verdicts',
   'correlation_enabled','correlation_lookback_hours','correlation_max_alerts',
@@ -126,12 +166,15 @@ const SETTING_KEYS = new Set([
 
 const BOOLEAN_SETTINGS = new Set([
   'scheduler_enabled','triage_enabled','autoclose_enabled','correlation_enabled',
+  'elastic_cursor_enabled',
   'caching_enabled','incident_promote_enabled',
   'autonomous_agent_enabled','autonomous_assignment_enabled','simulated_response_proposals_enabled',
 ]);
 
 const INTEGER_SETTING_LIMITS = {
   interval_minutes:[1,1440], lookback_minutes:[1,10080], min_level:[0,20], limit:[1,5000],
+  elastic_lookback_minutes:[1,525600], elastic_min_risk_score:[0,100], elastic_limit:[1,5000],
+  elastic_cursor_page_size:[1,1000], elastic_cursor_max_pages:[1,100], elastic_cursor_delay_seconds:[0,3600],
   correlation_lookback_hours:[1,168], correlation_max_alerts:[2,80],
   correlation_new_alerts_per_cycle:[1,50], correlation_initial_alerts:[2,40],
   correlation_context_pool:[10,300], correlation_entity_window_hours:[1,48],
@@ -191,7 +234,7 @@ r.get('/settings', async (_, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-r.put('/settings', async (req, res) => {
+r.put('/settings', requireRoles('administrator'), async (req, res) => {
   try {
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
       return res.status(400).json({ error: 'settings body must be an object' });
@@ -203,7 +246,10 @@ r.put('/settings', async (req, res) => {
     const validationErrors = entries.map(([key,value]) => validateSetting(key,value)).filter(Boolean);
     if (validationErrors.length) return res.status(400).json({ error: validationErrors.join('; ') });
     const updates = entries;
-    for (const [k, v] of updates) await db.setSetting(k, v);
+    await db.setSettingsAtomic(updates, {
+      actor: req.user?.username || 'unknown',
+      requestId: req.id || null,
+    });
 
     // If scheduler settings changed, restart the cron
     const schedulerKeys = ['scheduler_enabled','interval_minutes'];
@@ -406,7 +452,7 @@ r.get('/collector/status', async (_, res) => {
   }
 });
 
-r.post('/scheduler/run-now', async (_, res) => {
+r.post('/scheduler/run-now', requireRoles('administrator'), async (_, res) => {
   try {
     // triggerNow now awaits the full cycle and returns the result
     const result = await scheduler.triggerNow();
@@ -416,12 +462,12 @@ r.post('/scheduler/run-now', async (_, res) => {
   }
 });
 
-r.post('/scheduler/enrich-pending', async (_, res) => {
+r.post('/scheduler/enrich-pending', requireRoles('administrator'), async (_, res) => {
   try { res.json(await enrichPending(50)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-r.post('/scheduler/triage-pending', async (req, res) => {
+r.post('/scheduler/triage-pending', requireRoles('administrator'), async (req, res) => {
   try {
     const settings = await db.getAllSettings();
     res.json(await triagePending(settings, 20, null, {
@@ -434,7 +480,7 @@ r.post('/scheduler/triage-pending', async (req, res) => {
   }
 });
 
-r.post('/scheduler/correlate-now', async (req, res) => {
+r.post('/scheduler/correlate-now', requireRoles('administrator'), async (req, res) => {
   try {
     const settings = await db.getAllSettings();
     res.json(await correlatePending(settings, null, {
@@ -491,7 +537,7 @@ r.get('/agent/operations/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-r.post('/agent/run-now', async (req, res) => {
+r.post('/agent/run-now', requireRoles('administrator'), async (req, res) => {
   try {
     if (scheduler.status().cycle_active) {
       return res.status(409).json({ error: 'A pipeline cycle is already running' });
@@ -873,7 +919,7 @@ r.get('/alerts/:id', async (req, res) => {
 });
 
 // Re-triage a single alert
-r.post('/alerts/:id/retriage', async (req, res) => {
+r.post('/alerts/:id/retriage', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const settings = await db.getAllSettings();
     const result = await retriageAlert(req.params.id, settings, {
@@ -937,7 +983,7 @@ r.get('/incidents/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-r.patch('/incidents/:id', async (req, res) => {
+r.patch('/incidents/:id', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const idError = positiveRecordId(req.params.id, 'incident id');
     if (idError) return res.status(400).json({ error: idError });
@@ -1083,8 +1129,6 @@ r.post('/chat/stream', async (req, res) => {
     return res.status(400).json({ error: 'history is server-managed; send conversation_id instead' });
   if (conversationId != null && typeof conversationId !== 'string')
     return res.status(400).json({ error: 'conversation_id must be a UUID string' });
-  if (req.user?.role !== 'administrator')
-    return res.status(403).json({ error: 'SOC analyst access is not permitted for this account' });
   if (!runtimeConfig().hermesApiKey) {
     const response = publicHermesError(
       new HermesError('HERMES_NOT_CONFIGURED', 'Hermes is not configured', { status: 503 }), req.id
@@ -1111,8 +1155,8 @@ r.post('/chat/stream', async (req, res) => {
       conversationId: conversationId || null,
       actor: req.user?.username || 'unknown', requestId: req.id,
       authorization: {
-        canReadSoc: req.user?.role === 'administrator',
-        canRequestActions: req.user?.role === 'administrator', role: req.user?.role,
+        canReadSoc: ['executive', 'soc_analyst', 'administrator'].includes(req.user?.role),
+        canRequestActions: ['soc_analyst', 'administrator'].includes(req.user?.role), role: req.user?.role,
       },
       signal: controller.signal,
       onProgress: event => send({ type: 'progress', ...event }),
@@ -1147,9 +1191,6 @@ r.post('/chat', async (req, res) => {
     if (conversationId != null && typeof conversationId !== 'string') {
       return res.status(400).json({ error: 'conversation_id must be a UUID string' });
     }
-    if (req.user?.role !== 'administrator') {
-      return res.status(403).json({ error: 'SOC analyst access is not permitted for this account' });
-    }
     if (!runtimeConfig().hermesApiKey) {
       throw new HermesError('HERMES_NOT_CONFIGURED', 'Hermes is not configured', { status: 503 });
     }
@@ -1157,8 +1198,8 @@ r.post('/chat', async (req, res) => {
       conversationId: conversationId || null,
       actor: req.user?.username || 'unknown',
       authorization: {
-        canReadSoc: req.user?.role === 'administrator',
-        canRequestActions: req.user?.role === 'administrator', role: req.user?.role,
+        canReadSoc: ['executive', 'soc_analyst', 'administrator'].includes(req.user?.role),
+        canRequestActions: ['soc_analyst', 'administrator'].includes(req.user?.role), role: req.user?.role,
       },
       requestId: req.id,
       signal: controller.signal,

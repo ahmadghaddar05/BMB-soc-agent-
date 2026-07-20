@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight, Check, ClipboardList, Clock3, FilePlus2, FolderOpen,
@@ -24,10 +24,20 @@ export default function Investigations() {
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const detailRequest = useRef(0);
 
   async function openInvestigation(id) {
+    const requestId = ++detailRequest.current;
     setActiveId(id);
-    setActive(await api(`/investigations/${encodeURIComponent(id)}`));
+    setActive(null);
+    setError('');
+    try {
+      const detail = await api(`/investigations/${encodeURIComponent(id)}`);
+      if (detailRequest.current === requestId) setActive(detail);
+    } catch (requestError) {
+      if (detailRequest.current === requestId) setError(requestError.message || 'Investigation details could not be loaded.');
+    }
   }
 
   useEffect(() => {
@@ -55,9 +65,14 @@ export default function Investigations() {
     event?.preventDefault();
     if (!query.trim()) return;
     setLoading(true);
+    setSelected([]);
+    setError('');
     try {
       const data = await api(`/alerts?limit=50&search=${encodeURIComponent(query.trim())}`);
       setAlerts(data.alerts || []);
+    } catch (searchError) {
+      setAlerts([]);
+      setError(searchError.message || 'Evidence search failed.');
     } finally { setLoading(false); }
   }
 
@@ -87,6 +102,10 @@ export default function Investigations() {
 
   async function updateInvestigation(changes) {
     if (!active) return;
+    if (changes.status === 'closed' && !active.notes?.length) {
+      setError('Record at least one analyst finding before closing this investigation.');
+      return;
+    }
     const updated = await api(`/investigations/${encodeURIComponent(active.id)}`, {
       method: 'PATCH', body: JSON.stringify(changes),
     });
@@ -110,6 +129,7 @@ export default function Investigations() {
   }
 
   async function remove(id) {
+    if (!window.confirm('Delete this investigation workspace permanently? Its selected alerts are not deleted.')) return;
     await api(`/investigations/${encodeURIComponent(id)}`, { method: 'DELETE' });
     const remaining = investigations.filter(item => item.id !== id);
     setInvestigations(remaining);
@@ -134,6 +154,7 @@ export default function Investigations() {
       <Search /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search a user, host, IP, process, behavior, or alert reference" />
       <button disabled={loading}>{loading ? 'Searching…' : 'Search evidence'}</button>
     </form>
+    {error && <div className="module-notice danger" role="alert"><ShieldAlert />{error}</div>}
 
     <div className="investigation-layout">
       <section className="module-panel evidence-browser">

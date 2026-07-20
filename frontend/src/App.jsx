@@ -28,6 +28,11 @@ const Integrations = lazy(() => import('./pages/Integrations'));
 const Cases = lazy(() => import('./pages/Cases'));
 const Approvals = lazy(() => import('./pages/Approvals'));
 const Responses = lazy(() => import('./pages/Responses'));
+const CollectorHealth = lazy(() => import('./pages/CollectorHealth'));
+const AIConfiguration = lazy(() => import('./pages/AIConfiguration'));
+const UsersAccess = lazy(() => import('./pages/UsersAccess'));
+const AuditGovernance = lazy(() => import('./pages/AuditGovernance'));
+const DataRetention = lazy(() => import('./pages/DataRetention'));
 
 const PAGE_META = {
   '/dashboard': ['Security Overview', 'Business risk, response performance, and source trust'],
@@ -45,7 +50,12 @@ const PAGE_META = {
   '/responses': ['Safe Response Simulation', 'Non-production response verification and rollback'],
   '/playbooks': ['Playbooks', 'Recommended response procedures'],
   '/integrations': ['Integrations', 'Collector and enrichment connections'],
-  '/settings': ['Settings', 'Platform collection and AI-assisted workflow configuration'],
+  '/collector-health': ['Collector Health', 'Collection state, ingestion position, and cycle history'],
+  '/ai-configuration': ['AI Configuration', 'Hermes health and evidence-grounded workflow policies'],
+  '/users-access': ['Users & Access', 'Authentication mode and role boundaries'],
+  '/audit-governance': ['Audit & Governance', 'Durable administrative and workflow activity'],
+  '/data-retention': ['Data Retention', 'Stored coverage and lifecycle ownership'],
+  '/settings': ['Settings', 'Advanced platform configuration'],
 };
 
 function BmbLogo({ compact = false }) {
@@ -158,16 +168,21 @@ function Shell({ session, onLogout }) {
               <Route path="/alerts" element={protect(<Alerts />)} />
               <Route path="/ai-triage" element={protect(<AITriage />)} />
               <Route path="/investigations" element={protect(<Investigations />)} />
-              <Route path="/incidents" element={protect(<Incidents />)} />
+              <Route path="/incidents" element={protect(<Incidents readOnly={role === ROLES.EXECUTIVE} />)} />
               <Route path="/cases" element={protect(<Cases />)} />
               <Route path="/approvals" element={protect(<Approvals />)} />
               <Route path="/responses" element={protect(<Responses />)} />
               <Route path="/threat-intelligence" element={protect(<ThreatIntelligence />)} />
               <Route path="/assets" element={protect(<Assets />)} />
               <Route path="/vulnerabilities" element={protect(<Vulnerabilities />)} />
-              <Route path="/reports" element={protect(<Reports />)} />
+              <Route path="/reports" element={protect(<Reports role={role} />)} />
               <Route path="/playbooks" element={protect(<Playbooks />)} />
               <Route path="/integrations" element={protect(<Integrations />)} />
+              <Route path="/collector-health" element={protect(<CollectorHealth />)} />
+              <Route path="/ai-configuration" element={protect(<AIConfiguration />)} />
+              <Route path="/users-access" element={protect(<UsersAccess />)} />
+              <Route path="/audit-governance" element={protect(<AuditGovernance />)} />
+              <Route path="/data-retention" element={protect(<DataRetention />)} />
               <Route path="/settings" element={protect(<SettingsPage />)} />
               <Route path="*" element={<Navigate to={landing} replace />} />
             </Routes>

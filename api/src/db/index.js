@@ -34,6 +34,41 @@ const db = {
     );
   },
 
+  async setSettingsAtomic(entries, { actor = 'unknown', requestId = null } = {}) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const keys = entries.map(([key]) => key);
+      const previous = await client.query(
+        'SELECT key,value FROM settings WHERE key = ANY($1::text[]) FOR UPDATE',
+        [keys]
+      );
+      const before = Object.fromEntries(previous.rows.map(row => [row.key, row.value]));
+      const changes = {};
+      for (const [key, value] of entries) {
+        const nextValue = String(value);
+        await client.query(
+          `INSERT INTO settings(key,value,updated_at) VALUES($1,$2,NOW())
+           ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()`,
+          [key, nextValue]
+        );
+        changes[key] = { before: before[key] ?? null, after: nextValue };
+      }
+      await client.query(
+        `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+         VALUES($1,'settings.updated','platform_settings','global','success',$2,$3)`,
+        [actor, requestId, { changed_keys: keys, changes }]
+      );
+      await client.query('COMMIT');
+      return { changedKeys: keys, changes };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   async getAlertStats() {
     const r = await pool.query(`
       SELECT

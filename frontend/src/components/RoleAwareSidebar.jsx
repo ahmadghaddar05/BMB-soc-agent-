@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import {
-  AlertTriangle, BriefcaseBusiness, ChevronLeft, FileText, Globe2, LayoutDashboard,
-  RadioTower, Search, Server, Settings, ShieldAlert, ShieldCheck, ShieldOff, X,
+  AlertTriangle, Bot, BriefcaseBusiness, ChevronLeft, Database, FileText, Globe2, HeartPulse,
+  LayoutDashboard, RadioTower, ScrollText, Search, Server, Settings, ShieldAlert,
+  ShieldCheck, ShieldOff, Users, X,
 } from 'lucide-react';
 import { getRoleNavigation } from '../lib/roles';
 
@@ -18,6 +19,11 @@ const ICONS = {
   intelligence: Globe2,
   vulnerabilities: ShieldAlert,
   integrations: Server,
+  collector: HeartPulse,
+  ai: Bot,
+  users: Users,
+  audit: ScrollText,
+  retention: Database,
   reports: FileText,
   settings: Settings,
 };

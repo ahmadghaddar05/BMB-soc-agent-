@@ -1,6 +1,7 @@
 'use strict';
 
 const { Router } = require('express');
+const { requireRoles } = require('../middleware/auth');
 const db = require('../db');
 const { ActionError, createActionService } = require('../services/actions');
 
@@ -58,7 +59,7 @@ router.get('/responses/:id', async (req, res) => {
   } catch (error) { handle(error,res); }
 });
 
-router.post('/responses/simulate', async (req, res) => {
+router.post('/responses/simulate', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const body = req.body || {};
     const result = await actions.submit({
@@ -71,7 +72,7 @@ router.post('/responses/simulate', async (req, res) => {
   } catch (error) { handle(error,res); }
 });
 
-router.post('/responses/:id/rollback', async (req, res) => {
+router.post('/responses/:id/rollback', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const result = await actions.submit({
       actionType:'response.rollback', targetId:req.params.id, parameters:{},

@@ -62,6 +62,7 @@ export default function LiveMonitoring() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [collectorError, setCollectorError] = useState(null);
   const [paused, setPaused] = useState(false);
   const [bufferedActivities, setBufferedActivities] = useState(null);
   const [bufferedTotal, setBufferedTotal] = useState(0);
@@ -91,15 +92,22 @@ export default function LiveMonitoring() {
     if (mountedRef.current) setRefreshing(true);
 
     try {
-      const [activityData, collectorData] = await Promise.all([
+      const [activityResult, collectorResult] = await Promise.allSettled([
         api(`/alerts?page=${page}&limit=100`),
         api('/collector/status'),
       ]);
       if (!mountedRef.current) return;
 
+      if (activityResult.status === 'rejected') throw activityResult.reason;
+      const activityData = activityResult.value;
+      const collectorData = collectorResult.status === 'fulfilled' ? collectorResult.value : null;
+
       const nextActivities = activityData.alerts || [];
       const checkedAt = new Date();
-      setCollector(collectorData);
+      if (collectorData) setCollector(collectorData);
+      setCollectorError(collectorResult.status === 'rejected'
+        ? collectorResult.reason?.message || 'Collector health is unavailable.'
+        : null);
       setLastCheckedAt(checkedAt);
       setError(null);
 
@@ -132,10 +140,13 @@ export default function LiveMonitoring() {
   useEffect(() => {
     mountedRef.current = true;
     refresh();
-    const timer = window.setInterval(refresh, REFRESH_INTERVAL_MS);
+    const refreshWhenVisible = () => { if (!document.hidden) refresh(); };
+    const timer = window.setInterval(refreshWhenVisible, REFRESH_INTERVAL_MS);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       mountedRef.current = false;
       window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [refresh]);
 
@@ -265,6 +276,15 @@ export default function LiveMonitoring() {
             <div className="min-w-0">
               <strong className="block text-sm text-rose-100">Monitoring refresh failed</strong>
               <span className="mt-1 block text-sm text-rose-200/70">{error}</span>
+            </div>
+          </div>
+        )}
+        {!error && collectorError && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-300/25 bg-amber-300/[0.07] px-4 py-3" role="status">
+            <AlertTriangle className="mt-0.5 h-5 w-5 flex-none text-amber-200" aria-hidden="true" />
+            <div className="min-w-0">
+              <strong className="block text-sm text-amber-100">Alerts are live; collector health is unavailable</strong>
+              <span className="mt-1 block text-sm text-amber-100/70">{collectorError}</span>
             </div>
           </div>
         )}

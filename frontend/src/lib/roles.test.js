@@ -23,7 +23,10 @@ describe('role-aware presentation model', () => {
     expect(executiveLinks).toEqual(['/dashboard', '/reports']);
     expect(analystLinks).toContain('/alerts');
     expect(analystLinks).not.toContain('/settings');
-    expect(adminLinks).toEqual(['/integrations', '/reports', '/settings']);
+    expect(adminLinks).toEqual([
+      '/integrations', '/collector-health', '/ai-configuration', '/users-access',
+      '/audit-governance', '/data-retention', '/reports', '/settings',
+    ]);
     expect(ROLE_LABELS[ROLES.SOC_ANALYST]).toBe('SOC Analyst');
   });
 
@@ -33,5 +36,7 @@ describe('role-aware presentation model', () => {
     expect(canAccessRoute(ROLES.SOC_ANALYST, '/settings')).toBe(false);
     expect(canAccessRoute(ROLES.SOC_ANALYST, '/responses')).toBe(true);
     expect(canAccessRoute(ROLES.ADMINISTRATOR, '/settings')).toBe(true);
+    expect(canAccessRoute(ROLES.ADMINISTRATOR, '/collector-health')).toBe(true);
+    expect(canAccessRoute(ROLES.ADMINISTRATOR, '/alerts')).toBe(false);
   });
 });

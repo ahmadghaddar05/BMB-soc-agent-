@@ -99,7 +99,7 @@ describe('authenticated application flows', () => {
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);
       calls.push(url);
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'mock' });
       if (url.includes('/alert-groups?')) return jsonResponse({ total:1, groups:[{
         representative_alert_id:'alert-1', group_key:'group-1', rule_desc:'Suspicious login',
@@ -130,7 +130,7 @@ describe('authenticated application flows', () => {
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);
       calls.push(url);
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'ciso', role:'executive' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
       if (url.endsWith('/executive/overview?days=30')) return jsonResponse({
         generated_at:new Date().toISOString(), window_days:30,
@@ -159,7 +159,7 @@ describe('authenticated application flows', () => {
   it('renders dedicated monitoring with specific titles and source severity', async () => {
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
       if (url.endsWith('/alerts?page=1&limit=100')) return jsonResponse({ total:1, alerts:[{
         id:'elastic:credential-1',
@@ -179,11 +179,52 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('high');
   });
 
+  it('keeps live alerts visible when collector health is temporarily unavailable', async () => {
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'degraded', source:'elastic' });
+      if (url.endsWith('/alerts?page=1&limit=100')) return jsonResponse({ total:1, alerts:[{
+        id:'elastic:live-1', rule_desc:'Credential dumping detected', source_severity:'critical',
+        hostname:'FIN-WS001', event_dataset:'edr.endpoint', timestamp:new Date().toISOString(),
+      }] });
+      if (url.endsWith('/collector/status')) return jsonResponse({ error:'Collector status timed out' }, 503);
+      return jsonResponse({});
+    });
+
+    await renderAt('/live-monitoring');
+
+    expect(document.body.textContent).toContain('Credential dumping detected');
+    expect(document.body.textContent).toContain('Alerts are live; collector health is unavailable');
+  });
+
+  it('renders incident evidence read-only for an executive session', async () => {
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'ciso', role:'executive' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.includes('/incidents?status=open')) return jsonResponse({ total:1, incidents:[{
+        id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[], first_seen:new Date().toISOString(),
+      }] });
+      if (url.endsWith('/incidents/7')) return jsonResponse({
+        id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[], alerts:[],
+        first_seen:new Date().toISOString(), last_seen:new Date().toISOString(),
+      });
+      return jsonResponse({});
+    });
+
+    await renderAt('/incidents?incident=7');
+
+    expect(document.body.textContent).toContain('Executive review');
+    expect(document.body.textContent).not.toContain('Close incident record');
+    expect(document.body.textContent).not.toContain('Assign to SOC Analyst');
+  });
+
   it('uses one URL-backed executive drawer and closes it with Escape', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'ciso', role:'executive' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
       if (url.endsWith('/executive/overview?days=30')) return jsonResponse({
         generated_at:new Date().toISOString(), window_days:30,
@@ -218,7 +259,7 @@ describe('authenticated application flows', () => {
     globalThis.fetch = vi.fn(async (input, options = {}) => {
       const url = String(input);
       requests.push({ url, options });
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'mock' });
       if (url.includes('/incidents?status=')) return jsonResponse({ total:1, incidents:[{ id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[] }] });
       if (url.endsWith('/incidents/7') && (options.method || 'GET') === 'PATCH') return jsonResponse({ id:7, status:'closed' });
@@ -243,7 +284,7 @@ describe('authenticated application flows', () => {
     globalThis.fetch = vi.fn(async (input, options = {}) => {
       const url = String(input);
       requests.push({ url, options });
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'admin', role:'administrator' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
       if (url.endsWith('/settings') && (options.method || 'GET') === 'PUT') {
         return jsonResponse({ ok:true, settings:JSON.parse(options.body) });
@@ -260,13 +301,12 @@ describe('authenticated application flows', () => {
       return jsonResponse({});
     });
 
-    await renderAt('/settings');
-    const heading = [...document.querySelectorAll('h3')].find(node => node.textContent.includes('Hermes correlation'));
-    expect(heading).toBeTruthy();
-    const section = heading.parentElement;
-    const toggle = section.querySelector('button');
+    await renderAt('/ai-configuration');
+    const toggle = document.querySelector('[role="switch"][aria-label="Scheduled correlation"]');
+    expect(toggle).toBeTruthy();
+    const section = toggle.closest('section');
     await act(async () => toggle.click());
-    const save = [...section.querySelectorAll('button')].find(button => button.textContent.includes('Save correlation policy'));
+    const save = [...section.querySelectorAll('button')].find(button => button.textContent.includes('Save policy'));
     await act(async () => save.click());
     await settle();
 
@@ -283,7 +323,7 @@ describe('authenticated application flows', () => {
     globalThis.fetch = vi.fn(async (input, options = {}) => {
       const url = String(input);
       requests.push({ url, options });
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'admin', role:'administrator' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
       if (url.endsWith('/settings') && options.method === 'PUT') return jsonResponse({ ok:true, settings:JSON.parse(options.body) });
       if (url.endsWith('/settings')) return jsonResponse({
@@ -298,12 +338,12 @@ describe('authenticated application flows', () => {
       return jsonResponse({});
     });
 
-    await renderAt('/settings');
-    const heading = [...document.querySelectorAll('h3')].find(node => node.textContent.includes('AI-assisted SOC workflows'));
-    expect(heading).toBeTruthy();
-    const section = heading.parentElement;
-    await act(async () => section.querySelector('button').click());
-    const save = [...section.querySelectorAll('button')].find(button => button.textContent.includes('Save workflow policy'));
+    await renderAt('/ai-configuration');
+    const toggle = document.querySelector('[role="switch"][aria-label="Workflow assistance"]');
+    expect(toggle).toBeTruthy();
+    const section = toggle.closest('section');
+    await act(async () => toggle.click());
+    const save = [...section.querySelectorAll('button')].find(button => button.textContent.includes('Save policy'));
     await act(async () => save.click());
     await settle();
 
@@ -321,7 +361,7 @@ describe('authenticated application flows', () => {
     globalThis.fetch = vi.fn(async (input, options = {}) => {
       const url = String(input);
       requests.push({ url, options });
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
       if (url.endsWith('/investigations?limit=100')) return jsonResponse({ investigations:[], total:0 });
       if (url.includes('/alerts?limit=50&search=maya')) return jsonResponse({ alerts:[{
@@ -359,7 +399,7 @@ describe('authenticated application flows', () => {
     globalThis.fetch = vi.fn(async (input, options = {}) => {
       const url = String(input);
       requests.push({ url, options });
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
       if (url.endsWith('/cases?limit=100')) return jsonResponse({ cases:[item], total:1 });
       if (url.endsWith('/cases/7') && options.method === 'PATCH') return jsonResponse({ ...item, owner:'SOC Analyst' });
@@ -394,7 +434,7 @@ describe('authenticated application flows', () => {
     globalThis.fetch = vi.fn(async (input, options = {}) => {
       const url = String(input);
       requests.push({ url, options });
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
       if (url.includes('/actions?page=1&limit=100&status=pending')) return jsonResponse({ actions:[pending], total:1 });
       if (url.includes('/actions?page=1&limit=100')) return jsonResponse({ actions:[], total:0 });
@@ -434,7 +474,7 @@ describe('authenticated application flows', () => {
     globalThis.fetch = vi.fn(async (input, options = {}) => {
       const url = String(input);
       requests.push({ url, options });
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
       if (url.includes('/responses?page=1&limit=100')) return jsonResponse({ responses:[response], total:1 });
       if (url.endsWith(`/responses/${response.id}/rollback`) && options.method === 'POST') {
@@ -468,7 +508,7 @@ describe('authenticated application flows', () => {
   it('surfaces API failure states to the analyst', async () => {
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);
-      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'degraded', source:'mock' });
       if (url.includes('/alert-groups?')) return jsonResponse({ error:{ code:'COLLECTOR_DOWN', message:'Collector unavailable', request_id:'failure-1' } }, 503);
       return jsonResponse({});

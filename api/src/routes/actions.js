@@ -3,6 +3,7 @@
 const { Router } = require('express');
 const db = require('../db');
 const { ActionError, POLICY, POLICY_VERSION, createActionService } = require('../services/actions');
+const { requireRoles } = require('../middleware/auth');
 
 const router = Router();
 const actions = createActionService(db);
@@ -50,7 +51,7 @@ router.get('/actions/:id', async (req, res) => {
   } catch (error) { handle(error, res); }
 });
 
-router.post('/actions', async (req, res) => {
+router.post('/actions', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const body = req.body || {};
     const result = await actions.submit({
@@ -62,7 +63,7 @@ router.post('/actions', async (req, res) => {
   } catch (error) { handle(error, res); }
 });
 
-router.post('/actions/:id/decision', async (req, res) => {
+router.post('/actions/:id/decision', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const result = await actions.decide({
       id: req.params.id, decision: req.body?.decision, reason: req.body?.reason,
