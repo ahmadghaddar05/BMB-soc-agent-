@@ -204,6 +204,11 @@ export function pipelineState(agent = {}, collector = {}) {
 
 export function technicalLink(selection = {}, detail = {}) {
   if (selection.type === 'risk-summary') return '/incidents?status=open';
+  if (selection.type === 'metric') {
+    if (detail.evidence_type === 'assets') return '/assets';
+    if (detail.evidence_type === 'automation') return '/reports';
+    return '/incidents?status=open';
+  }
   const operation = selection.type === 'automation' ? { ...(selection.seed || {}), ...(detail || {}) } : null;
   if (selection.type === 'incident' || operation?.source_type === 'case') {
     const id = selection.type === 'incident' ? selection.id : operation.source_id;

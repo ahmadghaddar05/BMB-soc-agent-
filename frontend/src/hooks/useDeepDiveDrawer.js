@@ -21,12 +21,20 @@ function reducer(state, action) {
 function selectionFromParams(params) {
   const type = params.get('detail');
   const id = params.get('id');
-  if (!type || !id || !['risk-summary','incident','asset','automation'].includes(type)) return null;
+  if (!type || !id || !['risk-summary','incident','asset','automation','metric'].includes(type)) return null;
   const days = type === 'asset' && [7,30,90].includes(Number(params.get('days'))) ? Number(params.get('days')) : null;
   return { type, id, days, key:`${type}:${id}:${days || ''}` };
 }
 
 async function loadSelection(selection, seed, signal) {
+  if (selection.type === 'metric') {
+    if (seed?.evidence_type === 'risk-summary') {
+      const result = await api('/incidents?status=open&page=1&limit=100', { signal });
+      return { ...seed, evidence:result.incidents || [], total:result.total || 0 };
+    }
+    if (seed?.evidence_type === 'assets') return { ...seed, evidence:seed?.overview?.top_assets || [] };
+    return { ...seed, evidence:[] };
+  }
   if (selection.type === 'risk-summary') {
     const result = await api('/incidents?status=open&page=1&limit=100', { signal });
     return { ...seed, incidents:result.incidents || [], total:result.total || 0 };
