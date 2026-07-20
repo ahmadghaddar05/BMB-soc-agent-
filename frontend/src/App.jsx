@@ -72,11 +72,15 @@ function Shell({ session, onLogout }) {
   const [search, setSearch] = useState('');
   const [platformHealth, setPlatformHealth] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem('bmb-theme') || 'dark');
-  const [previewRole, setPreviewRole] = useState(null);
+  const [previewRole, setPreviewRole] = useState(() => {
+    const stored = localStorage.getItem('bmb-experience-preview');
+    return Object.values(ROLES).includes(stored) ? stored : null;
+  });
   const location = useLocation();
   const navigate = useNavigate();
   const authenticatedRole = normalizeRole(session.user.role);
-  const role = import.meta.env.DEV && previewRole ? previewRole : authenticatedRole;
+  const canPreviewExperiences = import.meta.env.DEV || authenticatedRole === ROLES.ADMINISTRATOR;
+  const role = canPreviewExperiences && previewRole ? previewRole : authenticatedRole;
   const landing = getRoleLanding(role);
   const [title, subtitle] = PAGE_META[location.pathname] || PAGE_META[landing];
 
@@ -113,7 +117,13 @@ function Shell({ session, onLogout }) {
   }
 
   function changePreviewRole(nextRole) {
-    setPreviewRole(nextRole);
+    if (nextRole === authenticatedRole) {
+      localStorage.removeItem('bmb-experience-preview');
+      setPreviewRole(null);
+    } else {
+      localStorage.setItem('bmb-experience-preview', nextRole);
+      setPreviewRole(nextRole);
+    }
     setMobileOpen(false);
     navigate(getRoleLanding(nextRole));
   }
@@ -147,7 +157,7 @@ function Shell({ session, onLogout }) {
             </form>
           )}
           <div className="topbar-actions">
-            <RolePreviewSelector enabled={import.meta.env.DEV} role={role} onChange={changePreviewRole} />
+            <RolePreviewSelector enabled={canPreviewExperiences} role={role} onChange={changePreviewRole} />
             <button type="button" className="theme-toggle" onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
               {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
             </button>

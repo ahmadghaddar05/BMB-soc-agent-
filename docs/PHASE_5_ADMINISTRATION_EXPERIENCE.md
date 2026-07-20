@@ -21,7 +21,7 @@ The administrator sidebar is now intentionally limited to:
 
 SOC alert queues, investigations, cases, approvals, and response simulation are hidden from the administrator experience. Their APIs are reserved for the SOC Analyst role. Executive pages remain separate.
 
-The development-only role preview still changes presentation only. It does not change the authenticated server role and is not a production authorization control.
+An authenticated Administrator can use the header **View as** selector to preview the Executive, SOC Analyst, or Administrator experience without restarting the API. The selection is stored only in that browser and changes presentation and landing-page routing, not the authenticated server role or its permissions. Non-administrator production sessions do not receive this selector.
 
 ## What each administration area does
 
