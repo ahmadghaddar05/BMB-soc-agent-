@@ -287,12 +287,12 @@ export default function Settings() {
         </div>
       </Section>
 
-      {/* ── Autonomous internal orchestration ── */}
-      <Section title="Autonomous SOC agent">
+      {/* AI-assisted internal orchestration. Backend setting names remain stable. */}
+      <Section title="AI-assisted SOC workflows">
         <div className="rounded-lg border border-cyan-900/60 bg-cyan-950/20 p-3 text-xs text-cyan-200">
           Phase 9 creates grounded investigations and timeline notes automatically. It can also propose reversible response simulations for critical cases. Every simulated isolation, identity suspension, or IP block requires approval and never changes an external system.
         </div>
-        <Row label="Enable autonomous orchestration"
+        <Row label="Enable analyst-guided orchestration"
              hint="Runs after collection, enrichment, triage, and correlation in each scheduled cycle">
           <Toggle {...toggle('autonomous_agent_enabled')} />
         </Row>
@@ -302,7 +302,7 @@ export default function Settings() {
         <Row label="Minimum confidence" hint="Only high/critical evidence at or above this confidence is automated">
           <input className="input w-24" type="number" min="0" max="1" step="0.05" {...field('autonomous_min_confidence')} />
         </Row>
-        <Row label="Maximum work items" hint="Bounds investigations considered during one autonomous run">
+        <Row label="Maximum work items" hint="Bounds investigations considered during one AI-assisted run">
           <input className="input w-24" type="number" min="1" max="100" {...field('autonomous_max_items')} />
         </Row>
         <Row label="Propose critical-case assignment" hint="Creates a pending approval; it never assigns an owner directly">
@@ -325,7 +325,7 @@ export default function Settings() {
               autonomous_default_owner:s.autonomous_default_owner || 'SOC Analyst',
               simulated_response_proposals_enabled:s.simulated_response_proposals_enabled || 'false',
             })}>
-            <Save className="w-4 h-4"/> Save autonomous policy
+            <Save className="w-4 h-4"/> Save workflow policy
           </button>
           <button className="btn-secondary" disabled={loading}
             onClick={async()=>{

@@ -179,8 +179,8 @@ export function operationWin(operation = {}) {
 }
 
 export function pipelineState(agent = {}, collector = {}) {
-  if (agent.enabled === false) return { stage:'disabled', message:'Autonomous workflows are disabled by policy', active:false };
-  if (agent.enabled == null) return { stage:'unknown', message:'Checking autonomous agent status', active:false };
+  if (agent.enabled === false) return { stage:'disabled', message:'AI-assisted workflows are disabled by policy', active:false };
+  if (agent.enabled == null) return { stage:'unknown', message:'Checking AI-assisted workflow status', active:false };
   const latestRun = agent.latest_run || {};
   const latestCollection = collector.latest_run || {};
   const runningOperation = (agent.recent_operations || []).find(item => item.status === 'running');
@@ -199,7 +199,7 @@ export function pipelineState(agent = {}, collector = {}) {
   if (cycleRunning) return { stage:'collect', message:'Collecting new detections from Elastic', active:true };
   if (latestRun.status === 'running') return { stage:'workflow', message:'Reviewing qualified evidence for internal workflow updates', active:true };
   if (asNumber(agent.pending_approvals) > 0) return { stage:'approval', message:`Waiting for analyst review on ${agent.pending_approvals} approval request${asNumber(agent.pending_approvals) === 1 ? '' : 's'}`, active:false };
-  return { stage:'monitor', message:'Monitoring continuously — no autonomous work is currently queued', active:false };
+  return { stage:'monitor', message:'Monitoring continuously — no AI-assisted work is currently queued', active:false };
 }
 
 export function technicalLink(selection = {}, detail = {}) {

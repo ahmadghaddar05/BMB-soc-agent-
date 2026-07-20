@@ -55,7 +55,7 @@ export default function ExecutiveKpiGrid({ overview, onOpenRisks }) {
       </CardShell>
 
       <CardShell>
-        <Header icon={Bot} title="AI Automation Efficiency" tone="purple" />
+        <Header icon={Bot} title="AI Triage Coverage" tone="purple" />
         <div className="mt-6"><strong className="block text-[40px] font-semibold leading-none tracking-[-.045em] text-[#b5a9ff] tabular-nums">{triageRate == null ? '—' : `${triageRate}%`}</strong><p className="mt-2 text-sm font-medium text-[#a9bac6]">AI triage coverage</p></div>
         <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-[#172b3c]" aria-hidden="true"><i className="block h-full rounded-full bg-gradient-to-r from-[#765ee8] to-[#b19cff]" style={{ width:`${triageRate || 0}%` }} /></div>
         <p className="mt-3 text-xs leading-5 text-[#8098aa]">{asNumber(automation.triaged).toLocaleString()} of {asNumber(automation.activities_seen).toLocaleString()} activities received AI triage. Correlation and investigation outputs are tracked separately; automatic incident closure and external containment are not enabled.</p>

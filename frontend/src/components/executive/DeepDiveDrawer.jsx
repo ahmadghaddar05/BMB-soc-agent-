@@ -62,7 +62,7 @@ function drawerCopy(state) {
   const incident = data?.incident;
   const verdict = asObject(data?.alert?.verdict);
   return {
-    title:win.title, eyebrow:'Autonomous workflow outcome',
+    title:win.title, eyebrow:'AI-assisted workflow outcome',
     summary:incident?.narrative || verdict.summary || win.summary,
   };
 }

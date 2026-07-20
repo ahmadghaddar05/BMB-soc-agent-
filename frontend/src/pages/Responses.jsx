@@ -51,7 +51,7 @@ export default function Responses() {
   }
 
   return <div className="module-page responses-page">
-    <div className="module-hero compact"><div><span className="eyebrow"><ShieldOff />Safe response testing</span><h2>Response Simulation Lab</h2><p>Validate what a containment action would target, why it was proposed, and how rollback would work—without changing an external system.</p></div><span className="live-pill"><i />{items.filter(item => item.state === 'active').length} active simulations</span></div>
+    <div className="module-hero compact"><div><span className="eyebrow"><ShieldOff />Safe response testing</span><h2>Safe Response Simulation</h2><p>Validate what a containment action would target, why it was proposed, and how rollback would work—without changing an external system.</p></div><span className="live-pill"><i />{items.filter(item => item.state === 'active').length} active simulations</span></div>
     <div className="response-safety"><ShieldOff /><div><strong>Proposal → approval → simulated activation → verification → rollback</strong><span>This lab never isolates endpoints, suspends identities, blocks IPs, or writes to Elastic. It is an audited rehearsal environment for safely testing the agent’s response reasoning.</span></div></div>
     <div className="approval-toolbar"><div><button className={state === 'all' ? 'active' : ''} onClick={() => setState('all')}>All</button><button className={state === 'active' ? 'active' : ''} onClick={() => setState('active')}>Active</button><button className={state === 'reverted' ? 'active' : ''} onClick={() => setState('reverted')}>Reverted</button></div><button className="refresh" onClick={() => load()} disabled={loading}><RefreshCw />Refresh</button></div>
     <div className="response-layout">

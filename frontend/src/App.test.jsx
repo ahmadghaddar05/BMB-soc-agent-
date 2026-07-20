@@ -40,6 +40,60 @@ describe('authenticated application flows', () => {
     await settle();
   }
 
+  it('uses the authenticated role for navigation and redirects unauthorized executive routes', async () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'ciso', role:'executive' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/executive/overview?days=30')) return jsonResponse({
+        generated_at:new Date().toISOString(), window_days:30,
+        health:{ score:90, status:'healthy', drivers:[] },
+        business_risks:{ total:0, by_impact:{ high:0, medium:0, low:0 } },
+        automation:{ activities_seen:0, triaged:0, triage_rate:0 },
+        time_saved:{ hours:0, period_days:30 }, risk_trend:[], top_assets:[],
+      });
+      if (url.endsWith('/agent/status')) return jsonResponse({ enabled:false, readiness:{}, recent_operations:[] });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:false, scheduler_running:false } });
+      return jsonResponse({});
+    });
+
+    await renderAt('/alerts');
+
+    expect(window.location.pathname).toBe('/dashboard');
+    expect(document.body.textContent).toContain('Executive Reports');
+    expect(document.body.textContent).not.toContain('Technical Triage');
+    expect(document.querySelector('.global-search')).toBeNull();
+  });
+
+  it('switches role experience through the development-only preview without changing authentication', async () => {
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'admin', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/alerts?page=1&limit=100')) return jsonResponse({ total:0, alerts:[] });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:false } });
+      return jsonResponse({});
+    });
+
+    await renderAt('/integrations');
+    const preview = document.querySelector('[aria-label="Preview experience as role"]');
+    expect(preview).toBeTruthy();
+    expect(document.body.textContent).toContain('Integrations');
+
+    await act(async () => {
+      preview.value = 'soc_analyst';
+      preview.dispatchEvent(new Event('change', { bubbles:true }));
+    });
+    await vi.dynamicImportSettled();
+    await settle();
+
+    expect(window.location.pathname).toBe('/live-monitoring');
+    expect(document.body.textContent).toContain('Security Operations');
+    expect(document.body.textContent).toContain('SOC Analyst preview');
+    expect(document.body.textContent).not.toContain('Administration');
+  });
+
   it('routes to alert search and loads the selected alert detail', async () => {
     const calls = [];
     globalThis.fetch = vi.fn(async input => {
@@ -96,7 +150,7 @@ describe('authenticated application flows', () => {
     expect(calls.some(url => url.endsWith('/executive/overview?days=30'))).toBe(true);
     expect(calls.some(url => url.includes('/alerts?'))).toBe(false);
     expect(document.body.textContent).toContain('Global Security Health Index');
-    expect(document.body.textContent).toContain('AI Automation Efficiency');
+    expect(document.body.textContent).toContain('AI Triage Coverage');
     expect(document.body.textContent).toContain('90%');
     expect(document.body.textContent).toContain('automatic incident closure and external containment are not enabled');
     expect(document.body.textContent).not.toContain('Live Security Feed');
@@ -245,11 +299,11 @@ describe('authenticated application flows', () => {
     });
 
     await renderAt('/settings');
-    const heading = [...document.querySelectorAll('h3')].find(node => node.textContent.includes('Autonomous SOC agent'));
+    const heading = [...document.querySelectorAll('h3')].find(node => node.textContent.includes('AI-assisted SOC workflows'));
     expect(heading).toBeTruthy();
     const section = heading.parentElement;
     await act(async () => section.querySelector('button').click());
-    const save = [...section.querySelectorAll('button')].find(button => button.textContent.includes('Save autonomous policy'));
+    const save = [...section.querySelectorAll('button')].find(button => button.textContent.includes('Save workflow policy'));
     await act(async () => save.click());
     await settle();
 
@@ -394,7 +448,7 @@ describe('authenticated application flows', () => {
     });
 
     await renderAt('/responses');
-    expect(document.body.textContent).toContain('Response Simulation Lab');
+    expect(document.body.textContent).toContain('Safe Response Simulation');
     expect(document.body.textContent).toContain('server-1');
     expect(document.body.textContent).toContain('active confirmed in the BMB simulation ledger');
     const textarea = document.querySelector('.response-rollback textarea');
