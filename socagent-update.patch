@@ -1,0 +1,1663 @@
+diff --git a/api/src/routes/index.js b/api/src/routes/index.js
+index cf6ae2d..4aae599 100644
+--- a/api/src/routes/index.js
++++ b/api/src/routes/index.js
+@@ -2,7 +2,8 @@
+ const { Router } = require('express');
+ const db = require('../db');
+ const scheduler = require('../workers/scheduler');
+-const { runCycle, enrichPending, triagePending } = require('../workers/pipeline');
++const { runCycle, enrichPending, triagePending, correlatePending } = require('../workers/pipeline');
++const { chatAgent } = require('../services/llm');
+ 
+ const r = Router();
+ 
+@@ -28,6 +29,8 @@ r.put('/settings', async (req, res) => {
+       'scheduler_enabled','interval_minutes','lookback_minutes','min_level','limit',
+       'llm_provider','groq_model','ollama_model','triage_mode',
+       'autoclose_enabled','autoclose_confidence','autoclose_max_severity','autoclose_verdicts',
++      'correlation_enabled','correlation_lookback_hours','correlation_max_alerts',
++      'caching_enabled',
+     ];
+     const updates = Object.entries(req.body).filter(([k]) => allowed.includes(k));
+     for (const [k, v] of updates) await db.setSetting(k, v);
+@@ -74,6 +77,13 @@ r.post('/scheduler/triage-pending', async (_, res) => {
+   } catch (e) { res.status(500).json({ error: e.message }); }
+ });
+ 
++r.post('/scheduler/correlate-now', async (_, res) => {
++  try {
++    const settings = await db.getAllSettings();
++    res.json(await correlatePending(settings));
++  } catch (e) { res.status(500).json({ error: e.message }); }
++});
++
+ // ────────────────────────────────────────────────────────────────────────────
+ // Alerts
+ // ────────────────────────────────────────────────────────────────────────────
+@@ -126,6 +136,27 @@ r.get('/alerts', async (req, res) => {
+   } catch (e) { res.status(500).json({ error: e.message }); }
+ });
+ 
++// Top alerts to investigate right now — MUST be declared before '/alerts/:id'
++// or Express treats "critical" as an :id.
++r.get('/alerts/critical', async (req, res) => {
++  try {
++    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
++    const { rows } = await db.query(
++      `SELECT id, timestamp, rule_level, rule_desc, src_ip, username, hostname,
++              verdict->>'severity' AS severity, verdict->>'verdict' AS verdict,
++              verdict->>'narrative' AS narrative, verdict->'recommended_actions' AS recommended_actions
++       FROM alerts
++       WHERE triage_status='triaged' AND auto_closed=false
++         AND verdict->>'verdict' IN ('true_positive','needs_investigation')
++       ORDER BY CASE verdict->>'severity'
++                  WHEN 'critical' THEN 0 WHEN 'high' THEN 1
++                  WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
++                rule_level DESC, timestamp DESC
++       LIMIT $1`, [limit]);
++    res.json({ count: rows.length, alerts: rows });
++  } catch (e) { res.status(500).json({ error: e.message }); }
++});
++
+ r.get('/alerts/:id', async (req, res) => {
+   try {
+     const r = await db.query('SELECT * FROM alerts WHERE id=$1', [req.params.id]);
+@@ -248,6 +279,20 @@ r.get('/pivot', async (req, res) => {
+   } catch (e) { res.status(500).json({ error: e.message }); }
+ });
+ 
++// ────────────────────────────────────────────────────────────────────────────
++// SOC assistant chatbot
++// ────────────────────────────────────────────────────────────────────────────
++r.post('/chat', async (req, res) => {
++  try {
++    const { message, history } = req.body || {};
++    if (!message || typeof message !== 'string')
++      return res.status(400).json({ error: 'message (string) required' });
++    const settings = await db.getAllSettings();
++    const result = await chatAgent(message, history || [], settings);
++    res.json(result);
++  } catch (e) { res.status(500).json({ error: e instanceof Error ? e.message : String(e) }); }
++});
++
+ // ────────────────────────────────────────────────────────────────────────────
+ // Dashboard stats
+ // ────────────────────────────────────────────────────────────────────────────
+diff --git a/api/src/services/dbtools.js b/api/src/services/dbtools.js
+new file mode 100644
+index 0000000..45663d5
+--- /dev/null
++++ b/api/src/services/dbtools.js
+@@ -0,0 +1,141 @@
++'use strict';
++const db = require('../db');
++
++// Read-only database tools for the SOC assistant chatbot. The model supplies
++// only structured arguments; every query here is parameterized. There is no
++// path for model-authored SQL.
++
++const CHAT_TOOLS = [
++  { type:'function', function:{
++      name:'search_alerts',
++      description:'Search triaged/enriched alerts with optional filters. Returns compact rows (id, time, severity, verdict, entities).',
++      parameters:{ type:'object', properties:{
++        severity:{type:'string', enum:['critical','high','medium','low','informational']},
++        verdict:{type:'string', enum:['true_positive','false_positive','needs_investigation','benign_anomaly']},
++        username:{type:'string'}, src_ip:{type:'string'}, hostname:{type:'string'},
++        hours:{type:'integer', description:'restrict to alerts within the last N hours'},
++        limit:{type:'integer', description:'max rows (default 20, cap 50)'} } } } },
++  { type:'function', function:{
++      name:'get_alert',
++      description:'Fetch one alert by id with its full enrichment and triage verdict (incl. investigation trace if present).',
++      parameters:{ type:'object', properties:{ id:{type:'string'} }, required:['id'] } } },
++  { type:'function', function:{
++      name:'top_critical_alerts',
++      description:'The most important open alerts to investigate right now, ranked by severity then rule level. Excludes auto-closed and false positives.',
++      parameters:{ type:'object', properties:{ limit:{type:'integer'} } } } },
++  { type:'function', function:{
++      name:'list_incidents',
++      description:'List correlated incidents, optionally by status/severity, newest first.',
++      parameters:{ type:'object', properties:{
++        status:{type:'string', enum:['open','closed','false_positive']},
++        severity:{type:'string'}, limit:{type:'integer'} } } } },
++  { type:'function', function:{
++      name:'get_incident',
++      description:'Fetch one incident by id with its narrative, attack stages, and member alerts.',
++      parameters:{ type:'object', properties:{ id:{type:'integer'} }, required:['id'] } } },
++  { type:'function', function:{
++      name:'pivot_indicator',
++      description:'Sweep all alerts and incidents touching an indicator (IP, username, or hostname).',
++      parameters:{ type:'object', properties:{ indicator:{type:'string'} }, required:['indicator'] } } },
++  { type:'function', function:{
++      name:'get_stats',
++      description:'Pipeline + alert counts: totals by triage state, severity split, open incidents.',
++      parameters:{ type:'object', properties:{} } } },
++];
++
++async function search_alerts(a = {}) {
++  const conds = [`triage_status='triaged'`]; const params = []; let i = 1;
++  if (a.severity) { conds.push(`verdict->>'severity'=$${i++}`); params.push(a.severity); }
++  if (a.verdict)  { conds.push(`verdict->>'verdict'=$${i++}`);  params.push(a.verdict); }
++  if (a.username) { conds.push(`username ILIKE $${i++}`);       params.push(`%${a.username}%`); }
++  if (a.src_ip)   { conds.push(`src_ip=$${i++}`);               params.push(a.src_ip); }
++  if (a.hostname) { conds.push(`hostname ILIKE $${i++}`);       params.push(`%${a.hostname}%`); }
++  if (a.hours)    { conds.push(`timestamp >= NOW() - ($${i++} || ' hours')::interval`); params.push(String(parseInt(a.hours))); }
++  const limit = Math.min(parseInt(a.limit) || 20, 50);
++  const { rows } = await db.query(
++    `SELECT id, timestamp, rule_level, rule_desc, src_ip, username, hostname,
++            verdict->>'severity' AS severity, verdict->>'verdict' AS verdict,
++            verdict->>'attack_stage' AS attack_stage
++     FROM alerts WHERE ${conds.join(' AND ')}
++     ORDER BY timestamp DESC LIMIT ${limit}`, params);
++  return { count: rows.length, alerts: rows };
++}
++
++async function get_alert(a = {}) {
++  const { rows } = await db.query('SELECT * FROM alerts WHERE id=$1', [a.id]);
++  return rows[0] || { error: 'alert not found' };
++}
++
++async function top_critical_alerts(a = {}) {
++  const limit = Math.min(parseInt(a.limit) || 10, 30);
++  const { rows } = await db.query(
++    `SELECT id, timestamp, rule_level, rule_desc, src_ip, username, hostname,
++            verdict->>'severity' AS severity, verdict->>'verdict' AS verdict,
++            verdict->>'narrative' AS narrative
++     FROM alerts
++     WHERE triage_status='triaged' AND auto_closed=false
++       AND verdict->>'verdict' IN ('true_positive','needs_investigation')
++     ORDER BY CASE verdict->>'severity'
++                WHEN 'critical' THEN 0 WHEN 'high' THEN 1
++                WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
++              rule_level DESC, timestamp DESC
++     LIMIT ${limit}`);
++  return { count: rows.length, alerts: rows };
++}
++
++async function list_incidents(a = {}) {
++  const conds = ['1=1']; const params = []; let i = 1;
++  if (a.status)   { conds.push(`status=$${i++}`);   params.push(a.status); }
++  if (a.severity) { conds.push(`severity=$${i++}`); params.push(a.severity); }
++  const limit = Math.min(parseInt(a.limit) || 15, 50);
++  const { rows } = await db.query(
++    `SELECT id, title, severity, confidence, attack_stages, status,
++            array_length(alert_ids,1) AS alert_count, first_seen, last_seen
++     FROM incidents WHERE ${conds.join(' AND ')}
++     ORDER BY last_seen DESC LIMIT ${limit}`, params);
++  return { count: rows.length, incidents: rows };
++}
++
++async function get_incident(a = {}) {
++  const r = await db.query('SELECT * FROM incidents WHERE id=$1', [parseInt(a.id)]);
++  if (!r.rows.length) return { error: 'incident not found' };
++  const inc = r.rows[0];
++  const al = await db.query(
++    `SELECT id, rule_desc, rule_level, verdict->>'severity' AS severity, username, hostname, src_ip
++     FROM alerts WHERE id = ANY($1)`, [inc.alert_ids]);
++  return { ...inc, alerts: al.rows };
++}
++
++async function pivot_indicator(a = {}) {
++  const ind = a.indicator;
++  const alerts = await db.query(
++    `SELECT id, timestamp, rule_level, rule_desc, src_ip, username, hostname,
++            verdict->>'severity' AS severity
++     FROM alerts WHERE src_ip=$1 OR username=$1 OR hostname LIKE $2
++     ORDER BY timestamp DESC LIMIT 50`, [ind, `%${ind}%`]);
++  const incidents = await db.query(
++    `SELECT id, title, severity, status FROM incidents
++     WHERE $1 = ANY(alert_ids) OR common_entities::text ILIKE $2`, [ind, `%${ind}%`]);
++  return { indicator: ind, alert_count: alerts.rows.length, incident_count: incidents.rows.length,
++           alerts: alerts.rows, incidents: incidents.rows };
++}
++
++async function get_stats() {
++  const stats = await db.getAlertStats();
++  const sev = await db.query(
++    `SELECT verdict->>'severity' AS severity, COUNT(*) AS n
++     FROM alerts WHERE triage_status='triaged' GROUP BY severity`);
++  const inc = await db.query(`SELECT status, COUNT(*) AS n FROM incidents GROUP BY status`);
++  return { alerts: stats, severity_split: sev.rows, incidents: inc.rows };
++}
++
++const HANDLERS = { search_alerts, get_alert, top_critical_alerts, list_incidents, get_incident, pivot_indicator, get_stats };
++
++async function dispatch(name, args = {}) {
++  const fn = HANDLERS[name];
++  if (!fn) return { error: `unknown tool: ${name}` };
++  try { return await fn(args); }
++  catch (e) { return { error: e.message || String(e) }; }
++}
++
++module.exports = { CHAT_TOOLS, dispatch };
+diff --git a/api/src/services/llm.js b/api/src/services/llm.js
+index 9edef8c..4de7beb 100644
+--- a/api/src/services/llm.js
++++ b/api/src/services/llm.js
+@@ -26,13 +26,108 @@ const STAGE_ALIASES = {
+   'defense-evasion':      'defense_evasion',
+ };
+ 
++const SEVERITIES = ['critical','high','medium','low','informational'];
++const VERDICTS   = ['true_positive','false_positive','needs_investigation','benign_anomaly'];
++
+ function normalizeStage(v) {
+   if (!v) return 'unknown';
+   const l = String(v).toLowerCase().trim().replace(/\s+/g, '_');
+   return VALID_STAGES.has(l) ? l : (STAGE_ALIASES[l] || 'unknown');
+ }
+ 
+-const SYSTEM_PROMPT = `You are a senior SOC analyst at a bank. Given a Wazuh alert and enrichment context, produce a triage verdict.
++// ── Provider resolution (shared by triage + correlation) ───────────────────
++function resolveProvider(settings = {}) {
++  const provider = settings.llm_provider || process.env.LLM_PROVIDER || 'groq';
++  if (provider === 'groq') {
++    const apiKey = process.env.GROQ_API_KEY || '';
++    if (!apiKey) throw new Error('GROQ_API_KEY environment variable is not set');
++    return {
++      provider,
++      baseUrl: 'https://api.groq.com/openai/v1',
++      model:   settings.groq_model || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
++      apiKey,
++    };
++  }
++  return {
++    provider,
++    baseUrl: (process.env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/$/, '') + '/v1',
++    model:   settings.ollama_model || process.env.OLLAMA_MODEL || 'llama3.1:8b',
++    apiKey:  'ollama',
++  };
++}
++
++// ── Low-level JSON chat call with 429 backoff + JSON-repair retry ──────────
++// Shared by triageAlert and correlateAlerts so both behave identically.
++async function chatJSON({ messages, settings = {}, maxTokens = 600 }) {
++  const { baseUrl, model, apiKey, provider } = resolveProvider(settings);
++
++  for (let attempt = 0; attempt <= 2; attempt++) {
++    const t0 = Date.now();
++
++    let res;
++    try {
++      res = await fetch(`${baseUrl}/chat/completions`, {
++        method: 'POST',
++        headers: {
++          'Content-Type': 'application/json',
++          'Authorization': `Bearer ${apiKey}`,
++        },
++        body: JSON.stringify({
++          model,
++          messages,
++          temperature: 0.1,
++          response_format: { type: 'json_object' },
++          max_tokens: maxTokens,
++        }),
++      });
++    } catch (netErr) {
++      throw new Error(`LLM network error (${provider}): ${netErr.message || String(netErr)}`);
++    }
++
++    if (res.status === 429) {
++      const retryAfter = parseInt(res.headers.get('retry-after') || '8');
++      const wait = Math.max(retryAfter * 1000, (attempt + 1) * 8000);
++      console.warn(`[llm] rate limited, waiting ${wait}ms`);
++      await new Promise(r => setTimeout(r, wait));
++      continue;
++    }
++
++    if (!res.ok) {
++      const txt = await res.text().catch(() => '');
++      throw new Error(`LLM HTTP ${res.status} from ${provider}: ${txt.slice(0, 300)}`);
++    }
++
++    const data = await res.json();
++    const raw  = data.choices?.[0]?.message?.content;
++    if (!raw) throw new Error('LLM returned empty response');
++
++    let parsed;
++    if (typeof raw === 'object' && raw !== null) {
++      parsed = raw;
++    } else {
++      try {
++        parsed = JSON.parse(String(raw));
++      } catch {
++        if (attempt < 2) {
++          messages.push(
++            { role: 'assistant', content: String(raw) },
++            { role: 'user', content: 'Your response was not valid JSON. Reply with only the JSON object, no markdown or explanation.' }
++          );
++          continue;
++        }
++        throw new Error(`LLM returned invalid JSON after ${attempt + 1} attempts: ${String(raw).slice(0, 200)}`);
++      }
++    }
++
++    return { parsed, usage: data.usage || {}, model, provider, processing_ms: Date.now() - t0 };
++  }
++  throw new Error('LLM call exhausted all retries');
++}
++
++// ═══════════════════════════════════════════════════════════════════════════
++// TRIAGE — one alert at a time
++// ═══════════════════════════════════════════════════════════════════════════
++const TRIAGE_SYSTEM_PROMPT = `You are a senior SOC analyst at a bank. Given a Wazuh alert and enrichment context, produce a triage verdict.
+ 
+ Rules:
+ - Severity reflects business impact, not just rule level.
+@@ -53,20 +148,6 @@ Respond ONLY with valid JSON (no markdown, no code blocks):
+ }`;
+ 
+ async function triageAlert(alert, enrichmentCtx, settings = {}) {
+-  const provider = settings.llm_provider || process.env.LLM_PROVIDER || 'groq';
+-
+-  let baseUrl, model, apiKey;
+-  if (provider === 'groq') {
+-    baseUrl = 'https://api.groq.com/openai/v1';
+-    model   = settings.groq_model || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+-    apiKey  = process.env.GROQ_API_KEY || '';
+-    if (!apiKey) throw new Error('GROQ_API_KEY environment variable is not set');
+-  } else {
+-    baseUrl = (process.env.OLLAMA_BASE_URL || 'http://localhost:11434').replace(/\/$/, '') + '/v1';
+-    model   = settings.ollama_model || process.env.OLLAMA_MODEL || 'llama3.1:8b';
+-    apiKey  = 'ollama';
+-  }
+-
+   const payload = {
+     alert: {
+       id:          alert.id,
+@@ -87,93 +168,328 @@ async function triageAlert(alert, enrichmentCtx, settings = {}) {
+   };
+ 
+   const messages = [
+-    { role: 'system', content: SYSTEM_PROMPT },
++    { role: 'system', content: TRIAGE_SYSTEM_PROMPT },
+     { role: 'user',   content: `Triage this alert:\n\n${JSON.stringify(payload, null, 2)}` },
+   ];
+ 
+-  for (let attempt = 0; attempt <= 2; attempt++) {
+-    const t0 = Date.now();
++  const { parsed, usage, model, provider, processing_ms } =
++    await chatJSON({ messages, settings, maxTokens: 600 });
++
++  // Normalise + validate
++  parsed.attack_stage = normalizeStage(parsed.attack_stage);
++  if (!SEVERITIES.includes(parsed.severity)) parsed.severity = 'medium';
++  if (!VERDICTS.includes(parsed.verdict))    parsed.verdict  = 'needs_investigation';
++  parsed.confidence = Math.min(1, Math.max(0, parseFloat(parsed.confidence) || 0.5));
++  if (!Array.isArray(parsed.key_findings))        parsed.key_findings        = [];
++  if (!Array.isArray(parsed.recommended_actions)) parsed.recommended_actions = [];
++  if (typeof parsed.narrative !== 'string')       parsed.narrative           = '';
++
++  return {
++    ...parsed,
++    model,
++    provider,
++    prompt_tokens:     usage.prompt_tokens     || 0,
++    completion_tokens: usage.completion_tokens || 0,
++    total_tokens:      usage.total_tokens      || 0,
++    processing_ms,
++  };
++}
++
++// ═══════════════════════════════════════════════════════════════════════════
++// CORRELATION — analyse a batch of triaged alerts and group them into incidents
++// This is the AI cross-correlation pass. The LLM decides what relates to what;
++// the caller only bounds the candidate set (all triaged alerts in last N hours).
++// ═══════════════════════════════════════════════════════════════════════════
++const CORRELATION_SYSTEM_PROMPT = `You are a senior SOC analyst at a bank performing cross-alert correlation.
++You receive a batch of already-triaged Wazuh alerts from the last several hours. Decide which alerts
++belong to the SAME security incident — i.e. the same actor, campaign, or causally-linked chain of
++activity — and describe each incident.
++
++Correlate on:
++- shared entities (username, hostname, source IP, destination IP, process, target database),
++- temporal proximity,
++- logical attack progression across MITRE ATT&CK tactics
++  (e.g. brute_force -> successful logon -> privilege_escalation -> lateral_movement on the same host/user;
++   or recon from one IP -> exploitation -> C2 -> exfiltration).
++
++Rules:
++- Only group alerts that have a plausible relationship. Do NOT force unrelated alerts together.
++  Two alerts sharing only a timestamp but no entity or logical link are NOT one incident.
++- An incident normally contains 2+ alerts. A SINGLE alert may be its own incident only if it is
++  independently critical (e.g. confirmed ransomware or data exfiltration from a crown-jewel system).
++- Use ONLY the alert IDs given to you. NEVER invent IDs. Omit alerts that don't correlate.
++- severity = business impact of the whole incident (driven by its worst element + assets/users involved).
++- attack_stages = the distinct MITRE tactics observed across the incident, in progression order.
++- narrative = explain HOW the alerts connect and what the attacker appears to be doing, naming the
++  shared entities. 2-5 sentences.
++- recommended_actions = specific containment/investigation steps for the incident as a whole.
++
++Respond ONLY with valid JSON (no markdown, no code blocks):
++{
++  "incidents": [
++    {
++      "title":               "<short incident title>",
++      "severity":            "critical"|"high"|"medium"|"low",
++      "confidence":          <number 0.0-1.0>,
++      "alert_ids":           ["<id>", "<id>"],
++      "attack_stages":       ["<tactic>", "<tactic>"],
++      "common_entities":     { "users": [], "hosts": [], "ips": [] },
++      "narrative":           "<2-5 sentences>",
++      "recommended_actions": ["<action>", "<action>"]
++    }
++  ]
++}
++If no alerts correlate into incidents, return { "incidents": [] }.`;
++
++function compactAlert(a) {
++  const v = a.verdict || {};
++  return {
++    id:      a.id,
++    time:    a.timestamp,
++    level:   a.rule_level,
++    desc:    a.rule_desc,
++    sev:     v.severity || null,
++    stage:   v.attack_stage || null,
++    verdict: v.verdict || null,
++    src_ip:  a.src_ip || null,
++    dst_ip:  a.dst_ip || null,
++    user:    a.username || null,
++    host:    a.hostname || null,
++    process: a.process || null,
++    db:      a.target_db || null,
++    finding: Array.isArray(v.key_findings) ? (v.key_findings[0] || null) : null,
++  };
++}
++
++async function correlateAlerts(alerts, settings = {}) {
++  if (!Array.isArray(alerts) || alerts.length < 2) return [];
++
++  const inputIds = new Set(alerts.map(a => a.id));
++  const compact  = alerts.map(compactAlert);
++
++  const messages = [
++    { role: 'system', content: CORRELATION_SYSTEM_PROMPT },
++    { role: 'user',   content: `Correlate these ${compact.length} triaged alerts into incidents:\n\n${JSON.stringify(compact, null, 1)}` },
++  ];
++
++  const { parsed } = await chatJSON({ messages, settings, maxTokens: 2000 });
++
++  const rawIncidents = Array.isArray(parsed.incidents) ? parsed.incidents : [];
++  const out = [];
+ 
++  for (const inc of rawIncidents) {
++    // Drop any hallucinated IDs the model may have invented.
++    const ids = [...new Set((Array.isArray(inc.alert_ids) ? inc.alert_ids : [])
++      .filter(id => inputIds.has(id)))];
++    if (ids.length === 0) continue;
++
++    const severity = SEVERITIES.includes(inc.severity) ? inc.severity : 'medium';
++
++    // Require 2+ members unless the single alert is independently critical.
++    if (ids.length < 2 && severity !== 'critical') continue;
++
++    const ce = (inc.common_entities && typeof inc.common_entities === 'object') ? inc.common_entities : {};
++
++    out.push({
++      alert_ids:           ids,
++      title:               (typeof inc.title === 'string' && inc.title.trim())
++                             ? inc.title.trim().slice(0, 200)
++                             : 'Correlated incident',
++      severity,
++      confidence:          Math.min(1, Math.max(0, parseFloat(inc.confidence) || 0.5)),
++      attack_stages:       Array.isArray(inc.attack_stages)
++                             ? [...new Set(inc.attack_stages.map(normalizeStage))]
++                             : [],
++      common_entities:     {
++                             users: Array.isArray(ce.users) ? ce.users.map(String) : [],
++                             hosts: Array.isArray(ce.hosts) ? ce.hosts.map(String) : [],
++                             ips:   Array.isArray(ce.ips)   ? ce.ips.map(String)   : [],
++                           },
++      narrative:           typeof inc.narrative === 'string' ? inc.narrative : '',
++      recommended_actions: Array.isArray(inc.recommended_actions)
++                             ? inc.recommended_actions.map(String)
++                             : [],
++    });
++  }
++
++  return out;
++}
++
++// ═══════════════════════════════════════════════════════════════════════════
++// TOOL-CALLING LOOP — generic agentic driver shared by agentic triage + chat
++// The model is given tools and decides which to call; we execute them, feed the
++// results back, and repeat until it produces a final answer (or we hit the cap).
++// ═══════════════════════════════════════════════════════════════════════════
++function parseArgs(s) {
++  if (s && typeof s === 'object') return s;
++  try { return JSON.parse(s || '{}'); } catch { return {}; }
++}
++
++async function postChat(body, { baseUrl, apiKey, provider }) {
++  for (let attempt = 0; attempt <= 2; attempt++) {
+     let res;
+     try {
+       res = await fetch(`${baseUrl}/chat/completions`, {
+         method: 'POST',
+-        headers: {
+-          'Content-Type': 'application/json',
+-          'Authorization': `Bearer ${apiKey}`,
+-        },
+-        body: JSON.stringify({
+-          model,
+-          messages,
+-          temperature: 0.1,
+-          response_format: { type: 'json_object' },
+-          max_tokens: 600,
+-        }),
++        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
++        body: JSON.stringify(body),
+       });
+     } catch (netErr) {
+       throw new Error(`LLM network error (${provider}): ${netErr.message || String(netErr)}`);
+     }
+-
+     if (res.status === 429) {
+-      const retryAfter = parseInt(res.headers.get('retry-after') || '8');
+-      const wait = Math.max(retryAfter * 1000, (attempt + 1) * 8000);
++      const wait = Math.max(parseInt(res.headers.get('retry-after') || '8') * 1000, (attempt + 1) * 8000);
+       console.warn(`[llm] rate limited, waiting ${wait}ms`);
+       await new Promise(r => setTimeout(r, wait));
+       continue;
+     }
+-
+     if (!res.ok) {
+       const txt = await res.text().catch(() => '');
+       throw new Error(`LLM HTTP ${res.status} from ${provider}: ${txt.slice(0, 300)}`);
+     }
++    return res.json();
++  }
++  throw new Error('LLM call exhausted all retries');
++}
+ 
+-    const data = await res.json();
+-    const raw  = data.choices?.[0]?.message?.content;
++// Runs the tool loop. Returns { content, trace, usage }. `trace` records every
++// tool call (name, args, short result) so the verdict/answer is auditable.
++async function runToolLoop({ messages, tools, dispatch, settings = {}, maxTokens = 700, maxIterations = 5 }) {
++  const conn = resolveProvider(settings);
++  const trace = [];
++  const usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+ 
+-    if (!raw) throw new Error('LLM returned empty response');
++  for (let iter = 0; iter < maxIterations; iter++) {
++    const last = iter === maxIterations - 1;
++    const body = {
++      model: conn.model,
++      messages,
++      temperature: 0.1,
++      max_tokens: maxTokens,
++      tools,
++      // On the final iteration force the model to stop calling tools and answer.
++      tool_choice: last ? 'none' : 'auto',
++    };
++    const data = await postChat(body, conn);
++    const u = data.usage || {};
++    usage.prompt_tokens     += u.prompt_tokens     || 0;
++    usage.completion_tokens += u.completion_tokens || 0;
++    usage.total_tokens      += u.total_tokens      || 0;
+ 
+-    // Guard: some providers return content as already-parsed object
+-    let parsed;
+-    if (typeof raw === 'object' && raw !== null) {
+-      parsed = raw;
+-    } else {
+-      try {
+-        parsed = JSON.parse(String(raw));
+-      } catch {
+-        if (attempt < 2) {
+-          messages.push(
+-            { role: 'assistant', content: String(raw) },
+-            { role: 'user', content: 'Your response was not valid JSON. Reply with only the JSON object, no markdown or explanation.' }
+-          );
+-          continue;
+-        }
+-        throw new Error(`LLM returned invalid JSON after ${attempt+1} attempts: ${String(raw).slice(0, 200)}`);
+-      }
++    const msg = data.choices?.[0]?.message;
++    if (!msg) throw new Error('LLM returned no message');
++    messages.push(msg);
++
++    const calls = msg.tool_calls || [];
++    if (!calls.length) {
++      return { content: msg.content || '', trace, usage, model: conn.model, provider: conn.provider };
+     }
+ 
+-    // Normalise and validate all fields
+-    parsed.attack_stage = normalizeStage(parsed.attack_stage);
+-    if (!['critical','high','medium','low','informational'].includes(parsed.severity))
+-      parsed.severity = 'medium';
+-    if (!['true_positive','false_positive','needs_investigation','benign_anomaly'].includes(parsed.verdict))
+-      parsed.verdict = 'needs_investigation';
+-    parsed.confidence = Math.min(1, Math.max(0, parseFloat(parsed.confidence) || 0.5));
+-    if (!Array.isArray(parsed.key_findings))        parsed.key_findings        = [];
+-    if (!Array.isArray(parsed.recommended_actions)) parsed.recommended_actions = [];
+-    if (typeof parsed.narrative !== 'string')       parsed.narrative           = '';
+-
+-    const usage = data.usage || {};
+-    return {
+-      ...parsed,
+-      model,
+-      provider,
+-      prompt_tokens:     usage.prompt_tokens     || 0,
+-      completion_tokens: usage.completion_tokens || 0,
+-      total_tokens:      usage.total_tokens      || 0,
+-      processing_ms:     Date.now() - t0,
+-    };
++    for (const tc of calls) {
++      const name = tc.function?.name;
++      const args = parseArgs(tc.function?.arguments);
++      let result;
++      try { result = await dispatch(name, args); }
++      catch (e) { result = { error: e.message || String(e) }; }
++      const resultStr = JSON.stringify(result);
++      trace.push({ step: iter + 1, tool: name, args, result: resultStr.slice(0, 600) });
++      messages.push({ role: 'tool', tool_call_id: tc.id, content: resultStr.slice(0, 4000) });
++    }
+   }
+-  throw new Error('LLM call exhausted all retries');
++  return { content: '', trace, usage, model: conn.model, provider: conn.provider };
++}
++
++function extractJSON(s) {
++  if (!s) return null;
++  let t = String(s).trim().replace(/^```(?:json)?/i, '').replace(/```$/,'').trim();
++  try { return JSON.parse(t); } catch {}
++  const m = t.match(/\{[\s\S]*\}/);
++  if (m) { try { return JSON.parse(m[0]); } catch {} }
++  return null;
+ }
+ 
+-module.exports = { triageAlert, normalizeStage };
++// ── Agentic triage: the model investigates with enrichment tools, then verdicts
++async function investigateAlert(alert, settings = {}) {
++  const { TRIAGE_TOOLS, dispatch } = require('./tools');
++
++  const system = TRIAGE_SYSTEM_PROMPT + `
++
++You are working as an investigator. Before deciding, you MAY call the provided tools to gather
++context (AD user, CMDB asset, EDR detections, threat intel, vulnerabilities). Investigate only what
++is relevant — do not call tools whose result cannot change your verdict. When you have enough
++evidence, STOP calling tools and respond with ONLY the verdict JSON described above.`;
++
++  const alertView = {
++    id: alert.id, timestamp: alert.timestamp, rule_id: alert.rule_id, rule_level: alert.rule_level,
++    rule_desc: alert.rule_desc, rule_groups: alert.rule_groups, src_ip: alert.src_ip, dst_ip: alert.dst_ip,
++    username: alert.username, hostname: alert.hostname, target_db: alert.target_db, process: alert.process,
++    full_log: String(alert.full_log || '').slice(0, 400),
++  };
++
++  const messages = [
++    { role: 'system', content: system },
++    { role: 'user',   content: `Investigate and triage this alert. Use tools as needed.\n\n${JSON.stringify(alertView, null, 2)}` },
++  ];
++
++  const t0 = Date.now();
++  const { content, trace, usage, model, provider } =
++    await runToolLoop({ messages, tools: TRIAGE_TOOLS, dispatch, settings, maxTokens: 700, maxIterations: 5 });
++
++  let parsed = extractJSON(content) || {};
++  parsed.attack_stage = normalizeStage(parsed.attack_stage);
++  if (!SEVERITIES.includes(parsed.severity)) parsed.severity = 'medium';
++  if (!VERDICTS.includes(parsed.verdict))    parsed.verdict  = 'needs_investigation';
++  parsed.confidence = Math.min(1, Math.max(0, parseFloat(parsed.confidence) || 0.5));
++  if (!Array.isArray(parsed.key_findings))        parsed.key_findings        = [];
++  if (!Array.isArray(parsed.recommended_actions)) parsed.recommended_actions = [];
++  if (typeof parsed.narrative !== 'string')       parsed.narrative           = '';
++
++  return {
++    ...parsed,
++    model, provider,
++    investigation: trace,
++    tools_used: trace.length,
++    prompt_tokens: usage.prompt_tokens, completion_tokens: usage.completion_tokens,
++    total_tokens: usage.total_tokens, processing_ms: Date.now() - t0,
++  };
++}
++
++// ── SOC assistant chatbot: answers questions using read-only DB tools
++const CHAT_SYSTEM_PROMPT = `You are the SOC Agent assistant, embedded in a bank's security operations platform.
++You help analysts with triage, investigation, and prioritisation by querying live data through tools.
++
++Guidelines:
++- ALWAYS use tools to ground answers in real data. Never invent alert IDs, incident IDs, or numbers.
++- When asked what to investigate or what's most critical, call top_critical_alerts and prioritise by
++  severity, then verdict (true_positive > needs_investigation), then asset/user criticality.
++- Be concise and specific. Reference alert/incident IDs. Summarise; don't dump raw JSON.
++- If the data doesn't contain the answer, say so plainly.
++- You are read-only: you cannot close, modify, or create anything — guide the analyst to do it in the UI.`;
++
++async function chatAgent(question, history = [], settings = {}) {
++  const { CHAT_TOOLS, dispatch } = require('./dbtools');
++  const prior = (Array.isArray(history) ? history : [])
++    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
++    .slice(-8)
++    .map(m => ({ role: m.role, content: m.content }));
++
++  const messages = [
++    { role: 'system', content: CHAT_SYSTEM_PROMPT },
++    ...prior,
++    { role: 'user', content: String(question || '').slice(0, 2000) },
++  ];
++
++  const { content, trace, usage } =
++    await runToolLoop({ messages, tools: CHAT_TOOLS, dispatch, settings, maxTokens: 900, maxIterations: 5 });
++
++  return {
++    answer: content || "I couldn't find an answer to that.",
++    tools_used: trace.map(t => ({ tool: t.tool, args: t.args })),
++    tokens: usage.total_tokens,
++  };
++}
++
++module.exports = {
++  triageAlert, investigateAlert, correlateAlerts, chatAgent,
++  normalizeStage, resolveProvider,
++};
+diff --git a/api/src/services/signature.js b/api/src/services/signature.js
+new file mode 100644
+index 0000000..a0dbda1
+--- /dev/null
++++ b/api/src/services/signature.js
+@@ -0,0 +1,18 @@
++'use strict';
++const crypto = require('crypto');
++
++// A noise-reduction fingerprint: alerts with the same rule + same key entities
++// are "the same kind of thing" and only need to be triaged once.
++function alertSignature(a) {
++  const parts = [
++    a.rule_id   || '',
++    a.src_ip    || '',
++    a.dst_ip    || '',
++    a.username  || '',
++    a.hostname  || '',
++    a.target_db || '',
++  ].join('|');
++  return crypto.createHash('sha256').update(parts).digest('hex').slice(0, 16);
++}
++
++module.exports = { alertSignature };
+diff --git a/api/src/services/tools.js b/api/src/services/tools.js
+new file mode 100644
+index 0000000..761e8ef
+--- /dev/null
++++ b/api/src/services/tools.js
+@@ -0,0 +1,71 @@
++'use strict';
++// Enrichment tools exposed to the agentic triage loop. The LLM chooses which
++// to call and when, instead of receiving one pre-built enrichment blob.
++
++function enrichmentUrl() {
++  return (process.env.ENRICHMENT_URL || 'http://enrichment:3001').replace(/\/$/, '');
++}
++
++async function get(path) {
++  const res = await fetch(`${enrichmentUrl()}${path}`, { signal: AbortSignal.timeout(8000) });
++  if (!res.ok) return { error: `enrichment HTTP ${res.status}`, status: res.status };
++  return res.json();
++}
++async function post(path, body) {
++  const res = await fetch(`${enrichmentUrl()}${path}`, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json' },
++    body: JSON.stringify(body),
++    signal: AbortSignal.timeout(8000),
++  });
++  if (!res.ok) return { error: `enrichment HTTP ${res.status}`, status: res.status };
++  return res.json();
++}
++
++// OpenAI-style tool schemas (Groq-compatible).
++const TRIAGE_TOOLS = [
++  { type: 'function', function: {
++      name: 'get_ad_user',
++      description: 'Look up an Active Directory user by sAMAccountName. Returns privilege tier, criticality, MFA status, normal logon hours, home subnet, account enabled state.',
++      parameters: { type:'object', properties:{ sam:{type:'string', description:'username / sAMAccountName'} }, required:['sam'] } } },
++  { type: 'function', function: {
++      name: 'check_logon',
++      description: 'Check a logon for anomalies (outside normal hours, source outside home subnet, disabled account, MFA). Use when an alert involves a user authenticating from an IP.',
++      parameters: { type:'object', properties:{
++        sam:{type:'string'}, src_ip:{type:'string'}, timestamp:{type:'string', description:'ISO timestamp of the logon'} }, required:['sam'] } } },
++  { type: 'function', function: {
++      name: 'get_asset_by_host',
++      description: 'CMDB lookup by hostname. Returns asset criticality, environment, owner, whether it is a crown-jewel system.',
++      parameters: { type:'object', properties:{ hostname:{type:'string'} }, required:['hostname'] } } },
++  { type: 'function', function: {
++      name: 'get_asset_by_ip',
++      description: 'CMDB lookup by IP address.',
++      parameters: { type:'object', properties:{ ip:{type:'string'} }, required:['ip'] } } },
++  { type: 'function', function: {
++      name: 'get_edr_detections',
++      description: 'Recent EDR detections on a host within the last N hours (default 48). Use to find corroborating endpoint activity.',
++      parameters: { type:'object', properties:{ hostname:{type:'string'}, hours:{type:'integer'} }, required:['hostname'] } } },
++  { type: 'function', function: {
++      name: 'check_threat_intel',
++      description: 'Threat-intel lookup for an indicator (IP, domain, hash). Returns whether it is known-malicious, category, and confidence.',
++      parameters: { type:'object', properties:{ indicator:{type:'string'} }, required:['indicator'] } } },
++  { type: 'function', function: {
++      name: 'get_vuln_risk',
++      description: 'Open vulnerability risk for a host: count, max CVSS, exploitable count, breakdown by severity.',
++      parameters: { type:'object', properties:{ hostname:{type:'string'} }, required:['hostname'] } } },
++];
++
++async function dispatch(name, args = {}) {
++  switch (name) {
++    case 'get_ad_user':       return get(`/ad/users/${encodeURIComponent(args.sam)}`);
++    case 'check_logon':       return post('/ad/logon-check', { sam: args.sam, src_ip: args.src_ip, timestamp: args.timestamp });
++    case 'get_asset_by_host': return get(`/cmdb/by-hostname/${encodeURIComponent(args.hostname)}`);
++    case 'get_asset_by_ip':   return get(`/cmdb/by-ip/${encodeURIComponent(args.ip)}`);
++    case 'get_edr_detections':return get(`/edr/detections/${encodeURIComponent(args.hostname)}?hours=${parseInt(args.hours)||48}`);
++    case 'check_threat_intel':return get(`/tip/${encodeURIComponent(args.indicator)}`);
++    case 'get_vuln_risk':     return get(`/vuln/${encodeURIComponent(args.hostname)}/risk`);
++    default: return { error: `unknown tool: ${name}` };
++  }
++}
++
++module.exports = { TRIAGE_TOOLS, dispatch };
+diff --git a/api/src/workers/correlation.js b/api/src/workers/correlation.js
+new file mode 100644
+index 0000000..afa3303
+--- /dev/null
++++ b/api/src/workers/correlation.js
+@@ -0,0 +1,117 @@
++'use strict';
++const crypto = require('crypto');
++const db = require('../db');
++const { correlateAlerts } = require('../services/llm');
++
++const SEV_ORDER = { informational: 0, low: 1, medium: 2, high: 3, critical: 4 };
++
++function maxSeverity(a, b) {
++  return (SEV_ORDER[a] || 0) >= (SEV_ORDER[b] || 0) ? (a || 'medium') : (b || 'medium');
++}
++
++// Deterministic key from the member alert set — lets us detect the same
++// incident across runs even though the LLM is non-deterministic.
++function incidentKey(ids) {
++  return crypto.createHash('sha256')
++    .update([...ids].sort().join('|'))
++    .digest('hex')
++    .slice(0, 32);
++}
++
++// Upsert one incident. If an OPEN incident already shares any alert id, merge
++// into it (union the members) instead of creating a near-duplicate. We never
++// silently reopen incidents an analyst has closed/marked false-positive — new
++// related activity against a closed incident becomes a fresh incident.
++async function upsertIncident(inc, firstSeen, lastSeen, runId) {
++  const existing = await db.query(
++    `SELECT * FROM incidents
++     WHERE status = 'open' AND alert_ids && $1::text[]
++     ORDER BY id ASC LIMIT 1`,
++    [inc.alert_ids]
++  );
++
++  if (existing.rows.length) {
++    const cur        = existing.rows[0];
++    const mergedIds  = [...new Set([...(cur.alert_ids || []), ...inc.alert_ids])];
++    const mergedStgs = [...new Set([...(cur.attack_stages || []), ...inc.attack_stages])];
++    const severity   = maxSeverity(cur.severity, inc.severity);
++
++    await db.query(
++      `UPDATE incidents
++       SET alert_ids=$1, attack_stages=$2, severity=$3, confidence=$4,
++           title=$5, narrative=$6, recommended_actions=$7, common_entities=$8,
++           last_seen=GREATEST(COALESCE(last_seen, $9), $9),
++           first_seen=LEAST(COALESCE(first_seen, $10), $10),
++           incident_key=$11, updated_at=NOW()
++       WHERE id=$12`,
++      [mergedIds, mergedStgs, severity, inc.confidence,
++       inc.title, inc.narrative, inc.recommended_actions, inc.common_entities,
++       lastSeen, firstSeen, incidentKey(mergedIds), cur.id]
++    );
++    return 'updated';
++  }
++
++  // No open overlap → insert new. ON CONFLICT handles the case where this exact
++  // member-set was seen before. (xmax = 0) is true only for a fresh INSERT.
++  const r = await db.query(
++    `INSERT INTO incidents
++       (incident_key, title, severity, confidence, attack_stages,
++        common_entities, alert_ids, narrative, recommended_actions,
++        first_seen, last_seen, status, fetch_run_id)
++     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'open',$12)
++     ON CONFLICT (incident_key) DO UPDATE SET
++        title=EXCLUDED.title, severity=EXCLUDED.severity, confidence=EXCLUDED.confidence,
++        attack_stages=EXCLUDED.attack_stages, common_entities=EXCLUDED.common_entities,
++        narrative=EXCLUDED.narrative, recommended_actions=EXCLUDED.recommended_actions,
++        last_seen=GREATEST(incidents.last_seen, EXCLUDED.last_seen), updated_at=NOW()
++     RETURNING (xmax = 0) AS inserted`,
++    [incidentKey(inc.alert_ids), inc.title, inc.severity, inc.confidence,
++     inc.attack_stages, inc.common_entities, inc.alert_ids, inc.narrative,
++     inc.recommended_actions, firstSeen, lastSeen, runId || null]
++  );
++  return r.rows[0].inserted ? 'created' : 'updated';
++}
++
++// Pull all triaged alerts from the last N hours and ask the LLM to correlate.
++async function correlatePending(settings = {}, runId = null) {
++  const hours = parseInt(settings.correlation_lookback_hours || 24);
++  const cap   = parseInt(settings.correlation_max_alerts     || 60);
++
++  const { rows } = await db.query(
++    `SELECT id, timestamp, rule_id, rule_level, rule_desc,
++            src_ip, dst_ip, username, hostname, target_db, process, verdict
++     FROM alerts
++     WHERE triage_status = 'triaged'
++       AND auto_closed = false
++       AND timestamp >= NOW() - ($1 || ' hours')::interval
++     ORDER BY rule_level DESC, timestamp DESC
++     LIMIT $2`,
++    [String(hours), cap]
++  );
++
++  if (rows.length < 2) {
++    return { incidents_created: 0, incidents_updated: 0, considered: rows.length };
++  }
++
++  const tsById = Object.fromEntries(rows.map(r => [r.id, r.timestamp]));
++  const incidents = await correlateAlerts(rows, settings);
++
++  let created = 0, updated = 0;
++  for (const inc of incidents) {
++    const times     = inc.alert_ids.map(id => tsById[id]).filter(Boolean).map(t => new Date(t));
++    const firstSeen = times.length ? new Date(Math.min(...times)).toISOString() : new Date().toISOString();
++    const lastSeen  = times.length ? new Date(Math.max(...times)).toISOString() : firstSeen;
++
++    try {
++      const result = await upsertIncident(inc, firstSeen, lastSeen, runId);
++      if (result === 'created') created++; else updated++;
++    } catch (err) {
++      console.error('[correlate] failed to upsert incident:', err.message || String(err));
++    }
++  }
++
++  console.log(`[correlate] considered=${rows.length} incidents: created=${created} updated=${updated}`);
++  return { incidents_created: created, incidents_updated: updated, considered: rows.length };
++}
++
++module.exports = { correlatePending, incidentKey };
+diff --git a/api/src/workers/pipeline.js b/api/src/workers/pipeline.js
+index ad2a88c..cda0786 100644
+--- a/api/src/workers/pipeline.js
++++ b/api/src/workers/pipeline.js
+@@ -1,7 +1,9 @@
+ 'use strict';
+ const db = require('../db');
+ const { fetchAlerts } = require('../services/wazuh');
+-const { triageAlert } = require('../services/llm');
++const { triageAlert, investigateAlert } = require('../services/llm');
++const { alertSignature } = require('../services/signature');
++const { correlatePending } = require('./correlation');
+ 
+ function getEnrichmentUrl() {
+   return (process.env.ENRICHMENT_URL || 'http://enrichment:3001').replace(/\/$/, '');
+@@ -112,54 +114,103 @@ async function triagePending(settings, limit = 50) {
+      LIMIT $1`,
+     [limit]
+   );
+-  if (!rows.length) return { triaged: 0, failed: 0 };
++  if (!rows.length) return { triaged: 0, failed: 0, llm_calls: 0, cache_hits: 0 };
+ 
+-  let triaged = 0, failed = 0;
++  const agentic   = (settings.triage_mode || 'pipeline') === 'agentic';
++  const useCache  = (settings.caching_enabled || 'true') === 'true';
++
++  // ── Noise reduction: group near-identical alerts by signature ───────────
++  // Alerts with the same rule + same key entities are triaged ONCE; the verdict
++  // is then applied to every member of the cluster. This is the main lever for
++  // cutting LLM calls on repetitive alert storms.
++  const clusters = new Map();
+   for (const row of rows) {
++    const sig = alertSignature(row);
++    if (!clusters.has(sig)) clusters.set(sig, []);
++    clusters.get(sig).push(row);
++  }
++
++  let triaged = 0, failed = 0, llm_calls = 0, cache_hits = 0;
++
++  for (const [sig, members] of clusters) {
++    const rep = members[0];
+     try {
+-      // pg returns JSONB columns as already-parsed objects — use directly
+-      const enrichCtx = row.enrichment || null;
+-      const verdict   = await triageAlert(row, enrichCtx, settings);
+-
+-      // Auto-close check
+-      let autoClosed = false, autoReason = null;
+-      if (settings.autoclose_enabled === 'true') {
+-        const eligible = (settings.autoclose_verdicts || '').split(',').map(s => s.trim());
+-        const sevOrder = { informational:0, low:1, medium:2, high:3, critical:4 };
+-        const ceiling  = settings.autoclose_max_severity || 'medium';
+-        const minConf  = parseFloat(settings.autoclose_confidence || 0.85);
+-        if (
+-          eligible.includes(verdict.verdict) &&
+-          (verdict.confidence || 0) >= minConf &&
+-          (sevOrder[verdict.severity] || 0) <= (sevOrder[ceiling] || 2)
+-        ) {
+-          autoClosed = true;
+-          autoReason = `${verdict.verdict} @ conf ${verdict.confidence.toFixed(2)}, sev ${verdict.severity}`;
++      let verdict, source;
++
++      // 1. Cache: have we already triaged this exact signature?
++      if (useCache) {
++        const c = await db.query('SELECT verdict FROM triage_cache WHERE signature=$1', [sig]);
++        if (c.rows.length) {
++          verdict = c.rows[0].verdict;
++          source  = 'cache';
++          cache_hits++;
++          await db.query(
++            'UPDATE triage_cache SET hits=hits+1, updated_at=NOW() WHERE signature=$1', [sig]);
+         }
+       }
+ 
+-      // Store verdict as JSONB object (not stringified)
+-      await db.query(
+-        `UPDATE alerts
+-         SET verdict=$1, triage_status='triaged', triaged_at=NOW(),
+-             auto_closed=$2, auto_close_reason=$3
+-         WHERE id=$4`,
+-        [verdict, autoClosed, autoReason, row.id]  // pg handles JSONB
+-      );
+-      triaged++;
++      // 2. Miss → call the LLM (agentic investigation or single-shot triage)
++      if (!verdict) {
++        verdict = agentic
++          ? await investigateAlert(rep, settings)
++          : await triageAlert(rep, rep.enrichment || null, settings);
++        source = agentic ? 'agentic' : 'llm';
++        llm_calls++;
++        if (useCache) {
++          await db.query(
++            `INSERT INTO triage_cache (signature, rule_id, verdict)
++             VALUES ($1,$2,$3)
++             ON CONFLICT (signature) DO UPDATE
++               SET verdict=EXCLUDED.verdict, updated_at=NOW()`,
++            [sig, rep.rule_id, verdict]
++          );
++        }
++      }
++
++      // 3. Apply the verdict to every alert in the cluster
++      for (const row of members) {
++        const v = { ...verdict, signature: sig, triage_source: source, cluster_size: members.length };
++
++        let autoClosed = false, autoReason = null;
++        if (settings.autoclose_enabled === 'true') {
++          const eligible = (settings.autoclose_verdicts || '').split(',').map(s => s.trim());
++          const sevOrder = { informational:0, low:1, medium:2, high:3, critical:4 };
++          const ceiling  = settings.autoclose_max_severity || 'medium';
++          const minConf  = parseFloat(settings.autoclose_confidence || 0.85);
++          if (
++            eligible.includes(v.verdict) &&
++            (v.confidence || 0) >= minConf &&
++            (sevOrder[v.severity] || 0) <= (sevOrder[ceiling] || 2)
++          ) {
++            autoClosed = true;
++            autoReason = `${v.verdict} @ conf ${(v.confidence||0).toFixed(2)}, sev ${v.severity}`;
++          }
++        }
++
++        await db.query(
++          `UPDATE alerts
++           SET verdict=$1, triage_status='triaged', triaged_at=NOW(),
++               auto_closed=$2, auto_close_reason=$3, signature=$4
++           WHERE id=$5`,
++          [v, autoClosed, autoReason, sig, row.id]
++        );
++        triaged++;
++      }
+     } catch (err) {
+       const msg = safeError(err);
+-      console.error(`[triage] failed for ${row.id}:`, msg);
+-      await db.query(
+-        `UPDATE alerts
+-         SET triage_status='triage_failed', triage_error=$1
+-         WHERE id=$2`,
+-        [msg.slice(0, 500), row.id]
+-      );
+-      failed++;
++      console.error(`[triage] cluster ${sig} failed:`, msg);
++      for (const row of members) {
++        await db.query(
++          `UPDATE alerts SET triage_status='triage_failed', triage_error=$1, signature=$2 WHERE id=$3`,
++          [msg.slice(0, 500), sig, row.id]
++        );
++        failed++;
++      }
+     }
+   }
+-  return { triaged, failed };
++
++  console.log(`[triage] alerts=${triaged} clusters=${clusters.size} llm_calls=${llm_calls} cache_hits=${cache_hits} mode=${agentic?'agentic':'pipeline'}`);
++  return { triaged, failed, llm_calls, cache_hits, clusters: clusters.size };
+ }
+ 
+ // ── Full run cycle ────────────────────────────────────────────────────────
+@@ -205,6 +256,14 @@ async function runCycle(trigger = 'scheduler') {
+     stats.triage_failed = tr.failed;
+     console.log(`[cycle] triaged=${tr.triaged} triage_failed=${tr.failed}`);
+ 
++    // 5. Correlate — AI cross-alert analysis over all triaged alerts in the
++    //    lookback window. The LLM decides which alerts form an incident.
++    if ((settings.correlation_enabled || 'true') === 'true') {
++      const cr = await correlatePending(settings, runId);
++      stats.incidents_created = cr.incidents_created;
++      console.log(`[cycle] correlated: created=${cr.incidents_created} updated=${cr.incidents_updated} considered=${cr.considered}`);
++    }
++
+     await db.finishFetchRun(runId, stats, 'ok');
+     console.log(`[cycle] run #${runId} finished OK`);
+     return { runId, stats };
+@@ -216,4 +275,4 @@ async function runCycle(trigger = 'scheduler') {
+   }
+ }
+ 
+-module.exports = { runCycle, enrichPending, triagePending };
++module.exports = { runCycle, enrichPending, triagePending, correlatePending };
+diff --git a/eval/evaluate.js b/eval/evaluate.js
+new file mode 100644
+index 0000000..f101fcd
+--- /dev/null
++++ b/eval/evaluate.js
+@@ -0,0 +1,119 @@
++'use strict';
++// SOC Agent evaluation harness.
++//
++// Usage:
++//   node eval/evaluate.js --demo                       # run on built-in synthetic data
++//   node eval/evaluate.js --truth gt.json --pred preds.json
++//
++// ground truth (gt.json):
++//   { "alerts": [ { "id":"a1", "verdict":"true_positive", "incident":"inc1" }, ... ] }
++// predictions (preds.json) — produced by eval/export_predictions.js against a live API:
++//   { "alerts": [ { "id":"a1", "verdict":"true_positive", "incident":"3" }, ... ],
++//     "efficiency": { "rawAlerts":120,"llmCalls":40,"autoClosed":15,"incidents":6,"tokens":52000,"totalMs":90000 } }
++
++const fs = require('fs');
++const { classifyMetrics, pairwiseClusterMetrics, efficiencyMetrics } = require('./metrics');
++
++const VERDICTS = ['true_positive','false_positive','needs_investigation','benign_anomaly'];
++
++function loadJSON(p) { return JSON.parse(fs.readFileSync(p, 'utf8')); }
++
++function buildReport(truth, pred) {
++  const predById = Object.fromEntries((pred.alerts || []).map(a => [a.id, a]));
++  const pairs = [], truthGroups = {}, predGroups = {};
++  for (const t of truth.alerts || []) {
++    const p = predById[t.id];
++    if (p && t.verdict && p.verdict) pairs.push({ truth: t.verdict, pred: p.verdict });
++    if (t.incident) truthGroups[t.id] = `t:${t.incident}`;
++    if (p && p.incident) predGroups[t.id] = `p:${p.incident}`;
++  }
++  const triage = classifyMetrics(pairs, VERDICTS);
++  const correlation = pairwiseClusterMetrics(truthGroups, predGroups);
++  const efficiency = pred.efficiency ? efficiencyMetrics(pred.efficiency) : null;
++  return { triage, correlation, efficiency, coverage: { labeled: (truth.alerts||[]).length, matched: pairs.length } };
++}
++
++function pct(x) { return (x * 100).toFixed(1) + '%'; }
++
++function printReport(rep) {
++  console.log('\n══════════════════ SOC AGENT EVALUATION ══════════════════\n');
++  console.log(`Coverage: ${rep.coverage.matched}/${rep.coverage.labeled} labeled alerts matched to predictions\n`);
++
++  console.log('── TRIAGE (verdict classification) ───────────────────────');
++  console.log(`  Accuracy:  ${pct(rep.triage.accuracy)}   Macro-F1: ${rep.triage.macro_f1.toFixed(3)}`);
++  for (const c of rep.triage.classes) {
++    const m = rep.triage.per_class[c];
++    if (!m.support) continue;
++    console.log(`    ${c.padEnd(22)} P=${m.precision.toFixed(2)} R=${m.recall.toFixed(2)} F1=${m.f1.toFixed(2)} (n=${m.support})`);
++  }
++  console.log('  Confusion matrix (rows=truth, cols=pred):');
++  console.log('    ' + ['', ...rep.triage.classes.map(c => c.slice(0,8))].join('\t'));
++  rep.triage.confusion_matrix.forEach((row, i) =>
++    console.log('    ' + [rep.triage.classes[i].slice(0,8), ...row].join('\t')));
++
++  console.log('\n── CORRELATION (pairwise clustering) ─────────────────────');
++  const c = rep.correlation;
++  console.log(`  Precision=${c.pairwise_precision.toFixed(2)}  Recall=${c.pairwise_recall.toFixed(2)}  F1=${c.pairwise_f1.toFixed(2)}`);
++  console.log(`  Adjusted Rand Index=${c.adjusted_rand_index.toFixed(3)}`);
++  console.log(`  pairs: tp=${c.pairs.tp} fp=${c.pairs.fp} fn=${c.pairs.fn} tn=${c.pairs.tn}`);
++
++  if (rep.efficiency) {
++    const e = rep.efficiency;
++    console.log('\n── EFFICIENCY ────────────────────────────────────────────');
++    console.log(`  Raw alerts: ${e.raw_alerts}   LLM calls: ${e.llm_calls}`);
++    console.log(`  Clustering/cache reduction: ${pct(e.clustering_reduction)} of LLM calls avoided`);
++    console.log(`  Auto-closed: ${e.auto_closed}   Incidents: ${e.incidents}`);
++    if (e.alert_to_incident_ratio) console.log(`  Alert→incident ratio: ${e.alert_to_incident_ratio.toFixed(1)}:1`);
++    console.log(`  Avg tokens/call: ${e.avg_tokens_per_llm_call.toFixed(0)}   Avg ms/call: ${e.avg_ms_per_llm_call.toFixed(0)}`);
++  }
++  console.log('\n═══════════════════════════════════════════════════════════\n');
++}
++
++function demoData() {
++  // 10 alerts. Ground truth + a plausible imperfect prediction.
++  const truth = { alerts: [
++    { id:'a1', verdict:'true_positive',       incident:'I1' },
++    { id:'a2', verdict:'true_positive',       incident:'I1' },
++    { id:'a3', verdict:'true_positive',       incident:'I1' },
++    { id:'a4', verdict:'false_positive' },
++    { id:'a5', verdict:'false_positive' },
++    { id:'a6', verdict:'needs_investigation', incident:'I2' },
++    { id:'a7', verdict:'needs_investigation', incident:'I2' },
++    { id:'a8', verdict:'benign_anomaly' },
++    { id:'a9', verdict:'true_positive',       incident:'I3' },
++    { id:'a10',verdict:'false_positive' },
++  ]};
++  const pred = { alerts: [
++    { id:'a1', verdict:'true_positive',       incident:'5' },
++    { id:'a2', verdict:'true_positive',       incident:'5' },
++    { id:'a3', verdict:'needs_investigation', incident:'5' },   // verdict miss
++    { id:'a4', verdict:'false_positive' },
++    { id:'a5', verdict:'false_positive' },
++    { id:'a6', verdict:'needs_investigation', incident:'6' },
++    { id:'a7', verdict:'needs_investigation', incident:'6' },
++    { id:'a8', verdict:'benign_anomaly' },
++    { id:'a9', verdict:'true_positive',       incident:'6' },   // correlation miss (wrong group)
++    { id:'a10',verdict:'false_positive' },
++  ], efficiency: { rawAlerts:120, llmCalls:42, autoClosed:18, incidents:7, tokens:54600, totalMs:88000 } };
++  return { truth, pred };
++}
++
++function main() {
++  const args = process.argv.slice(2);
++  let truth, pred;
++  if (args.includes('--demo')) {
++    ({ truth, pred } = demoData());
++  } else {
++    const ti = args.indexOf('--truth'), pi = args.indexOf('--pred');
++    if (ti < 0 || pi < 0) {
++      console.error('Usage: node eval/evaluate.js --demo  |  --truth gt.json --pred preds.json');
++      process.exit(1);
++    }
++    truth = loadJSON(args[ti + 1]);
++    pred  = loadJSON(args[pi + 1]);
++  }
++  printReport(buildReport(truth, pred));
++}
++
++if (require.main === module) main();
++module.exports = { buildReport };
+diff --git a/eval/export_predictions.js b/eval/export_predictions.js
+new file mode 100644
+index 0000000..d3d6a18
+--- /dev/null
++++ b/eval/export_predictions.js
+@@ -0,0 +1,53 @@
++'use strict';
++// Pull predictions from a running SOC Agent API into preds.json for evaluate.js.
++//   node eval/export_predictions.js [http://localhost:3000] > preds.json
++
++const BASE = (process.argv[2] || 'http://localhost:3000').replace(/\/$/, '');
++
++async function getJSON(path) {
++  const res = await fetch(`${BASE}/api${path}`);
++  if (!res.ok) throw new Error(`GET ${path} -> HTTP ${res.status}`);
++  return res.json();
++}
++
++async function main() {
++  // All alerts (paginate)
++  const alerts = [];
++  for (let page = 1; ; page++) {
++    const r = await getJSON(`/alerts?page=${page}&limit=200`);
++    alerts.push(...r.alerts);
++    if (alerts.length >= r.total || !r.alerts.length) break;
++  }
++  // All incidents → map member alert -> incident id
++  const incMap = {};
++  for (let page = 1; ; page++) {
++    const r = await getJSON(`/incidents?status=open&page=${page}&limit=100`);
++    for (const inc of r.incidents) {
++      const full = await getJSON(`/incidents/${inc.id}`);
++      for (const a of (full.alerts || [])) incMap[a.id] = String(inc.id);
++    }
++    if (!r.incidents.length || (r.total && page * 100 >= r.total)) break;
++  }
++
++  const stats = await getJSON('/stats');
++  const runs  = (await getJSON('/runs?limit=200')).runs || [];
++  const sum = k => runs.reduce((s, r) => s + (parseInt(r[k]) || 0), 0);
++
++  const out = {
++    alerts: alerts.map(a => ({
++      id: a.id,
++      verdict: a.verdict?.verdict || null,
++      incident: incMap[a.id] || null,
++    })),
++    efficiency: {
++      rawAlerts:  parseInt(stats.alerts.total) || alerts.length,
++      llmCalls:   sum('triaged'),     // refine with cache_hits if you persist them per-run
++      autoClosed: parseInt(stats.alerts.auto_closed) || 0,
++      incidents:  stats.incidents?.total || 0,
++      tokens:     0,   // fill from your own token logging if enabled
++      totalMs:    0,
++    },
++  };
++  process.stdout.write(JSON.stringify(out, null, 2));
++}
++main().catch(e => { console.error(e.message); process.exit(1); });
+diff --git a/eval/metrics.js b/eval/metrics.js
+new file mode 100644
+index 0000000..15a45c8
+--- /dev/null
++++ b/eval/metrics.js
+@@ -0,0 +1,84 @@
++'use strict';
++// Pure scoring functions for the SOC Agent evaluation harness. No I/O — unit-testable.
++
++// ── Triage classification ──────────────────────────────────────────────────
++// Per-class precision/recall/F1 + confusion matrix over verdict labels.
++function classifyMetrics(pairs, labels) {
++  // pairs: [{ truth, pred }]
++  const classes = labels || [...new Set(pairs.flatMap(p => [p.truth, p.pred]))].sort();
++  const idx = Object.fromEntries(classes.map((c, i) => [c, i]));
++  const cm = classes.map(() => classes.map(() => 0)); // cm[truth][pred]
++  for (const { truth, pred } of pairs) {
++    if (idx[truth] == null || idx[pred] == null) continue;
++    cm[idx[truth]][idx[pred]]++;
++  }
++  const per = {};
++  let microCorrect = 0, total = 0;
++  classes.forEach((c, i) => {
++    const tp = cm[i][i];
++    const fp = classes.reduce((s, _, j) => s + (j !== i ? cm[j][i] : 0), 0);
++    const fn = classes.reduce((s, _, j) => s + (j !== i ? cm[i][j] : 0), 0);
++    const precision = tp + fp ? tp / (tp + fp) : 0;
++    const recall    = tp + fn ? tp / (tp + fn) : 0;
++    const f1        = precision + recall ? 2 * precision * recall / (precision + recall) : 0;
++    per[c] = { precision, recall, f1, support: tp + fn };
++    microCorrect += tp;
++    total += tp + fn;
++  });
++  const macroF1 = classes.reduce((s, c) => s + per[c].f1, 0) / (classes.length || 1);
++  const accuracy = total ? microCorrect / total : 0;
++  return { classes, confusion_matrix: cm, per_class: per, macro_f1: macroF1, accuracy, n: total };
++}
++
++// ── Correlation clustering quality ──────────────────────────────────────────
++// Pairwise precision/recall/F1: over all pairs of alerts, did we agree on
++// "same incident or not" with ground truth? Robust to cluster id naming.
++function pairwiseClusterMetrics(truthGroups, predGroups) {
++  // *Groups: { alertId -> groupId }. Alerts with no group are singletons (unique id).
++  const ids = [...new Set([...Object.keys(truthGroups), ...Object.keys(predGroups)])];
++  const tg = id => truthGroups[id] ?? `__t_${id}`;
++  const pg = id => predGroups[id]  ?? `__p_${id}`;
++  let tp = 0, fp = 0, fn = 0, tn = 0;
++  for (let i = 0; i < ids.length; i++) {
++    for (let j = i + 1; j < ids.length; j++) {
++      const sameTruth = tg(ids[i]) === tg(ids[j]);
++      const samePred  = pg(ids[i]) === pg(ids[j]);
++      if (sameTruth && samePred) tp++;
++      else if (!sameTruth && samePred) fp++;
++      else if (sameTruth && !samePred) fn++;
++      else tn++;
++    }
++  }
++  const precision = tp + fp ? tp / (tp + fp) : 0;
++  const recall    = tp + fn ? tp / (tp + fn) : 0;
++  const f1        = precision + recall ? 2 * precision * recall / (precision + recall) : 0;
++  // Adjusted Rand Index
++  const n = ids.length;
++  const totalPairs = n * (n - 1) / 2;
++  const ari = (() => {
++    if (!totalPairs) return 0;
++    const expected = ((tp + fp) * (tp + fn)) / totalPairs;
++    const max = ((tp + fp) + (tp + fn)) / 2;
++    return (max - expected) ? (tp - expected) / (max - expected) : 0;
++  })();
++  return { pairwise_precision: precision, pairwise_recall: recall, pairwise_f1: f1,
++           adjusted_rand_index: ari, pairs: { tp, fp, fn, tn } };
++}
++
++// ── Efficiency / volume reduction ───────────────────────────────────────────
++function efficiencyMetrics({ rawAlerts, llmCalls, autoClosed, incidents, tokens, totalMs }) {
++  const reductionFromClustering = rawAlerts ? 1 - (llmCalls / rawAlerts) : 0;
++  const itemsForAnalyst = incidents + Math.max(0, rawAlerts - autoClosed - 0); // alerts not auto-closed
++  return {
++    raw_alerts: rawAlerts,
++    llm_calls: llmCalls,
++    clustering_reduction: reductionFromClustering, // fraction of LLM calls avoided
++    auto_closed: autoClosed,
++    incidents,
++    alert_to_incident_ratio: incidents ? rawAlerts / incidents : null,
++    avg_tokens_per_llm_call: llmCalls ? tokens / llmCalls : 0,
++    avg_ms_per_llm_call: llmCalls ? totalMs / llmCalls : 0,
++  };
++}
++
++module.exports = { classifyMetrics, pairwiseClusterMetrics, efficiencyMetrics };
+diff --git a/eval/sample_ground_truth.json b/eval/sample_ground_truth.json
+new file mode 100644
+index 0000000..9a38b44
+--- /dev/null
++++ b/eval/sample_ground_truth.json
+@@ -0,0 +1,10 @@
++{
++  "_comment": "Ground-truth labels for evaluation. Produce this from your log generator: every injected alert gets its true verdict, and alerts belonging to the same staged attack share an 'incident' id. Alert ids must match the Wazuh _id your pipeline stores.",
++  "alerts": [
++    { "id": "REPLACE_WITH_WAZUH_ID_1", "verdict": "true_positive",       "incident": "bruteforce_omar" },
++    { "id": "REPLACE_WITH_WAZUH_ID_2", "verdict": "true_positive",       "incident": "bruteforce_omar" },
++    { "id": "REPLACE_WITH_WAZUH_ID_3", "verdict": "true_positive",       "incident": "bruteforce_omar" },
++    { "id": "REPLACE_WITH_WAZUH_ID_4", "verdict": "false_positive" },
++    { "id": "REPLACE_WITH_WAZUH_ID_5", "verdict": "needs_investigation", "incident": "lateral_sql" }
++  ]
++}
+diff --git a/frontend/src/App.jsx b/frontend/src/App.jsx
+index 3635868..545d27c 100644
+--- a/frontend/src/App.jsx
++++ b/frontend/src/App.jsx
+@@ -5,6 +5,7 @@ import Alerts    from './pages/Alerts';
+ import Incidents from './pages/Incidents';
+ import Pivot     from './pages/Pivot';
+ import SettingsPage from './pages/Settings';
++import ChatWidget from './components/ChatWidget';
+ import './index.css';
+ 
+ const NAV = [
+@@ -66,6 +67,9 @@ export default function App() {
+             <Route path="/settings"  element={<SettingsPage />} />
+           </Routes>
+         </main>
++
++        {/* Floating SOC assistant — available on every page */}
++        <ChatWidget />
+       </div>
+     </BrowserRouter>
+   );
+diff --git a/frontend/src/components/ChatWidget.jsx b/frontend/src/components/ChatWidget.jsx
+new file mode 100644
+index 0000000..a97869b
+--- /dev/null
++++ b/frontend/src/components/ChatWidget.jsx
+@@ -0,0 +1,140 @@
++import { useState, useRef, useEffect } from 'react';
++import { api } from '../lib/api';
++import { MessageSquare, X, Send, Bot, User, Loader2 } from 'lucide-react';
++
++const SUGGESTIONS = [
++  'What are the most critical alerts to investigate right now?',
++  'Summarize the open incidents.',
++  'Any activity from privileged users in the last 24h?',
++];
++
++export default function ChatWidget() {
++  const [open, setOpen]       = useState(false);
++  const [input, setInput]     = useState('');
++  const [busy, setBusy]       = useState(false);
++  const [messages, setMessages] = useState([
++    { role: 'assistant', content: "Hi — I'm your SOC assistant. Ask me about alerts, incidents, or what to investigate next." },
++  ]);
++  const scrollRef = useRef(null);
++
++  useEffect(() => {
++    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
++  }, [messages, open]);
++
++  async function send(text) {
++    const q = (text ?? input).trim();
++    if (!q || busy) return;
++    setInput('');
++    const history = messages.filter(m => m.role === 'user' || m.role === 'assistant');
++    setMessages(m => [...m, { role: 'user', content: q }]);
++    setBusy(true);
++    try {
++      const res = await api('/chat', { method: 'POST', body: JSON.stringify({ message: q, history }) });
++      setMessages(m => [...m, { role: 'assistant', content: res.answer, tools: res.tools_used }]);
++    } catch (e) {
++      setMessages(m => [...m, { role: 'assistant', content: `Error: ${e.message}`, error: true }]);
++    } finally {
++      setBusy(false);
++    }
++  }
++
++  function onKey(e) {
++    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
++  }
++
++  return (
++    <>
++      {/* Floating button */}
++      {!open && (
++        <button
++          onClick={() => setOpen(true)}
++          className="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 rounded-full bg-accent text-white shadow-lg hover:scale-105 transition-transform"
++          title="Ask the SOC assistant"
++        >
++          <MessageSquare className="w-6 h-6" />
++        </button>
++      )}
++
++      {/* Panel */}
++      {open && (
++        <div className="fixed bottom-6 right-6 z-50 flex flex-col w-[380px] h-[560px] max-h-[80vh] rounded-xl bg-dark-800 border border-dark-600 shadow-2xl overflow-hidden">
++          {/* Header */}
++          <div className="flex items-center justify-between px-4 py-3 border-b border-dark-600 bg-dark-800">
++            <div className="flex items-center gap-2">
++              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-accent/20">
++                <Bot className="w-4 h-4 text-accent" />
++              </div>
++              <div>
++                <div className="text-sm font-semibold text-white">SOC Assistant</div>
++                <div className="text-xs text-gray-500">Investigation &amp; triage help</div>
++              </div>
++            </div>
++            <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">
++              <X className="w-5 h-5" />
++            </button>
++          </div>
++
++          {/* Messages */}
++          <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
++            {messages.map((m, i) => (
++              <div key={i} className={`flex gap-2 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
++                <div className={`flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full ${m.role === 'user' ? 'bg-dark-600' : 'bg-accent/20'}`}>
++                  {m.role === 'user' ? <User className="w-4 h-4 text-gray-300" /> : <Bot className="w-4 h-4 text-accent" />}
++                </div>
++                <div className={`max-w-[78%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
++                  m.role === 'user' ? 'bg-accent/20 text-white'
++                  : m.error ? 'bg-red-900/30 text-red-300 border border-red-800'
++                  : 'bg-dark-700 text-gray-200'}`}>
++                  {m.content}
++                  {m.tools?.length > 0 && (
++                    <div className="mt-1.5 pt-1.5 border-t border-dark-600 text-[10px] text-gray-500">
++                      queried: {m.tools.map(t => t.tool).join(', ')}
++                    </div>
++                  )}
++                </div>
++              </div>
++            ))}
++            {busy && (
++              <div className="flex gap-2">
++                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-accent/20">
++                  <Bot className="w-4 h-4 text-accent" />
++                </div>
++                <div className="flex items-center gap-2 rounded-lg px-3 py-2 bg-dark-700 text-gray-400 text-sm">
++                  <Loader2 className="w-4 h-4 animate-spin" /> investigating…
++                </div>
++              </div>
++            )}
++          </div>
++
++          {/* Suggestions */}
++          {messages.length <= 1 && (
++            <div className="px-3 pb-2 flex flex-wrap gap-1.5">
++              {SUGGESTIONS.map(s => (
++                <button key={s} onClick={() => send(s)}
++                  className="text-xs px-2 py-1 rounded-full bg-dark-700 text-gray-300 border border-dark-600 hover:border-accent hover:text-white">
++                  {s.length > 34 ? s.slice(0, 32) + '…' : s}
++                </button>
++              ))}
++            </div>
++          )}
++
++          {/* Input */}
++          <div className="flex items-end gap-2 p-3 border-t border-dark-600">
++            <textarea
++              value={input}
++              onChange={e => setInput(e.target.value)}
++              onKeyDown={onKey}
++              rows={1}
++              placeholder="Ask about alerts, incidents, what to investigate…"
++              className="flex-1 resize-none rounded-lg bg-dark-900 border border-dark-600 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent max-h-28"
++            />
++            <button onClick={() => send()} disabled={busy || !input.trim()}
++              className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-accent text-white disabled:opacity-40">
++              <Send className="w-4 h-4" />
++            </button>
++          </div>
++        </div>
++      )}
++    </>
++  );
++}
+diff --git a/postgres/init/02_correlation_settings.sql b/postgres/init/02_correlation_settings.sql
+new file mode 100644
+index 0000000..f7c5b2d
+--- /dev/null
++++ b/postgres/init/02_correlation_settings.sql
+@@ -0,0 +1,10 @@
++-- Correlation settings (additive; safe to run on an existing DB).
++-- Postgres runs files in /docker-entrypoint-initdb.d in alphabetical order,
++-- so this loads after 01_schema.sql on a fresh volume. For an already-running
++-- DB, apply it manually:  docker compose exec -T postgres psql -U $POSTGRES_USER -d $POSTGRES_DB < postgres/init/02_correlation_settings.sql
++
++INSERT INTO settings (key, value) VALUES
++  ('correlation_enabled',        'true'),
++  ('correlation_lookback_hours', '24'),
++  ('correlation_max_alerts',     '60')
++ON CONFLICT (key) DO NOTHING;
+diff --git a/postgres/init/03_triage_cache.sql b/postgres/init/03_triage_cache.sql
+new file mode 100644
+index 0000000..edea1e6
+--- /dev/null
++++ b/postgres/init/03_triage_cache.sql
+@@ -0,0 +1,23 @@
++-- Triage cache + signature column + new settings (additive; safe on existing DB).
++-- Apply to a running DB:
++--   docker compose exec -T postgres psql -U $POSTGRES_USER -d $POSTGRES_DB < postgres/init/03_triage_cache.sql
++
++-- Per-alert noise-reduction signature (rule + key entities). Lets us see how
++-- many distinct alert "shapes" exist vs raw volume.
++ALTER TABLE alerts ADD COLUMN IF NOT EXISTS signature TEXT;
++CREATE INDEX IF NOT EXISTS idx_alerts_signature ON alerts (signature);
++
++-- Triage verdict cache, keyed by signature. An identical alert reuses the
++-- cached verdict instead of calling the LLM again.
++CREATE TABLE IF NOT EXISTS triage_cache (
++  signature  TEXT PRIMARY KEY,
++  rule_id    TEXT,
++  verdict    JSONB       NOT NULL,
++  hits       INTEGER     DEFAULT 0,
++  created_at TIMESTAMPTZ DEFAULT NOW(),
++  updated_at TIMESTAMPTZ DEFAULT NOW()
++);
++
++INSERT INTO settings (key, value) VALUES
++  ('caching_enabled', 'true')
++ON CONFLICT (key) DO NOTHING;

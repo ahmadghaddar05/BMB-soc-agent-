@@ -1,0 +1,31 @@
+{
+  "name": "soc-api",
+  "version": "1.0.0",
+  "description": "SOC Agent API \u2014 fetch, enrich, triage, correlate",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "lint": "node scripts/check-syntax.js",
+    "check": "node scripts/check-syntax.js",
+    "test": "node --test --test-isolation=none --test-concurrency=1 test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20 <25"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "node-fetch": "^3.3.2",
+    "node-cron": "^3.0.3",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
+    "pdfkit": "^0.15.0"
+  },
+  "devDependencies": {
+    "supertest": "^7.1.1"
+  }
+}

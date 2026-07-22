@@ -1,0 +1,188 @@
+[
+  {
+    "name": "AML_Read",
+    "description": "Application group: AML_Read",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "Audit",
+    "description": "Application group: Audit",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "AuditLog_Read",
+    "description": "Application group: AuditLog_Read",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "BackOffice",
+    "description": "Application group: BackOffice",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "BranchStaff",
+    "description": "Application group: BranchStaff",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "Compliance",
+    "description": "Application group: Compliance",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "ContractorVPN",
+    "description": "VPN access for contractors",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "CoreBanking_Read",
+    "description": "Application group: CoreBanking_Read",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "Customer360_RW",
+    "description": "Application group: Customer360_RW",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "DB_Admins",
+    "description": "Database administrators",
+    "scope": "Global",
+    "isPrivileged": true
+  },
+  {
+    "name": "DevOps_RW",
+    "description": "Application group: DevOps_RW",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "Developers",
+    "description": "Application group: Developers",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "Domain Admins",
+    "description": "Full domain administrative rights",
+    "scope": "Global",
+    "isPrivileged": true
+  },
+  {
+    "name": "Domain Users",
+    "description": "All authenticated domain users",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "Finance",
+    "description": "Application group: Finance",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "FraudOps",
+    "description": "Application group: FraudOps",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "FraudRules_RW",
+    "description": "Application group: FraudRules_RW",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "GL_Read",
+    "description": "Application group: GL_Read",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "HR",
+    "description": "Application group: HR",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "HR_DB_RW",
+    "description": "Application group: HR_DB_RW",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "ITOps",
+    "description": "Application group: ITOps",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "LoanOfficers",
+    "description": "Application group: LoanOfficers",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "LoanOrig_RW",
+    "description": "Application group: LoanOrig_RW",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "PaymentsOps",
+    "description": "Application group: PaymentsOps",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "Payments_RW",
+    "description": "Application group: Payments_RW",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "PrivateBanking",
+    "description": "Application group: PrivateBanking",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "Server_Admins",
+    "description": "Server infrastructure administrators",
+    "scope": "Global",
+    "isPrivileged": true
+  },
+  {
+    "name": "ServiceAccounts",
+    "description": "Application group: ServiceAccounts",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "Treasury",
+    "description": "Application group: Treasury",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "TreasuryPos_RW",
+    "description": "Application group: TreasuryPos_RW",
+    "scope": "Global",
+    "isPrivileged": false
+  },
+  {
+    "name": "Vendors",
+    "description": "Third-party vendor accounts",
+    "scope": "Global",
+    "isPrivileged": false
+  }
+]

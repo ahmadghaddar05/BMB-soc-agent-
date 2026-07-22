@@ -1,0 +1,83 @@
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: soc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-socagent}
+      POSTGRES_USER: ${POSTGRES_USER:-socagent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-socagent} -d ${POSTGRES_DB:-socagent}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  enrichment:
+    build: ./enrichment
+    container_name: soc_enrichment
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./api
+    container_name: soc_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      enrichment:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-socagent}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-socagent}
+      ENRICHMENT_URL: http://enrichment:3001
+      # Wazuh
+      WAZUH_MODE: ${WAZUH_MODE:-mock}
+      WAZUH_INDEXER_URL: ${WAZUH_INDEXER_URL:-}
+      WAZUH_INDEXER_USER: ${WAZUH_INDEXER_USER:-admin}
+      WAZUH_INDEXER_PASS: ${WAZUH_INDEXER_PASS:-}
+      WAZUH_VERIFY_TLS: ${WAZUH_VERIFY_TLS:-false}
+      # Allow self-signed Wazuh certs when WAZUH_VERIFY_TLS=false
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+      WAZUH_INDEX: ${WAZUH_INDEX:-wazuh-alerts-*}
+      # LLM
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+      # Scheduler defaults
+      SCHEDULER_INTERVAL_MINUTES: ${SCHEDULER_INTERVAL_MINUTES:-5}
+      SCHEDULER_LOOKBACK_MINUTES: ${SCHEDULER_LOOKBACK_MINUTES:-15}
+      SCHEDULER_MIN_LEVEL: ${SCHEDULER_MIN_LEVEL:-7}
+    ports:
+      - "3000:3000"
+
+  frontend:
+    build: ./frontend
+    container_name: soc_frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:

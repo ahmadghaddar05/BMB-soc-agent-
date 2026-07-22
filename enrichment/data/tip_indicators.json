@@ -1,0 +1,249 @@
+[
+  {
+    "indicator_id": "IND-00001",
+    "type": "ipv4-addr",
+    "value": "185.220.101.45",
+    "categories": [
+      "tor_exit_node",
+      "anonymization"
+    ],
+    "confidence": "high",
+    "severity": "medium",
+    "first_seen": "2024-10-24T06:33:17.809150+00:00",
+    "last_seen": "2026-05-25T02:33:17.809150+00:00",
+    "sources": [
+      "TorProject_ExitList",
+      "AbuseIPDB"
+    ],
+    "notes": "Tor exit relay. Common in credential abuse.",
+    "tlp": "tlp:amber"
+  },
+  {
+    "indicator_id": "IND-00002",
+    "type": "ipv4-addr",
+    "value": "185.220.102.8",
+    "categories": [
+      "tor_exit_node",
+      "anonymization"
+    ],
+    "confidence": "high",
+    "severity": "medium",
+    "first_seen": "2025-08-22T06:33:17.809150+00:00",
+    "last_seen": "2026-05-25T10:33:17.809150+00:00",
+    "sources": [
+      "TorProject_ExitList",
+      "AbuseIPDB"
+    ],
+    "notes": "Tor exit relay. Common in credential abuse.",
+    "tlp": "tlp:white"
+  },
+  {
+    "indicator_id": "IND-00003",
+    "type": "ipv4-addr",
+    "value": "45.155.205.233",
+    "categories": [
+      "mass_scanner",
+      "reconnaissance"
+    ],
+    "confidence": "high",
+    "severity": "low",
+    "first_seen": "2024-12-03T06:33:17.809150+00:00",
+    "last_seen": "2026-05-23T23:33:17.809150+00:00",
+    "sources": [
+      "GreyNoise",
+      "AbuseIPDB"
+    ],
+    "notes": "Mass internet scanner.",
+    "tlp": "tlp:white"
+  },
+  {
+    "indicator_id": "IND-00004",
+    "type": "ipv4-addr",
+    "value": "118.25.6.39",
+    "categories": [
+      "mass_scanner",
+      "reconnaissance"
+    ],
+    "confidence": "high",
+    "severity": "low",
+    "first_seen": "2024-11-15T06:33:17.809150+00:00",
+    "last_seen": "2026-05-23T16:33:17.809150+00:00",
+    "sources": [
+      "GreyNoise",
+      "AbuseIPDB"
+    ],
+    "notes": "Mass internet scanner.",
+    "tlp": "tlp:green"
+  },
+  {
+    "indicator_id": "IND-00005",
+    "type": "ipv4-addr",
+    "value": "192.241.220.18",
+    "categories": [
+      "mass_scanner",
+      "reconnaissance"
+    ],
+    "confidence": "high",
+    "severity": "low",
+    "first_seen": "2024-11-22T06:33:17.809150+00:00",
+    "last_seen": "2026-05-25T14:33:17.809150+00:00",
+    "sources": [
+      "GreyNoise",
+      "AbuseIPDB"
+    ],
+    "notes": "Mass internet scanner.",
+    "tlp": "tlp:green"
+  },
+  {
+    "indicator_id": "IND-00006",
+    "type": "ipv4-addr",
+    "value": "194.165.16.71",
+    "categories": [
+      "c2_infrastructure",
+      "malware"
+    ],
+    "confidence": "high",
+    "severity": "critical",
+    "first_seen": "2024-12-20T06:33:17.809150+00:00",
+    "last_seen": "2026-05-22T15:33:17.809150+00:00",
+    "sources": [
+      "MISP",
+      "AlienVaultOTX",
+      "RecordedFuture"
+    ],
+    "notes": "Known C2 infrastructure linked to financial-sector targeting.",
+    "tlp": "tlp:amber"
+  },
+  {
+    "indicator_id": "IND-00007",
+    "type": "ipv4-addr",
+    "value": "194.26.135.115",
+    "categories": [
+      "c2_infrastructure",
+      "malware"
+    ],
+    "confidence": "high",
+    "severity": "critical",
+    "first_seen": "2024-07-03T06:33:17.809150+00:00",
+    "last_seen": "2026-05-22T19:33:17.809150+00:00",
+    "sources": [
+      "MISP",
+      "AlienVaultOTX",
+      "RecordedFuture"
+    ],
+    "notes": "Known C2 infrastructure linked to financial-sector targeting.",
+    "tlp": "tlp:white"
+  },
+  {
+    "indicator_id": "IND-00008",
+    "type": "ipv4-addr",
+    "value": "5.188.206.14",
+    "categories": [
+      "c2_infrastructure",
+      "malware"
+    ],
+    "confidence": "high",
+    "severity": "critical",
+    "first_seen": "2026-02-05T06:33:17.809150+00:00",
+    "last_seen": "2026-05-23T17:33:17.809150+00:00",
+    "sources": [
+      "MISP",
+      "AlienVaultOTX",
+      "RecordedFuture"
+    ],
+    "notes": "Known C2 infrastructure linked to financial-sector targeting.",
+    "tlp": "tlp:amber"
+  },
+  {
+    "indicator_id": "IND-00009",
+    "type": "ipv4-addr",
+    "value": "91.219.236.27",
+    "categories": [
+      "phishing",
+      "malware_distribution"
+    ],
+    "confidence": "medium",
+    "severity": "high",
+    "first_seen": "2024-08-02T06:33:17.809150+00:00",
+    "last_seen": "2026-05-25T18:33:17.809150+00:00",
+    "sources": [
+      "PhishTank",
+      "URLhaus"
+    ],
+    "notes": "Hosted phishing kits targeting MENA banking customers.",
+    "tlp": "tlp:amber"
+  },
+  {
+    "indicator_id": "IND-00010",
+    "type": "ipv4-addr",
+    "value": "23.94.157.88",
+    "categories": [
+      "phishing",
+      "malware_distribution"
+    ],
+    "confidence": "medium",
+    "severity": "high",
+    "first_seen": "2025-03-10T06:33:17.809150+00:00",
+    "last_seen": "2026-05-26T01:33:17.809150+00:00",
+    "sources": [
+      "PhishTank",
+      "URLhaus"
+    ],
+    "notes": "Hosted phishing kits targeting MENA banking customers.",
+    "tlp": "tlp:green"
+  },
+  {
+    "indicator_id": "IND-00011",
+    "type": "file-md5",
+    "value": "44d88612fea8a8f36de82e1278abb02f",
+    "categories": [
+      "malware"
+    ],
+    "confidence": "high",
+    "severity": "critical",
+    "first_seen": "2025-12-30T06:33:17.809150+00:00",
+    "last_seen": "2026-04-26T06:33:17.809150+00:00",
+    "sources": [
+      "VirusTotal",
+      "MISP"
+    ],
+    "notes": "Emotet dropper",
+    "tlp": "tlp:amber"
+  },
+  {
+    "indicator_id": "IND-00012",
+    "type": "file-sha256",
+    "value": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "categories": [
+      "malware"
+    ],
+    "confidence": "high",
+    "severity": "high",
+    "first_seen": "2025-09-02T06:33:17.809150+00:00",
+    "last_seen": "2026-05-07T06:33:17.809150+00:00",
+    "sources": [
+      "VirusTotal",
+      "MISP"
+    ],
+    "notes": "Generic backdoor",
+    "tlp": "tlp:amber"
+  },
+  {
+    "indicator_id": "IND-00013",
+    "type": "file-sha1",
+    "value": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+    "categories": [
+      "malware"
+    ],
+    "confidence": "high",
+    "severity": "medium",
+    "first_seen": "2026-03-29T06:33:17.809150+00:00",
+    "last_seen": "2026-05-21T06:33:17.809150+00:00",
+    "sources": [
+      "VirusTotal",
+      "MISP"
+    ],
+    "notes": "Credential stealer",
+    "tlp": "tlp:amber"
+  }
+]
