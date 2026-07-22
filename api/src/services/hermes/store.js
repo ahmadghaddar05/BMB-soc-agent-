@@ -57,6 +57,38 @@ function createAgentStore(database = db) {
     return { runId, idempotencyKey };
   }
 
+  async function beginCorrelation({
+    alertIds, actor, requestId, promptVersion, schemaVersion, settingsSummary,
+  }) {
+    const runId = crypto.randomUUID();
+    const idempotencyKey = crypto.randomUUID();
+    await transaction(database, async client => {
+      await client.query(
+        `INSERT INTO agent_runs(
+           id,purpose,status,actor,provider,prompt_version,
+           output_schema_version,request_id,idempotency_key,input_summary
+         ) VALUES($1,'correlation','running',$2,'hermes',$3,$4,$5,$6,$7::jsonb)`,
+        [runId, actor, promptVersion, schemaVersion, requestId, idempotencyKey,
+          json({ alert_ids: alertIds, candidate_count: alertIds.length, settings: settingsSummary })]
+      );
+      for (const alertId of alertIds) {
+        await client.query(
+          `INSERT INTO agent_evidence_links(run_id,evidence_type,evidence_id,relation)
+           VALUES($1,'alert',$2,'input') ON CONFLICT DO NOTHING`,
+          [runId, String(alertId)]
+        );
+      }
+      await client.query(
+        `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+         VALUES($1,'agent.run.started','agent_run',$2,'success',$3,$4::jsonb)`,
+        [actor, runId, requestId, json({
+          purpose: 'correlation', candidate_count: alertIds.length, provider: 'hermes',
+        })]
+      );
+    });
+    return { runId, idempotencyKey };
+  }
+
   async function beginChat({ conversationId, actor, question, requestId, promptVersion, schemaVersion }) {
     if (conversationId && !UUID_PATTERN.test(conversationId)) {
       throw new HermesError('INVALID_CONVERSATION_ID', 'conversation_id must be a valid UUID', { status: 400 });
@@ -278,6 +310,41 @@ function createAgentStore(database = db) {
     });
   }
 
+  async function completeCorrelation({ runId, actor, requestId, output, incidentIds, persistence, hermes }) {
+    await transaction(database, async client => {
+      await client.query(
+        `UPDATE agent_runs SET status='completed',model=$2,capabilities=$3::jsonb,
+           output_summary=$4::jsonb,prompt_tokens=$5,completion_tokens=$6,total_tokens=$7,
+           attempts=$8,latency_ms=$9,finished_at=NOW()
+         WHERE id=$1 AND status='running'`,
+        [runId, hermes.model, json(hermes.capabilities), json({
+          incident_count: output.incidents.length,
+          incident_ids: incidentIds,
+          created: persistence.created,
+          updated: persistence.updated,
+          result: output,
+        }), hermes.usage.prompt_tokens, hermes.usage.completion_tokens,
+          hermes.usage.total_tokens, hermes.attempts, hermes.latencyMs]
+      );
+      for (const incidentId of incidentIds) {
+        await client.query(
+          `INSERT INTO agent_evidence_links(run_id,evidence_type,evidence_id,relation)
+           VALUES($1,'incident',$2,'output') ON CONFLICT DO NOTHING`,
+          [runId, String(incidentId)]
+        );
+      }
+      await client.query(
+        `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+         VALUES($1,'agent.run.completed','agent_run',$2,'success',$3,$4::jsonb)`,
+        [actor, runId, requestId, json({
+          provider: 'hermes', model: hermes.model, hermes_run_id: hermes.runId,
+          incident_ids: incidentIds, created: persistence.created,
+          updated: persistence.updated, total_tokens: hermes.usage.total_tokens,
+        })]
+      );
+    });
+  }
+
   async function failChat({ runId, actor, requestId, error }) {
     const cancelled = error?.code === 'HERMES_CANCELLED';
     const status = cancelled ? 'cancelled' : 'failed';
@@ -304,10 +371,14 @@ function createAgentStore(database = db) {
     return failChat({ runId, actor, requestId, error });
   }
 
+  async function failCorrelation({ runId, actor, requestId, error }) {
+    return failChat({ runId, actor, requestId, error });
+  }
+
   return {
-    attachHermesRun, beginChat, beginTriage, beginToolCall,
-    completeChat, completeTriage, completeToolCall,
-    failChat, failTriage, failToolCall, recordHermesStep,
+    attachHermesRun, beginChat, beginCorrelation, beginTriage, beginToolCall,
+    completeChat, completeCorrelation, completeTriage, completeToolCall,
+    failChat, failCorrelation, failTriage, failToolCall, recordHermesStep,
     recordHermesStepFailure,
   };
 }

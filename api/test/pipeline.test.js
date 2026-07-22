@@ -23,12 +23,16 @@ test('bounded concurrency preserves result order and respects its cap', async ()
   assert.ok(peak > 1);
 });
 
-test('Phase 4 worker has no legacy triage, auto-close, or correlation execution path', () => {
+test('Phase 5 worker has no legacy AI or auto-close path and uses Hermes correlation', () => {
   const source = fs.readFileSync(path.join(__dirname, '../src/workers/pipeline.js'), 'utf8');
+  const correlation = fs.readFileSync(path.join(__dirname, '../src/workers/correlation.js'), 'utf8');
   assert.doesNotMatch(source, /services\/llm/);
+  assert.doesNotMatch(correlation, /services\/llm|correlateAlerts/);
+  assert.match(correlation, /services\/hermes\/correlation/);
   assert.doesNotMatch(source, /\binvestigateAlert\b|\btriageHybrid\b|\btriageAlert\b/);
   assert.doesNotMatch(source, /settings\.autoclose_enabled/);
-  assert.doesNotMatch(source, /correlatePending|promoteSingletons/);
+  assert.match(source, /correlatePending/);
+  assert.doesNotMatch(source, /promoteSingletons/);
   assert.match(source, /AND enrichment_status='enriched'/);
   assert.match(source, /auto_closed=false/);
 });

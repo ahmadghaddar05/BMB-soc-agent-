@@ -780,11 +780,118 @@ async function fetchAlerts(options = {}) {
   return result.alerts;
 }
 
+const RAW_EVENT_FIELDS = [
+  '@timestamp', 'message', 'event.id', 'event.kind', 'event.dataset',
+  'event.category', 'event.type', 'event.action', 'event.outcome', 'event.severity',
+  'user.name', 'host.name', 'agent.name', 'source.ip', 'destination.ip',
+  'process.name', 'process.executable', 'process.command_line',
+  'url.domain', 'url.path', 'database.name',
+  'policy.id', 'policy.domain', 'policy.category', 'policy.violation',
+  'policy.authorized', 'policy.security_alert', 'policy.disposition', 'policy.reason',
+  'change.id', 'change.approved', 'attack.campaign_id', 'attack.stage', 'attack.tactic',
+];
+
+function normalizeRawEvent(hit) {
+  const fields = hit.fields || {};
+  return {
+    id: `${hit._index}:${hit._id}`,
+    timestamp: first(fields, '@timestamp'),
+    source_index: hit._index,
+    document_id: hit._id,
+    event_id: first(fields, 'event.id'),
+    kind: first(fields, 'event.kind'),
+    dataset: first(fields, 'event.dataset'),
+    categories: values(fields, 'event.category').map(String),
+    types: values(fields, 'event.type').map(String),
+    action: first(fields, 'event.action'),
+    outcome: first(fields, 'event.outcome'),
+    severity: first(fields, 'event.severity'),
+    username: first(fields, 'user.name'),
+    hostname: first(fields, 'host.name') || first(fields, 'agent.name'),
+    source_ip: first(fields, 'source.ip'),
+    destination_ip: first(fields, 'destination.ip'),
+    process: {
+      name: first(fields, 'process.name'),
+      executable: first(fields, 'process.executable'),
+      command_line: first(fields, 'process.command_line'),
+    },
+    url: {
+      domain: first(fields, 'url.domain'),
+      path: first(fields, 'url.path'),
+    },
+    database: first(fields, 'database.name'),
+    policy: {
+      id: first(fields, 'policy.id'),
+      domain: first(fields, 'policy.domain'),
+      category: first(fields, 'policy.category'),
+      violation: first(fields, 'policy.violation'),
+      authorized: first(fields, 'policy.authorized'),
+      security_alert: first(fields, 'policy.security_alert'),
+      disposition: first(fields, 'policy.disposition'),
+      reason: first(fields, 'policy.reason'),
+    },
+    change: {
+      id: first(fields, 'change.id'),
+      approved: first(fields, 'change.approved'),
+    },
+    campaign: {
+      id: first(fields, 'attack.campaign_id'),
+      stage: first(fields, 'attack.stage'),
+      tactic: first(fields, 'attack.tactic'),
+    },
+    message: first(fields, 'message'),
+  };
+}
+
+async function searchEvents(options = {}, { request = requestJson } = {}) {
+  validateConfiguration();
+  const baseUrl = process.env.ELASTICSEARCH_URL.replace(/\/$/, '');
+  const indices = process.env.ELASTIC_EVENT_INDICES || 'logs-*';
+  if (!/^[A-Za-z0-9._,*-]{1,300}$/.test(indices)) {
+    throw new Error('ELASTIC_EVENT_INDICES contains invalid characters');
+  }
+
+  const hours = Math.min(Math.max(Number(options.hours) || 24, 1), 168);
+  const limit = Math.min(Math.max(Number(options.limit) || 20, 1), 25);
+  const filters = [{ range: { '@timestamp': { gte: `now-${hours}h`, lte: 'now' } } }];
+  const term = (field, value) => {
+    if (value !== undefined && value !== null && value !== '') filters.push({ term: { [field]: value } });
+  };
+  term('event.dataset', options.dataset);
+  term('event.action', options.action);
+  term('user.name', options.username);
+  term('host.name', options.hostname);
+  term('process.name', options.process);
+  term('url.domain', options.url_domain);
+  term('policy.violation', options.policy_violation);
+  if (options.source_ip) {
+    filters.push({ bool: { should: [
+      { term: { 'source.ip': options.source_ip } },
+      { term: { 'client.ip': options.source_ip } },
+    ], minimum_should_match: 1 } });
+  }
+
+  const data = await request(
+    `${baseUrl}/${indices}/_search?ignore_unavailable=true&allow_no_indices=true`,
+    {
+      size: limit,
+      track_total_hits: false,
+      _source: false,
+      sort: [{ '@timestamp': { order: 'desc', unmapped_type: 'date' } }],
+      fields: RAW_EVENT_FIELDS,
+      query: { bool: { filter: filters } },
+    }
+  );
+  return (data.hits?.hits || []).map(normalizeRawEvent);
+}
+
 module.exports = {
   searchAlerts,
   searchAlertsCursor,
+  searchEvents,
   fetchAlerts,
   normalizeAlert,
+  normalizeRawEvent,
   checkHealth,
   validateConfiguration,
 };

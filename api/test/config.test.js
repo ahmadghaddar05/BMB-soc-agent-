@@ -31,6 +31,14 @@ test('production cannot disable authentication and warns when HTTPS cookies are 
   assert.ok(result.warnings.some(message => message.includes('SOC_COOKIE_SECURE')));
 });
 
+test('authenticated dashboard role is restricted to supported experiences', () => {
+  const valid = validateStartupConfig(runtimeConfig({ ...base, SOC_USER_ROLE:'soc_analyst' }));
+  assert.equal(valid.ok, true);
+  const invalid = validateStartupConfig(runtimeConfig({ ...base, SOC_USER_ROLE:'superuser' }));
+  assert.equal(invalid.ok, false);
+  assert.ok(invalid.errors.includes('SOC_USER_ROLE must be executive, soc_analyst, or administrator'));
+});
+
 test('Hermes-required startup fails closed without its server credential', () => {
   const result = validateStartupConfig(runtimeConfig({ ...base, HERMES_REQUIRED:'true' }));
   assert.equal(result.ok, false);
@@ -43,6 +51,7 @@ test('Hermes timing and retry settings are bounded', () => {
     HERMES_MAX_RETRIES:'99', HERMES_POLL_INTERVAL_MS:'0',
     HERMES_ANALYST_MAX_TOOL_CALLS:'99', HERMES_ANALYST_TIMEOUT_MS:'1',
     HERMES_TRIAGE_MAX_TOOL_CALLS:'99', HERMES_TRIAGE_TIMEOUT_MS:'1',
+    HERMES_CORRELATION_TIMEOUT_MS:'99999999',
     HERMES_TOOL_TIMEOUT_MS:'99999999', HERMES_TOOL_RESULT_MAX_BYTES:'1',
   });
   assert.equal(config.hermesTimeoutMs, 600000);
@@ -53,6 +62,7 @@ test('Hermes timing and retry settings are bounded', () => {
   assert.equal(config.hermesAnalystTimeoutMs, 10000);
   assert.equal(config.hermesTriageMaxToolCalls, 4);
   assert.equal(config.hermesTriageTimeoutMs, 10000);
+  assert.equal(config.hermesCorrelationTimeoutMs, 600000);
   assert.equal(config.hermesToolTimeoutMs, 60000);
   assert.equal(config.hermesToolResultMaxBytes, 4096);
 });

@@ -95,3 +95,89 @@ test('enrichment tools use only fixed service paths and URL-encode model values'
   assert.equal(urls[0], 'http://enrichment:3001/ad/users/alice%2Fadmin');
   assert.deepEqual(result.evidence, [{ type: 'identity', id: 'alice/admin' }]);
 });
+
+test('raw Elastic event search requires an exact pivot and returns citable bounded evidence', async () => {
+  const calls = [];
+  const elasticService = {
+    async searchEvents(args) {
+      calls.push(args);
+      return [{
+        id:'logs-edr.endpoint-default:event-1', timestamp:'2026-07-17T08:00:00Z',
+        dataset:'edr.endpoint', action:'unauthorized-game-launch', username:'maya.georges',
+        policy:{ violation:true, security_alert:false },
+      }];
+    },
+  };
+  const toolkit = createSocToolkit({ database:{}, elasticService, config });
+  const result = await toolkit.execute('search_raw_events', {
+    username:'maya.georges', policy_violation:true, hours:24, limit:10,
+  }, authorized);
+  assert.equal(calls.length, 1);
+  assert.equal(result.data.events[0].policy.security_alert, false);
+  assert.deepEqual(result.evidence, [{
+    type:'raw_event', id:'logs-edr.endpoint-default:event-1',
+  }]);
+  await assert.rejects(
+    toolkit.execute('search_raw_events', { hours:24, limit:10 }, authorized),
+    error => error.code === 'HERMES_INVALID_TOOL_ARGUMENTS'
+  );
+  await assert.rejects(
+    toolkit.execute('search_raw_events', { source_ip:'invalid' }, authorized),
+    error => error.code === 'HERMES_INVALID_TOOL_ARGUMENTS'
+  );
+});
+
+test('controlled action tool requires separate action permission and delegates only to the policy service', async () => {
+  const submitted = [];
+  const actionService = {
+    async submit(input) {
+      submitted.push(input);
+      return { action_request: {
+        id: '10000000-0000-4000-8000-000000000004', action_type: input.actionType,
+        target_type: 'case', target_id: input.targetId, status: 'pending', approval_required: true,
+        reason: input.reason,
+      }, idempotent_replay: false };
+    },
+  };
+  const toolkit = createSocToolkit({ database: {}, actionService, config });
+  const args = {
+    action_type: 'case.update', target_id: '7', parameters: { owner: 'Incident Lead' },
+    reason: 'Assign the active incident',
+  };
+  await assert.rejects(
+    toolkit.execute('request_soc_action', args, authorized),
+    error => error.code === 'HERMES_TOOL_UNAUTHORIZED' && error.status === 403
+  );
+  const result = await toolkit.execute('request_soc_action', args, {
+    authorization: { canRequestActions: true }, actor: 'admin', runId: 'run-7', requestId: 'req-7',
+  });
+  assert.equal(submitted.length, 1);
+  assert.equal(result.data.action_request.status, 'pending');
+  assert.equal(result.data.analyst_approval_required, true);
+  assert.deepEqual(result.evidence, [{ type: 'action_request', id: '10000000-0000-4000-8000-000000000004' }]);
+});
+
+test('durable workflow tools expose bounded read-only investigation and case context', async () => {
+  const calls = [];
+  const database = {
+    async query(sql, params) {
+      calls.push({ sql:String(sql), params });
+      if (String(sql).includes('FROM investigations i')) return { rows:[{
+        id:'4f5f15c5-bf70-47d4-916b-a6fb870c208a', title:'Credential review', status:'open',
+        owner:'SOC Analyst', evidence_count:2, note_count:1,
+      }] };
+      if (String(sql).includes('FROM incidents i')) return { rows:[{
+        id:7, title:'Credential attack', status:'open', severity:'high', owner:'SOC Analyst', note_count:2,
+      }] };
+      return { rows:[] };
+    },
+  };
+  const toolkit = createSocToolkit({ database, config });
+  const investigations = await toolkit.execute('list_investigations', { status:'open', limit:5 }, authorized);
+  const cases = await toolkit.execute('list_cases', { owner:'SOC Analyst', limit:5 }, authorized);
+  assert.deepEqual(investigations.evidence, [{ type:'investigation', id:'4f5f15c5-bf70-47d4-916b-a6fb870c208a' }]);
+  assert.deepEqual(cases.evidence, [{ type:'case', id:'7' }]);
+  assert.ok(calls.every(call => !/\b(?:INSERT|UPDATE|DELETE)\b/i.test(call.sql)));
+  assert.equal(calls[0].params.at(-1), 5);
+  assert.equal(calls[1].params.at(-1), 5);
+});

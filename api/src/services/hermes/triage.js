@@ -73,7 +73,7 @@ ${allowTools
     ? 'The BMB application owns the only permitted tools. Request at most one tool per turn, only when it can materially change the verdict.'
     : 'Do not request a tool in this screening run; return a final triage result from the supplied evidence.'}
 Return exactly one JSON object with no markdown or surrounding prose.
-${allowTools ? 'To request evidence: {"type":"tool_call","tool":"exact_tool_name","arguments":{}}\n' : ''}To finish: {"type":"final","severity":"critical|high|medium|low|informational","verdict":"true_positive|false_positive|needs_investigation|benign_anomaly","confidence":0.0,"attack_stage":"mitre_tactic_or_unknown","key_findings":["specific evidence-grounded finding"],"recommended_actions":["specific proposed analyst action"],"narrative":"concise assessment","citations":[{"type":"alert|incident|alert_group|asset|identity|observable|fetch_run","id":"exact supplied evidence id"}],"limitations":["missing evidence"]}
+${allowTools ? 'To request evidence: {"type":"tool_call","tool":"exact_tool_name","arguments":{}}\n' : ''}To finish: {"type":"final","severity":"critical|high|medium|low|informational","verdict":"true_positive|false_positive|needs_investigation|benign_anomaly","confidence":0.0,"attack_stage":"mitre_tactic_or_unknown","key_findings":["specific evidence-grounded finding"],"recommended_actions":["specific proposed analyst action"],"narrative":"concise assessment","citations":[{"type":"alert|incident|alert_group|asset|identity|observable|fetch_run|raw_event","id":"exact supplied evidence id"}],"limitations":["missing evidence"]}
 Every citation must exactly match a supplied evidence ID. The input alert ID must be cited in every final result.
 Allowed application tools: ${JSON.stringify(catalog)}`;
 }

@@ -91,4 +91,28 @@ describe('Hermes chat widget', () => {
 
     expect(container.textContent).toContain('Request cancelled.');
   });
+
+  it('adds page context to the model request while keeping the visible question concise', async () => {
+    const bodies = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, options) => {
+      bodies.push(JSON.parse(options.body));
+      return response({
+        answer:'The current triage view needs more evidence.',
+        conversation_id:'22222222-2222-4222-8222-222222222222',
+        citations:[], limitations:['No selected alert was supplied'], tools_used:[],
+      });
+    });
+    await act(async () => root.render(<ChatWidget
+      role="soc_analyst"
+      pageContext={{ path:'/alerts?search=maya', title:'Technical Triage', subtitle:'Prioritize activity' }}
+    />));
+
+    await submit('What evidence is missing?');
+
+    expect(bodies[0].message).toContain('Experience: soc_analyst');
+    expect(bodies[0].message).toContain('Page: Technical Triage');
+    expect(bodies[0].message).toContain('Route: /alerts?search=maya');
+    expect(bodies[0].message).toContain('User question: What evidence is missing?');
+    expect(container.textContent).toContain('What evidence is missing?');
+  });
 });

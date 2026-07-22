@@ -4,6 +4,19 @@ export default {
   theme: {
     extend: {
       colors: {
+        canvas: 'var(--color-bg-canvas)',
+        panel: {
+          DEFAULT: 'var(--color-panel)',
+          raised: 'var(--color-panel-raised)',
+          muted: 'var(--color-panel-muted)',
+        },
+        content: {
+          DEFAULT: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+          muted: 'var(--color-text-muted)',
+        },
+        product: 'var(--color-accent)',
+        ai: 'var(--color-ai)',
         dark: {
           900: '#0a0e1a',
           800: '#0f1623',

@@ -56,6 +56,72 @@ test('Phase 4 migration binds cache provenance and keeps unsafe automation disab
   assert.match(sql, /autoclose_enabled','correlation_enabled','incident_promote_enabled/);
 });
 
+test('Phase 5 migration links incidents to Hermes runs and removes legacy provider settings', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/005_hermes_correlation.sql'), 'utf8');
+  assert.match(sql, /incidents ADD COLUMN IF NOT EXISTS correlation_run_id/);
+  assert.match(sql, /incidents_correlation_run_fk/);
+  assert.match(sql, /idx_incidents_correlation_run_id/);
+  assert.match(sql, /llm_provider','groq_model','anthropic_model','ollama_model/);
+  assert.match(sql, /WHERE key='correlation_enabled'/);
+});
+
+test('Phase 6 migration creates durable investigation and case workflow records', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/006_durable_workflows.sql'), 'utf8');
+  for (const table of ['investigations', 'investigation_alerts', 'investigation_notes', 'case_notes']) {
+    assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
+  }
+  assert.match(sql, /incidents ADD COLUMN IF NOT EXISTS owner/);
+  assert.match(sql, /investigation_alerts[\s\S]+REFERENCES alerts\(id\) ON DELETE RESTRICT/);
+  assert.match(sql, /investigation_notes[\s\S]+ON DELETE CASCADE/);
+  assert.match(sql, /case_notes[\s\S]+ON DELETE CASCADE/);
+  assert.match(sql, /evidence_type IN \([\s\S]+'investigation','case'/);
+});
+
+test('Phase 7 migration activates controlled action policy and approval records', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/007_controlled_actions.sql'), 'utf8');
+  for (const column of ['policy_version', 'approval_required', 'idempotency_key', 'executed_at', 'executed_by', 'result', 'error_code']) {
+    assert.match(sql, new RegExp(`action_requests ADD COLUMN IF NOT EXISTS ${column}`));
+  }
+  assert.match(sql, /action_requests_idempotency_key_unique/);
+  assert.match(sql, /action_approvals_one_decision/);
+  assert.match(sql, /investigation\.create/);
+  assert.match(sql, /investigation\.update/);
+  assert.match(sql, /action_request/);
+});
+
+test('Phase 8 migration creates durable autonomous runs and idempotent operations', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/008_autonomous_soc_agent.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS autonomous_runs/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS autonomous_operations/);
+  assert.match(sql, /operation_key TEXT NOT NULL UNIQUE/);
+  assert.match(sql, /request_case_assignment/);
+  assert.match(sql, /autonomous_agent_enabled','false'/);
+  assert.match(sql, /fetch_runs ADD COLUMN IF NOT EXISTS autonomous_run_id/);
+});
+
+test('Phase 9 migration creates approval-gated reversible response simulation records', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/009_simulated_response.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS simulated_response_states/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS simulated_response_events/);
+  assert.match(sql, /response\.simulate/);
+  assert.match(sql, /response\.rollback/);
+  assert.match(sql, /request_simulated_response/);
+  assert.match(sql, /simulated_response_proposals_enabled','false'/);
+  assert.match(sql, /state IN \('active','reverted'\)/);
+});
+
+test('raw-event evidence migration preserves existing evidence types and adds durable citations', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/010_raw_event_evidence.sql'), 'utf8');
+  for (const evidenceType of [
+    'alert', 'incident', 'investigation', 'case', 'action_request',
+    'autonomous_run', 'simulated_response', 'raw_event',
+  ]) {
+    assert.match(sql, new RegExp(`'${evidenceType}'`));
+  }
+  assert.match(sql, /DROP CONSTRAINT IF EXISTS agent_evidence_links_evidence_type_check/);
+  assert.match(sql, /ADD CONSTRAINT agent_evidence_links_evidence_type_check/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

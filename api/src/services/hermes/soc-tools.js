@@ -4,7 +4,9 @@ const Ajv = require('ajv');
 const { isIP } = require('node:net');
 const db = require('../../db');
 const { runtimeConfig } = require('../../config');
+const elastic = require('../elastic');
 const { HermesError } = require('./errors');
+const { ActionError, createActionService, stableKey } = require('../actions');
 
 const ajv = new Ajv({ allErrors: true, strict: true });
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'informational', 'unknown'];
@@ -57,6 +59,67 @@ const TOOL_SPECS = [
   {
     name: 'get_incident',
     description: 'Get one incident and bounded summaries of its member alerts.',
+    parameters: {
+      type: 'object', additionalProperties: false, required: ['id'],
+      properties: { id: { type: 'integer', minimum: 1, maximum: 2147483647 } },
+    },
+  },
+  {
+    name: 'search_raw_events',
+    description: 'Search a bounded, read-only allowlist of recent raw Elastic events for policy and supporting evidence. At least one exact pivot is required; arbitrary queries, indices, and raw source payloads are not accepted.',
+    parameters: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        dataset: { enum: ['ad.security', 'database.audit', 'edr.endpoint', 'email.security', 'linux.security', 'web.application'] },
+        action: { type: 'string', minLength: 1, maxLength: 128 },
+        source_ip: { type: 'string', minLength: 1, maxLength: 64 },
+        username: { type: 'string', minLength: 1, maxLength: 128 },
+        hostname: { type: 'string', minLength: 1, maxLength: 253 },
+        process: { type: 'string', minLength: 1, maxLength: 260 },
+        url_domain: { type: 'string', minLength: 1, maxLength: 253 },
+        policy_violation: { type: 'boolean' },
+        hours: { type: 'integer', minimum: 1, maximum: 168 },
+        limit: { type: 'integer', minimum: 1, maximum: 25 },
+      },
+    },
+  },
+  {
+    name: 'list_investigations',
+    description: 'List durable analyst investigations with bounded evidence and note counts.',
+    parameters: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        query: { type: 'string', minLength: 1, maxLength: 200 },
+        status: { enum: ['open', 'closed'] },
+        owner: { type: 'string', minLength: 1, maxLength: 120 },
+        limit: { type: 'integer', minimum: 1, maximum: 25 },
+      },
+    },
+  },
+  {
+    name: 'get_investigation',
+    description: 'Get one durable investigation, its analyst notes, and bounded linked alert summaries.',
+    parameters: {
+      type: 'object', additionalProperties: false, required: ['id'],
+      properties: { id: { type: 'string', minLength: 36, maxLength: 36 } },
+    },
+  },
+  {
+    name: 'list_cases',
+    description: 'List durable incident-backed cases with owner, status, and note count.',
+    parameters: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        status: { enum: ['open', 'closed', 'false_positive'] },
+        severity: { enum: SEVERITIES },
+        owner: { type: 'string', minLength: 1, maxLength: 120 },
+        limit: { type: 'integer', minimum: 1, maximum: 25 },
+      },
+    },
+  },
+  {
+    name: 'get_case',
+    description: 'Get one durable case with analyst notes and bounded member alert summaries.',
     parameters: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'integer', minimum: 1, maximum: 2147483647 } },
@@ -133,6 +196,94 @@ const TOOL_SPECS = [
       properties: { hostname: { type: 'string', minLength: 1, maxLength: 253 } },
     },
   },
+  {
+    name: 'request_soc_action',
+    description: 'Request one allowlisted BMB workflow action. Notes and investigation creation execute directly. Workflow changes and Phase 9 simulated response actions always wait for analyst approval. Simulated response never changes an external system.',
+    parameters: {
+      oneOf: [
+        {
+          type: 'object', additionalProperties: false, required: ['action_type', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: 'investigation.create' },
+            target_id: { type: 'string', maxLength: 1 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: {
+              type: 'object', additionalProperties: false, required: ['title', 'alert_ids'],
+              properties: {
+                title: { type: 'string', minLength: 1, maxLength: 200 },
+                search_query: { type: 'string', maxLength: 500 },
+                alert_ids: { type: 'array', minItems: 1, maxItems: 100, uniqueItems: true,
+                  items: { type: 'string', minLength: 1, maxLength: 500 } },
+              },
+            },
+          },
+        },
+        ...['investigation.add_note', 'case.add_note'].map(actionType => ({
+          type: 'object', additionalProperties: false, required: ['action_type', 'target_id', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: actionType },
+            target_id: { type: 'string', minLength: 1, maxLength: 64 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: { type: 'object', additionalProperties: false, required: ['body'],
+              properties: { body: { type: 'string', minLength: 1, maxLength: 4000 } } },
+          },
+        })),
+        {
+          type: 'object', additionalProperties: false, required: ['action_type', 'target_id', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: 'investigation.update' },
+            target_id: { type: 'string', minLength: 36, maxLength: 36 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: { type: 'object', additionalProperties: false, minProperties: 1,
+              properties: {
+                title: { type: 'string', minLength: 1, maxLength: 200 },
+                owner: { type: 'string', maxLength: 120 },
+                status: { enum: ['open', 'closed'] },
+              } },
+          },
+        },
+        {
+          type: 'object', additionalProperties: false, required: ['action_type', 'target_id', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: 'case.update' },
+            target_id: { type: 'string', pattern: '^[1-9][0-9]*$', maxLength: 10 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: { type: 'object', additionalProperties: false, minProperties: 1,
+              properties: {
+                owner: { type: 'string', maxLength: 120 },
+                status: { enum: ['open', 'closed', 'false_positive'] },
+              } },
+          },
+        },
+        {
+          type: 'object', additionalProperties: false, required: ['action_type', 'target_id', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: 'response.simulate' },
+            target_id: { type: 'string', minLength: 1, maxLength: 253 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: {
+              type: 'object', additionalProperties: false,
+              required: ['response_type','evidence_alert_ids'],
+              properties: {
+                response_type: { enum: ['endpoint_isolate','identity_suspend','ip_block'] },
+                evidence_alert_ids: { type: 'array', minItems: 1, maxItems: 100, uniqueItems: true,
+                  items: { type: 'string', minLength: 1, maxLength: 500 } },
+              },
+            },
+          },
+        },
+        {
+          type: 'object', additionalProperties: false, required: ['action_type', 'target_id', 'parameters', 'reason'],
+          properties: {
+            action_type: { const: 'response.rollback' },
+            target_id: { type: 'string', minLength: 36, maxLength: 36 },
+            reason: { type: 'string', minLength: 1, maxLength: 1000 },
+            parameters: { type: 'object', additionalProperties: false, maxProperties: 0 },
+          },
+        },
+      ],
+    },
+  },
 ];
 
 const validators = new Map(TOOL_SPECS.map(spec => [spec.name, ajv.compile(spec.parameters)]));
@@ -184,7 +335,10 @@ function enrichmentBaseUrl() {
   return (process.env.ENRICHMENT_URL || 'http://enrichment:3001').replace(/\/$/, '');
 }
 
-function createSocToolkit({ database = db, fetchImpl = global.fetch, config = runtimeConfig() } = {}) {
+function createSocToolkit({
+  database = db, fetchImpl = global.fetch, config = runtimeConfig(),
+  actionService = createActionService(database), elasticService = elastic,
+} = {}) {
   const selectAlert = `SELECT id,timestamp,source_system,source_index,elastic_alert_uuid,
     rule_id,rule_level,rule_desc,risk_score,source_severity,workflow_status,alert_reason,
     triage_status,enrichment_status,verdict,src_ip,dst_ip,username,hostname,process,
@@ -261,6 +415,21 @@ function createSocToolkit({ database = db, fetchImpl = global.fetch, config = ru
       return { data: { count: alerts.length, alerts }, evidence: alerts.flatMap(row => evidence('alert', row.id)) };
     },
 
+    async search_raw_events(args) {
+      try {
+        const events = await elasticService.searchEvents(args);
+        const cleanEvents = sanitize(events);
+        return {
+          data: { count: cleanEvents.length, events: cleanEvents, raw_source_omitted: true },
+          evidence: cleanEvents.flatMap(row => evidence('raw_event', row.id)),
+        };
+      } catch (error) {
+        throw new HermesError('HERMES_TOOL_FAILED', 'Elastic raw-event search failed', {
+          status: 502, cause: error,
+        });
+      }
+    },
+
     async get_alert(args) {
       const result = await database.query(`${selectAlert} WHERE id=$1`, [args.id]);
       if (!result.rows.length) return { data: { found: false, id: args.id }, evidence: [] };
@@ -290,6 +459,82 @@ function createSocToolkit({ database = db, fetchImpl = global.fetch, config = ru
       return {
         data: { found: true, incident: sanitize({ ...incident, alerts: members.rows.map(publicAlert) }) },
         evidence: [...evidence('incident', args.id), ...members.rows.flatMap(row => evidence('alert', row.id))],
+      };
+    },
+
+    async list_investigations(args) {
+      const conditions = ['1=1'];
+      const params = [];
+      const bind = value => { params.push(value); return `$${params.length}`; };
+      if (args.query) {
+        const pattern = `%${args.query}%`;
+        conditions.push(`(i.title ILIKE ${bind(pattern)} OR i.search_query ILIKE ${bind(pattern)})`);
+      }
+      if (args.status) conditions.push(`i.status=${bind(args.status)}`);
+      if (args.owner) conditions.push(`LOWER(i.owner)=LOWER(${bind(args.owner)})`);
+      params.push(args.limit || 15);
+      const result = await database.query(`SELECT i.id,i.title,i.search_query,i.status,i.owner,
+        i.created_by,i.created_at,i.updated_at,
+        (SELECT COUNT(*)::int FROM investigation_alerts ia WHERE ia.investigation_id=i.id) AS evidence_count,
+        (SELECT COUNT(*)::int FROM investigation_notes n WHERE n.investigation_id=i.id) AS note_count
+        FROM investigations i WHERE ${conditions.join(' AND ')}
+        ORDER BY i.updated_at DESC LIMIT $${params.length}`, params);
+      const investigations = sanitize(result.rows);
+      return {
+        data: { count: investigations.length, investigations },
+        evidence: investigations.flatMap(row => evidence('investigation', row.id)),
+      };
+    },
+
+    async get_investigation(args) {
+      const result = await database.query(`SELECT id,title,search_query,status,owner,created_by,created_at,updated_at
+        FROM investigations WHERE id=$1`, [args.id]);
+      if (!result.rows.length) return { data: { found: false, id: args.id }, evidence: [] };
+      const [notes, members] = await Promise.all([
+        database.query(`SELECT id,body,author,created_at FROM investigation_notes
+          WHERE investigation_id=$1 ORDER BY created_at DESC,id DESC LIMIT 20`, [args.id]),
+        database.query(`${selectAlert} WHERE id IN (
+          SELECT alert_id FROM investigation_alerts WHERE investigation_id=$1
+        ) ORDER BY timestamp DESC LIMIT 25`, [args.id]),
+      ]);
+      const alerts = members.rows.map(publicAlert);
+      return {
+        data: { found: true, investigation: sanitize({ ...result.rows[0], notes: notes.rows, alerts }) },
+        evidence: [...evidence('investigation', args.id), ...alerts.flatMap(row => evidence('alert', row.id))],
+      };
+    },
+
+    async list_cases(args) {
+      const conditions = ['1=1'];
+      const params = [];
+      const bind = value => { params.push(value); return `$${params.length}`; };
+      if (args.status) conditions.push(`i.status=${bind(args.status)}`);
+      if (args.severity) conditions.push(`COALESCE(i.severity,'unknown')=${bind(args.severity)}`);
+      if (args.owner) conditions.push(`LOWER(i.owner)=LOWER(${bind(args.owner)})`);
+      params.push(args.limit || 15);
+      const result = await database.query(`SELECT i.id,i.title,i.severity,i.confidence,i.status,i.owner,
+        i.first_seen,i.last_seen,array_length(i.alert_ids,1) AS alert_count,
+        (SELECT COUNT(*)::int FROM case_notes n WHERE n.incident_id=i.id) AS note_count
+        FROM incidents i WHERE ${conditions.join(' AND ')}
+        ORDER BY i.updated_at DESC LIMIT $${params.length}`, params);
+      const cases = sanitize(result.rows);
+      return { data: { count: cases.length, cases }, evidence: cases.flatMap(row => evidence('case', row.id)) };
+    },
+
+    async get_case(args) {
+      const result = await database.query(`SELECT id,title,severity,confidence,attack_stages,common_entities,
+        alert_ids,narrative,recommended_actions,first_seen,last_seen,status,owner,incident_type
+        FROM incidents WHERE id=$1`, [args.id]);
+      if (!result.rows.length) return { data: { found: false, id: args.id }, evidence: [] };
+      const item = result.rows[0];
+      const [notes, members] = await Promise.all([
+        database.query('SELECT id,body,author,created_at FROM case_notes WHERE incident_id=$1 ORDER BY created_at DESC,id DESC LIMIT 20', [args.id]),
+        database.query(`${selectAlert} WHERE id=ANY($1::text[]) ORDER BY timestamp DESC LIMIT 25`, [item.alert_ids]),
+      ]);
+      const alerts = members.rows.map(publicAlert);
+      return {
+        data: { found: true, case: sanitize({ ...item, notes: notes.rows, alerts }) },
+        evidence: [...evidence('case', args.id), ...alerts.flatMap(row => evidence('alert', row.id))],
       };
     },
 
@@ -347,6 +592,37 @@ function createSocToolkit({ database = db, fetchImpl = global.fetch, config = ru
       const result = await fetchEnrichment(`/vuln/${encodeURIComponent(args.hostname)}/risk`, context);
       return { data: result, evidence: result.found ? evidence('asset', args.hostname) : [] };
     },
+
+    async request_soc_action(args, context) {
+      try {
+        const outcome = await actionService.submit({
+          actionType: args.action_type, targetId: args.target_id, parameters: args.parameters,
+          reason: args.reason, actor: context.actor || 'unknown', requestId: context.requestId || null,
+          runId: context.runId || null,
+          idempotencyKey: stableKey(`agent:${context.runId || 'unknown'}`, args),
+        });
+        const action = outcome.action_request;
+        return {
+          data: {
+            action_request: {
+              id: action.id, action_type: action.action_type, target_type: action.target_type,
+              target_id: action.target_id, status: action.status,
+              approval_required: action.approval_required, reason: action.reason,
+              preview: action.preview || null,
+              result: action.result || outcome.result || null,
+            },
+            analyst_approval_required: action.status === 'pending',
+            idempotent_replay: outcome.idempotent_replay,
+          },
+          evidence: evidence('action_request', action.id),
+        };
+      } catch (error) {
+        if (error instanceof ActionError) {
+          throw new HermesError(error.code, error.message, { status: error.status, cause: error });
+        }
+        throw error;
+      }
+    },
   };
 
   function validateArguments(name, args) {
@@ -360,20 +636,31 @@ function createSocToolkit({ database = db, fetchImpl = global.fetch, config = ru
       });
     }
     const invalidIp = (name === 'pivot_observable' && args.type === 'ip' && !isIP(args.value)) ||
+      (name === 'search_raw_events' && args.source_ip && !isIP(args.source_ip)) ||
       (name === 'check_logon_context' && !isIP(args.source_ip)) ||
       (name === 'get_asset_context' && args.ip && !isIP(args.ip));
     const invalidTimestamp = name === 'check_logon_context' && !Number.isFinite(Date.parse(args.timestamp));
-    if (invalidIp || invalidTimestamp) {
+    const missingRawEventPivot = name === 'search_raw_events' && ![
+      'dataset', 'action', 'source_ip', 'username', 'hostname', 'process', 'url_domain', 'policy_violation',
+    ].some(key => Object.hasOwn(args, key));
+    if (invalidIp || invalidTimestamp || missingRawEventPivot) {
       throw new HermesError('HERMES_INVALID_TOOL_ARGUMENTS', 'Hermes returned invalid SOC tool arguments', {
-        status: 502, details: [invalidIp ? 'invalid IP address' : 'invalid timestamp'],
+        status: 502, details: [
+          invalidIp ? 'invalid IP address' : invalidTimestamp ? 'invalid timestamp' : 'an exact raw-event pivot is required',
+        ],
       });
     }
     return args;
   }
 
-  async function execute(name, args, { signal, authorization } = {}) {
-    if (authorization?.canReadSoc !== true) {
-      throw new HermesError('HERMES_TOOL_UNAUTHORIZED', 'The actor is not authorized to read SOC evidence', { status: 403 });
+  async function execute(name, args, { signal, authorization, actor, runId, requestId } = {}) {
+    const isAction = name === 'request_soc_action';
+    if (isAction ? authorization?.canRequestActions !== true : authorization?.canReadSoc !== true) {
+      throw new HermesError(
+        'HERMES_TOOL_UNAUTHORIZED',
+        isAction ? 'The actor is not authorized to request SOC actions' : 'The actor is not authorized to read SOC evidence',
+        { status: 403 }
+      );
     }
     validateArguments(name, args);
     if (signal?.aborted) throw new HermesError('HERMES_CANCELLED', 'Hermes request was cancelled', { status: 499 });
@@ -395,7 +682,8 @@ function createSocToolkit({ database = db, fetchImpl = global.fetch, config = ru
         'HERMES_TOOL_TIMEOUT', 'SOC tool did not respond in time', { status: 504 }
       )), config.hermesToolTimeoutMs);
       signal?.addEventListener('abort', abort, { once: true });
-      Promise.resolve().then(() => handler(args, { signal })).then(finish(resolve), finish(reject));
+      Promise.resolve().then(() => handler(args, { signal, actor, runId, requestId, authorization }))
+        .then(finish(resolve), finish(reject));
     });
     const cleanEvidence = (result.evidence || []).filter(item => item?.type && item?.id != null)
       .map(item => ({ type: item.type, id: compactText(item.id, 256) }));

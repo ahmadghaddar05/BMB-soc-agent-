@@ -65,6 +65,48 @@ test('durable triage start records the alert input and audit event atomically', 
   assert.equal(queries.at(-1).sql, 'COMMIT');
 });
 
+test('durable correlation start records every candidate alert atomically', async () => {
+  const queries = [];
+  const client = {
+    async query(sql, params) { queries.push({ sql:String(sql), params }); return { rows:[], rowCount:1 }; },
+    release() {},
+  };
+  const store = createAgentStore({ async connect() { return client; } });
+  const started = await store.beginCorrelation({
+    alertIds:['A','B'], actor:'scheduler', requestId:'request-correlation',
+    promptVersion:'prompt-v1', schemaVersion:'schema-v1', settingsSummary:{ entity_window_hours:6 },
+  });
+  assert.match(started.runId, /^[0-9a-f-]{36}$/);
+  assert.ok(queries.some(call => call.sql.includes("'correlation','running'")));
+  assert.equal(queries.filter(call => call.sql.includes("'alert',$2,'input'")).length, 2);
+  assert.ok(queries.some(call => call.sql.includes("'agent.run.started'")));
+  assert.equal(queries[0].sql, 'BEGIN');
+  assert.equal(queries.at(-1).sql, 'COMMIT');
+});
+
+test('completed correlation links output incidents and usage to its Hermes run atomically', async () => {
+  const queries = [];
+  const client = {
+    async query(sql, params) { queries.push({ sql:String(sql), params }); return { rows:[], rowCount:1 }; },
+    release() {},
+  };
+  const store = createAgentStore({ async connect() { return client; } });
+  await store.completeCorrelation({
+    runId:'11111111-1111-4111-8111-111111111111', actor:'scheduler', requestId:'request-complete',
+    output:{ incidents:[{ alert_ids:['A','B'] }] }, incidentIds:[17],
+    persistence:{ created:1, updated:0, unchanged:0 },
+    hermes:{
+      model:'hermes-agent', runId:'hermes-17', capabilities:{ safe:true },
+      usage:{ prompt_tokens:20, completion_tokens:10, total_tokens:30 }, attempts:1, latencyMs:8,
+    },
+  });
+  assert.ok(queries.some(call => call.sql.includes("status='completed'")));
+  assert.ok(queries.some(call => call.sql.includes("'incident',$2,'output'") && call.params[1] === '17'));
+  assert.ok(queries.some(call => call.sql.includes("'agent.run.completed'")));
+  assert.equal(queries[0].sql, 'BEGIN');
+  assert.equal(queries.at(-1).sql, 'COMMIT');
+});
+
 test('grounded tool completion persists a bounded summary, evidence links, and an audit event atomically', async () => {
   const queries = [];
   const client = {

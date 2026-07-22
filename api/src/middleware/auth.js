@@ -44,7 +44,7 @@ function verifyPayload(token, secret) {
 function sessionFor(username, config = runtimeConfig()) {
   return {
     sub: username,
-    role: 'administrator',
+    role: config.userRole || 'administrator',
     csrf: crypto.randomBytes(24).toString('base64url'),
     exp: Date.now() + config.sessionTtlMinutes * 60 * 1000,
   };
@@ -109,6 +109,14 @@ function requireCsrf(req, res, next) {
   next();
 }
 
+function requireRoles(...allowedRoles) {
+  const allowed = new Set(allowedRoles);
+  return (req, res, next) => {
+    if (req.user?.role && allowed.has(req.user.role)) return next();
+    return res.status(403).json({ error: 'This role cannot perform the requested operation' });
+  };
+}
+
 function authRouter() {
   const router = Router();
 
@@ -148,5 +156,5 @@ function authRouter() {
 
 module.exports = {
   COOKIE_NAME, authRouter, clearSessionCookie, parseCookies, readAuth,
-  requireAuth, requireCsrf, sessionFor, signPayload, verifyPayload,
+  requireAuth, requireCsrf, requireRoles, sessionFor, signPayload, verifyPayload,
 };

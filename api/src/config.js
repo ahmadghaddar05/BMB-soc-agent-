@@ -19,6 +19,7 @@ function runtimeConfig(env = process.env) {
     authDisabled: bool(env.SOC_AUTH_DISABLED, false),
     adminUsername: env.SOC_ADMIN_USERNAME || 'admin',
     adminPassword: env.SOC_ADMIN_PASSWORD || '',
+    userRole: env.SOC_USER_ROLE || 'administrator',
     sessionSecret: env.SOC_SESSION_SECRET || '',
     apiKey: env.SOC_API_KEY || '',
     sessionTtlMinutes: Math.min(1440, Math.max(15, parseInt(env.SOC_SESSION_TTL_MINUTES || '480', 10) || 480)),
@@ -28,6 +29,7 @@ function runtimeConfig(env = process.env) {
     alertSource: env.ALERT_SOURCE || 'mock',
     elasticUrl: env.ELASTICSEARCH_URL || '',
     elasticApiKey: env.ELASTIC_API_KEY || '',
+    elasticEventIndices: env.ELASTIC_EVENT_INDICES || 'logs-*',
     elasticVerifyTls: bool(env.ELASTIC_VERIFY_TLS, true),
     elasticCaCert: env.ELASTIC_CA_CERT || '',
     wazuhMode: env.WAZUH_MODE || 'mock',
@@ -46,6 +48,7 @@ function runtimeConfig(env = process.env) {
     hermesAnalystTimeoutMs: boundedInt(env.HERMES_ANALYST_TIMEOUT_MS, 240000, 10000, 600000),
     hermesTriageMaxToolCalls: boundedInt(env.HERMES_TRIAGE_MAX_TOOL_CALLS, 3, 1, 4),
     hermesTriageTimeoutMs: boundedInt(env.HERMES_TRIAGE_TIMEOUT_MS, 180000, 10000, 600000),
+    hermesCorrelationTimeoutMs: boundedInt(env.HERMES_CORRELATION_TIMEOUT_MS, 180000, 10000, 600000),
     hermesToolTimeoutMs: boundedInt(env.HERMES_TOOL_TIMEOUT_MS, 10000, 1000, 60000),
     hermesToolResultMaxBytes: boundedInt(env.HERMES_TOOL_RESULT_MAX_BYTES, 65536, 4096, 262144),
     hermesStrictCapabilities: bool(env.HERMES_STRICT_CAPABILITIES, true),
@@ -72,6 +75,9 @@ function validateStartupConfig(config = runtimeConfig()) {
   if (!config.authDisabled) {
     if (config.sessionSecret.length < 32) errors.push('SOC_SESSION_SECRET must be at least 32 characters');
     if (config.adminPassword.length < 12) errors.push('SOC_ADMIN_PASSWORD must be at least 12 characters');
+    if (!['executive','soc_analyst','administrator'].includes(config.userRole)) {
+      errors.push('SOC_USER_ROLE must be executive, soc_analyst, or administrator');
+    }
   }
   if (config.apiKey && config.apiKey.length < 24) warnings.push('SOC_API_KEY should be at least 24 characters');
   if (config.nodeEnv === 'production' && !config.cookieSecure) warnings.push('SOC_COOKIE_SECURE is false; use true when the UI is served over HTTPS');
@@ -80,6 +86,7 @@ function validateStartupConfig(config = runtimeConfig()) {
     if (!config.elasticUrl) errors.push('ELASTICSEARCH_URL is required when ALERT_SOURCE=elastic');
     else if (!validHttpUrl(config.elasticUrl)) errors.push('ELASTICSEARCH_URL must be a valid HTTP(S) URL');
     if (!config.elasticApiKey) errors.push('ELASTIC_API_KEY is required when ALERT_SOURCE=elastic');
+    if (!/^[A-Za-z0-9._,*-]{1,300}$/.test(config.elasticEventIndices)) errors.push('ELASTIC_EVENT_INDICES contains invalid characters');
     if (config.elasticVerifyTls && !config.elasticCaCert) errors.push('ELASTIC_CA_CERT is required when Elastic TLS verification is enabled');
     else if (config.elasticVerifyTls && !fs.existsSync(config.elasticCaCert)) errors.push('ELASTIC_CA_CERT does not exist at the configured path');
   }

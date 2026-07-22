@@ -14,6 +14,8 @@ const {
   triageHermes,
 } = require('../services/hermes/triage');
 const { alertSignature } = require('../services/signature');
+const { correlatePending } = require('./correlation');
+const { runAutonomousAgent } = require('./autonomous');
 
 function getEnrichmentUrl() {
   return (process.env.ENRICHMENT_URL || 'http://enrichment:3001').replace(/\/$/, '');
@@ -366,6 +368,9 @@ async function runCycle(trigger = 'scheduler') {
     llm_calls:0, llm_tokens:0, cache_hits:0, agentic_escalations:0,
     prompt_tokens:0, completion_tokens:0,
     correlation_calls:0, correlation_tokens:0,
+    autonomous_run_id:null, investigations_created:0,
+    investigation_notes_added:0, case_notes_added:0,
+    approvals_requested:0, autonomous_failures:0,
   };
 
   try {
@@ -585,14 +590,55 @@ async function runCycle(trigger = 'scheduler') {
         `llm_calls=${tr.llm_calls || 0} tokens=${tr.llm_tokens || 0}`
       );
 
-      // Correlation remains disabled until its Hermes migration in Phase 5.
-      // Never fall through to the legacy provider from a Hermes triage cycle.
-      console.log('[cycle] Phase 5 correlation is disabled');
     } else {
       console.log(
-        '[cycle] AI triage and correlation disabled; ' +
-        'alerts remain pending'
+        '[cycle] AI triage disabled; enriched alerts remain pending'
       );
+    }
+
+    // 5. Optional Hermes correlation. This is independent from triage so an
+    // accepted backlog can be correlated even when new-alert triage is paused.
+    if ((settings.correlation_enabled || 'false') === 'true') {
+      const correlation = await correlatePending(settings, runId, {
+        actor: `system:${trigger}`,
+        requestId: crypto.randomUUID(),
+      });
+      stats.incidents_created = correlation.incidents_created || 0;
+      stats.correlation_calls = correlation.llm_calls || 0;
+      stats.correlation_tokens = correlation.llm_tokens || 0;
+      stats.llm_calls += correlation.llm_calls || 0;
+      stats.llm_tokens += correlation.llm_tokens || 0;
+      stats.prompt_tokens += correlation.prompt_tokens || 0;
+      stats.completion_tokens += correlation.completion_tokens || 0;
+      console.log(
+        `[cycle] correlated created=${correlation.incidents_created || 0} ` +
+        `updated=${correlation.incidents_updated || 0} considered=${correlation.considered || 0}`
+      );
+    } else {
+      console.log('[cycle] Hermes correlation disabled');
+    }
+
+    // 6. Optional autonomous internal SOC orchestration. It consumes only
+    // already-validated triage/correlation records and reuses Phase 7's
+    // allowlisted, audited, idempotent actions. No external response action is
+    // available to this worker.
+    if ((settings.autonomous_agent_enabled || 'false') === 'true') {
+      const autonomous = await runAutonomousAgent(settings, runId, {
+        trigger, actor: `system:autonomous-agent`,
+      });
+      stats.autonomous_run_id = autonomous.run_id;
+      stats.investigations_created = autonomous.metrics.investigations_created || 0;
+      stats.investigation_notes_added = autonomous.metrics.investigation_notes_added || 0;
+      stats.case_notes_added = autonomous.metrics.case_notes_added || 0;
+      stats.approvals_requested = autonomous.metrics.approvals_requested || 0;
+      stats.autonomous_failures = autonomous.metrics.failures || 0;
+      console.log(
+        `[cycle] autonomous run=${autonomous.run_id} status=${autonomous.status} ` +
+        `investigations=${stats.investigations_created} notes=${stats.case_notes_added} ` +
+        `approvals=${stats.approvals_requested} failures=${stats.autonomous_failures}`
+      );
+    } else {
+      console.log('[cycle] Autonomous SOC agent disabled');
     }
 
     await db.finishFetchRun(runId, stats, 'ok');
@@ -608,5 +654,5 @@ async function runCycle(trigger = 'scheduler') {
 
 module.exports = {
   runCycle, ingestAlerts, enrichPending, triagePending, retriageAlert,
-  mapWithConcurrency,
+  correlatePending, mapWithConcurrency,
 };

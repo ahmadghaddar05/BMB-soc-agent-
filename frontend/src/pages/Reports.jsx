@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FileText, Download, AlertTriangle, Bell } from 'lucide-react';
+import { ROLES } from '../lib/roles';
 
 // Reports are file downloads streamed by the API; opening the URL triggers the
 // browser's download (the endpoint sets Content-Disposition: attachment).
@@ -12,18 +13,19 @@ function download(path) {
   a.remove();
 }
 
-export default function Reports() {
+export default function Reports({ role }) {
   const [hours, setHours] = useState('24');
   const [incId, setIncId] = useState('');
 
   const range = hours === 'all' ? '' : `?hours=${hours}`;
   const sep = range ? '&' : '?';
+  const executive = role === ROLES.EXECUTIVE;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Reports</h1>
-        <p className="text-sm text-gray-500">Generate PDF reports for alerts and incidents.</p>
+          <h1 className="page-title">{executive ? 'Executive Reports' : 'Reports'}</h1>
+          <p className="text-sm text-gray-500">{executive ? 'Generate decision-level security summaries without raw alert evidence.' : 'Generate PDF reports for alerts and incidents.'}</p>
       </div>
 
       {/* Alerts reports */}
@@ -45,12 +47,12 @@ export default function Reports() {
           <button className="btn-secondary" onClick={() => download(`/reports/alerts${range}`)}>
             <FileText className="w-4 h-4" /> Summary PDF
           </button>
-          <button className="btn-primary" onClick={() => download(`/reports/alerts${range}${sep}detailed=true`)}>
+          {!executive && <button className="btn-primary" onClick={() => download(`/reports/alerts${range}${sep}detailed=true`)}>
             <Download className="w-4 h-4" /> Detailed PDF
-          </button>
+          </button>}
         </div>
         <p className="text-xs text-gray-600">
-          Summary = severity / verdict / MITRE breakdown. Detailed = full alert table.
+          {executive ? 'Summary includes aggregate severity and outcome trends. Raw alert rows are restricted to SOC roles.' : 'Summary = severity / verdict / MITRE breakdown. Detailed = full alert table.'}
         </p>
       </div>
 
@@ -64,16 +66,16 @@ export default function Reports() {
           <button className="btn-secondary" onClick={() => download('/reports/incidents')}>
             <FileText className="w-4 h-4" /> Summary PDF
           </button>
-          <button className="btn-primary" onClick={() => download('/reports/incidents?detailed=true')}>
+          {!executive && <button className="btn-primary" onClick={() => download('/reports/incidents?detailed=true')}>
             <Download className="w-4 h-4" /> Detailed PDF
-          </button>
+          </button>}
         </div>
         <p className="text-xs text-gray-600">
-          Summary = status / severity breakdown + index. Detailed = every open incident with narrative,
-          attack stages, member alerts and recommended actions.
+          {executive ? 'Summary includes incident status and risk distribution. Detailed member evidence is restricted to SOC roles.' : <>Summary = status / severity breakdown + index. Detailed = every open incident with narrative,
+          attack stages, member alerts and recommended actions.</>}
         </p>
 
-        <div className="border-t border-dark-600 pt-4">
+        {!executive && <div className="border-t border-dark-600 pt-4">
           <div className="text-sm text-gray-400 mb-2">Single incident report</div>
           <div className="flex gap-3 items-center flex-wrap">
             <input className="input w-32" placeholder="Incident ID" value={incId}
@@ -83,7 +85,7 @@ export default function Reports() {
               <Download className="w-4 h-4" /> Generate
             </button>
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   );
