@@ -75,6 +75,16 @@ services:
       WAZUH_INDEXER_PASS: ${WAZUH_INDEXER_PASS:-}
       WAZUH_VERIFY_TLS: ${WAZUH_VERIFY_TLS:-false}
       WAZUH_INDEX: ${WAZUH_INDEX:-wazuh-alerts-*}
+
+      # AI provider selection (hermes | nous)
+      LLM_PROVIDER: ${LLM_PROVIDER:-hermes}
+      # Nous / hy3:free provider (OpenAI-compatible fallback)
+      NOUS_BASE_URL: ${NOUS_BASE_URL:-https://api.nousresearch.com/v1}
+      NOUS_API_KEY: ${NOUS_API_KEY:-}
+      NOUS_MODEL: ${NOUS_MODEL:-hy3:free}
+      NOUS_JSON_MODE: ${NOUS_JSON_MODE:-true}
+      NOUS_REQUEST_TIMEOUT_MS: ${NOUS_REQUEST_TIMEOUT_MS:-120000}
+
       # Hermes AI analyst, triage, and correlation (backend-only; no fallback)
       HERMES_REQUIRED: ${HERMES_REQUIRED:-true}
       HERMES_API_URL: ${HERMES_API_URL:-http://host.docker.internal:8642/v1}
