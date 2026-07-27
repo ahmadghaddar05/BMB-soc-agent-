@@ -168,6 +168,9 @@ function executiveIncidentView(record = {}) {
   );
   const status = String(record.status || 'open').toLowerCase();
   const owner = String(record.owner || '').trim() || null;
+  const businessServices = Array.isArray(record.business_services)
+    ? record.business_services.filter(Boolean)
+    : [];
   const evidenceStatement = alertCount > 1
     ? 'Multiple correlated security signals support this incident record.'
     : alertCount === 1
@@ -185,11 +188,14 @@ function executiveIncidentView(record = {}) {
     first_seen: record.first_seen || null,
     last_seen: record.last_seen || null,
     alert_count: alertCount,
-    business_service: null,
-    business_service_mapping_available: false,
+    business_service: businessServices[0] || null,
+    business_services: businessServices,
+    business_service_mapping_available: businessServices.length > 0,
     containment_status: record.containment_status || 'not_recorded',
     required_decision: record.required_decision || executiveDecision({ ...record, severity, owner }),
-    impact_basis: 'Stored incident severity; durable business-service criticality is not mapped.',
+    impact_basis: businessServices.length
+      ? 'Stored incident severity with CMDB business-service mapping.'
+      : 'Stored incident severity; no linked CMDB business-service mapping was found.',
     executive_summary: `${record.title || 'This security incident'} remains ${status.replaceAll('_', ' ')}. ${evidenceStatement} ${owner ? `${owner} is the recorded owner.` : 'No accountable owner is recorded.'}`,
     evidence_assurance: evidenceStatement,
   };
@@ -214,17 +220,20 @@ function executiveAssetCategory(record = {}) {
 function executiveAssetViews(records = []) {
   const grouped = new Map();
   for (const record of records) {
-    const name = executiveAssetCategory(record);
+    const mappedService = String(record.business_service || '').trim() || null;
+    const name = mappedService || executiveAssetCategory(record);
     const current = grouped.get(name) || {
       asset_key: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       name,
-      type: 'observed technology category',
+      type: mappedService ? 'mapped business service' : 'observed technology category',
       activity_count: 0,
       high_risk_activity_count: 0,
       business_impact: 'low',
       last_seen: null,
-      business_service_mapped: false,
-      mapping_method: 'derived from technical asset type',
+      business_service_mapped: Boolean(mappedService),
+      mapping_method: mappedService
+        ? 'stored CMDB CI-type mapping'
+        : 'derived from technical asset type',
     };
     current.activity_count += numericCount(record.activity_count);
     current.high_risk_activity_count += numericCount(record.high_risk_activity_count);
@@ -1087,7 +1096,16 @@ r.patch('/incidents/:id', requireRoles('soc_analyst', 'administrator'), async (r
       return res.status(400).json({ error: 'Invalid status' });
     const r = await db.query(
       `WITH changed AS (
-         UPDATE incidents SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *
+         UPDATE incidents
+         SET status=$1,
+             first_response_at=COALESCE(first_response_at, NOW()),
+             resolved_at=CASE
+               WHEN $1 IN ('closed','false_positive') THEN COALESCE(resolved_at, NOW())
+               ELSE NULL
+             END,
+             updated_at=NOW()
+         WHERE id=$2
+         RETURNING *
        ), audited AS (
          INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
          SELECT $3,'incident.status_updated','incident',changed.id::text,'success',$4,
@@ -1319,9 +1337,24 @@ r.post('/chat', async (req, res) => {
 r.get('/executive/risks', async (req, res) => {
   const pg = pagination(req.query, { defaultLimit: 50, maxLimit: 100 });
   if (pg.error) return res.status(400).json({ error: pg.error });
+  const days = req.query.days == null || req.query.days === '' ? null : Number(req.query.days);
+  if (days != null && (!Number.isInteger(days) || !EXECUTIVE_WINDOWS.has(days))) {
+    return res.status(400).json({ error: 'days must be one of 7, 30, or 90' });
+  }
   try {
+    const windowClause = days == null
+      ? ''
+      : " AND COALESCE(last_seen, created_at) >= NOW() - ($1::int * INTERVAL '1 day')";
+    const countParams = days == null ? [] : [days];
+    const listParams = days == null
+      ? [pg.limit, pg.offset]
+      : [days, pg.limit, pg.offset];
+    const limitIndex = days == null ? 1 : 2;
     const [countResult, riskResult] = await Promise.all([
-      db.query(`SELECT COUNT(*)::int AS n FROM incidents WHERE status = 'open'`),
+      db.query(
+        `SELECT COUNT(*)::int AS n FROM incidents WHERE status = 'open'${windowClause}`,
+        countParams
+      ),
       db.query(`
         /* executive_risk_directory */
         SELECT
@@ -1333,9 +1366,43 @@ r.get('/executive/risks', async (req, res) => {
           last_seen,
           status,
           owner,
-          COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count
+          COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count,
+          ARRAY(
+            SELECT DISTINCT m.business_service
+            FROM alerts evidence
+            JOIN LATERAL (
+              SELECT mapped.business_service
+              FROM business_service_mappings mapped
+              WHERE (
+                mapped.mapping_type = 'ci_type'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                  NULLIF(evidence.enrichment #>> '{dst_asset,ci_type}', ''),
+                  NULLIF(evidence.enrichment #>> '{src_asset,ci_type}', '')
+                ))
+              ) OR (
+                mapped.mapping_type = 'event_dataset'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.event_dataset, ''))
+              ) OR (
+                mapped.mapping_type = 'asset_name'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                  NULLIF(evidence.enrichment #>> '{dst_asset,hostname}', ''),
+                  NULLIF(evidence.enrichment #>> '{src_asset,hostname}', ''),
+                  NULLIF(evidence.hostname, ''),
+                  NULLIF(evidence.agent_name, ''),
+                  NULLIF(evidence.target_db, '')
+                ))
+              )
+              ORDER BY CASE mapped.mapping_type
+                WHEN 'asset_name' THEN 1 WHEN 'ci_type' THEN 2 ELSE 3
+              END
+              LIMIT 1
+            ) m ON TRUE
+            WHERE evidence.id = ANY(incidents.alert_ids)
+            ORDER BY m.business_service
+          ) AS business_services
         FROM incidents
         WHERE status = 'open'
+        ${windowClause}
         ORDER BY
           CASE severity
             WHEN 'critical' THEN 1
@@ -1346,8 +1413,8 @@ r.get('/executive/risks', async (req, res) => {
           END,
           last_seen DESC NULLS LAST,
           id DESC
-        LIMIT $1 OFFSET $2
-      `, [pg.limit, pg.offset]),
+        LIMIT $${limitIndex} OFFSET $${limitIndex + 1}
+      `, listParams),
     ]);
     res.json({
       total: numericCount(countResult.rows[0]?.n),
@@ -1355,6 +1422,7 @@ r.get('/executive/risks', async (req, res) => {
       limit: pg.limit,
       risks: riskResult.rows.map(executiveIncidentView),
       detail_level: 'executive_summary',
+      window_days: days,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1376,7 +1444,40 @@ r.get('/executive/incidents/:id', async (req, res) => {
         last_seen,
         status,
         owner,
-        COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count
+        COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count,
+        ARRAY(
+          SELECT DISTINCT m.business_service
+          FROM alerts evidence
+          JOIN LATERAL (
+            SELECT mapped.business_service
+            FROM business_service_mappings mapped
+            WHERE (
+              mapped.mapping_type = 'ci_type'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                NULLIF(evidence.enrichment #>> '{dst_asset,ci_type}', ''),
+                NULLIF(evidence.enrichment #>> '{src_asset,ci_type}', '')
+              ))
+            ) OR (
+              mapped.mapping_type = 'event_dataset'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.event_dataset, ''))
+            ) OR (
+              mapped.mapping_type = 'asset_name'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                NULLIF(evidence.enrichment #>> '{dst_asset,hostname}', ''),
+                NULLIF(evidence.enrichment #>> '{src_asset,hostname}', ''),
+                NULLIF(evidence.hostname, ''),
+                NULLIF(evidence.agent_name, ''),
+                NULLIF(evidence.target_db, '')
+              ))
+            )
+            ORDER BY CASE mapped.mapping_type
+              WHEN 'asset_name' THEN 1 WHEN 'ci_type' THEN 2 ELSE 3
+            END
+            LIMIT 1
+          ) m ON TRUE
+          WHERE evidence.id = ANY(incidents.alert_ids)
+          ORDER BY m.business_service
+        ) AS business_services
       FROM incidents
       WHERE id = $1
     `, [req.params.id]);
@@ -1419,6 +1520,8 @@ r.get('/executive/overview', async (req, res) => {
       businessRiskSummaryResult,
       businessRiskItemsResult,
       fetchMetricsResult,
+      businessServiceRiskResult,
+      responseMetricsResult,
       riskTrendResult,
       topAssetsResult,
       workflowControlResult,
@@ -1458,10 +1561,19 @@ r.get('/executive/overview', async (req, res) => {
           (COUNT(*) FILTER (WHERE severity = 'medium'))::int AS medium,
           (COUNT(*) FILTER (
             WHERE severity IS NULL OR severity NOT IN ('critical', 'high', 'medium')
-          ))::int AS low
+          ))::int AS low,
+          (
+            SELECT COUNT(*)::int
+            FROM incidents previous
+            WHERE previous.status = 'open'
+              AND previous.severity = 'critical'
+              AND COALESCE(previous.last_seen, previous.created_at) < NOW() - ($1::int * INTERVAL '1 day')
+              AND COALESCE(previous.last_seen, previous.created_at) >= NOW() - ($1::int * INTERVAL '2 day')
+          ) AS previous_critical
         FROM incidents
         WHERE status = 'open'
-      `),
+          AND COALESCE(last_seen, created_at) >= NOW() - ($1::int * INTERVAL '1 day')
+      `, [days]),
 
       db.query(`
         /* executive_business_risk_items */
@@ -1474,9 +1586,43 @@ r.get('/executive/overview', async (req, res) => {
           last_seen,
           status,
           owner,
-          COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count
+          COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count,
+          ARRAY(
+            SELECT DISTINCT m.business_service
+            FROM alerts evidence
+            JOIN LATERAL (
+              SELECT mapped.business_service
+              FROM business_service_mappings mapped
+              WHERE (
+                mapped.mapping_type = 'ci_type'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                  NULLIF(evidence.enrichment #>> '{dst_asset,ci_type}', ''),
+                  NULLIF(evidence.enrichment #>> '{src_asset,ci_type}', '')
+                ))
+              ) OR (
+                mapped.mapping_type = 'event_dataset'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.event_dataset, ''))
+              ) OR (
+                mapped.mapping_type = 'asset_name'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                  NULLIF(evidence.enrichment #>> '{dst_asset,hostname}', ''),
+                  NULLIF(evidence.enrichment #>> '{src_asset,hostname}', ''),
+                  NULLIF(evidence.hostname, ''),
+                  NULLIF(evidence.agent_name, ''),
+                  NULLIF(evidence.target_db, '')
+                ))
+              )
+              ORDER BY CASE mapped.mapping_type
+                WHEN 'asset_name' THEN 1 WHEN 'ci_type' THEN 2 ELSE 3
+              END
+              LIMIT 1
+            ) m ON TRUE
+            WHERE evidence.id = ANY(incidents.alert_ids)
+            ORDER BY m.business_service
+          ) AS business_services
         FROM incidents
         WHERE status = 'open'
+          AND COALESCE(last_seen, created_at) >= NOW() - ($1::int * INTERVAL '1 day')
         ORDER BY
           CASE severity
             WHEN 'critical' THEN 1
@@ -1488,7 +1634,7 @@ r.get('/executive/overview', async (req, res) => {
           last_seen DESC NULLS LAST,
           id DESC
         LIMIT 12
-      `),
+      `, [days]),
 
       db.query(`
         /* executive_fetch_metrics */
@@ -1519,6 +1665,143 @@ r.get('/executive/overview', async (req, res) => {
           ), 0)::int AS previous_notes_added
         FROM fetch_runs
         WHERE started_at >= NOW() - ($1::int * INTERVAL '2 day')
+      `, [days]),
+
+      db.query(`
+        /* executive_business_service_risk */
+        WITH scoped_incidents AS (
+          SELECT id, alert_ids, severity, COALESCE(last_seen, created_at) AS observed_at
+          FROM incidents
+          WHERE status = 'open'
+            AND severity IN ('critical', 'high')
+            AND COALESCE(last_seen, created_at) >= NOW() - ($1::int * INTERVAL '2 day')
+        ),
+        incident_services AS (
+          SELECT DISTINCT
+            i.id AS incident_id,
+            i.observed_at,
+            m.business_service,
+            m.criticality,
+            m.mapping_source
+          FROM scoped_incidents i
+          JOIN alerts a ON a.id = ANY(i.alert_ids)
+          JOIN LATERAL (
+            SELECT
+              mapped.business_service,
+              mapped.criticality,
+              mapped.mapping_source
+            FROM business_service_mappings mapped
+            WHERE (
+              mapped.mapping_type = 'ci_type'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                NULLIF(a.enrichment #>> '{dst_asset,ci_type}', ''),
+                NULLIF(a.enrichment #>> '{src_asset,ci_type}', '')
+              ))
+            ) OR (
+              mapped.mapping_type = 'event_dataset'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(a.event_dataset, ''))
+            ) OR (
+              mapped.mapping_type = 'asset_name'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                NULLIF(a.enrichment #>> '{dst_asset,hostname}', ''),
+                NULLIF(a.enrichment #>> '{src_asset,hostname}', ''),
+                NULLIF(a.hostname, ''),
+                NULLIF(a.agent_name, ''),
+                NULLIF(a.target_db, '')
+              ))
+            )
+            ORDER BY CASE mapped.mapping_type
+              WHEN 'asset_name' THEN 1 WHEN 'ci_type' THEN 2 ELSE 3
+            END
+            LIMIT 1
+          ) m ON TRUE
+          WHERE m.criticality IN ('critical', 'high')
+        ),
+        current_services AS (
+          SELECT
+            business_service,
+            criticality,
+            mapping_source,
+            COUNT(DISTINCT incident_id)::int AS incident_count,
+            MAX(observed_at) AS last_seen
+          FROM incident_services
+          WHERE observed_at >= NOW() - ($1::int * INTERVAL '1 day')
+          GROUP BY business_service, criticality, mapping_source
+        )
+        SELECT
+          (SELECT COUNT(*)::int FROM current_services) AS current_services,
+          (SELECT COUNT(DISTINCT business_service)::int
+             FROM incident_services
+            WHERE observed_at < NOW() - ($1::int * INTERVAL '1 day')
+              AND observed_at >= NOW() - ($1::int * INTERVAL '2 day')) AS previous_services,
+          (SELECT COUNT(*)::int
+             FROM scoped_incidents
+            WHERE observed_at >= NOW() - ($1::int * INTERVAL '1 day')) AS current_high_risk_incidents,
+          (SELECT COUNT(DISTINCT incident_id)::int
+             FROM incident_services
+            WHERE observed_at >= NOW() - ($1::int * INTERVAL '1 day')) AS mapped_high_risk_incidents,
+          COALESCE(
+            (SELECT jsonb_agg(
+              jsonb_build_object(
+                'name', business_service,
+                'criticality', criticality,
+                'incident_count', incident_count,
+                'last_seen', last_seen,
+                'mapping_source', mapping_source
+              )
+              ORDER BY
+                CASE criticality WHEN 'critical' THEN 1 WHEN 'high' THEN 2 ELSE 3 END,
+                incident_count DESC,
+                business_service
+            ) FROM current_services),
+            '[]'::jsonb
+          ) AS services
+      `, [days]),
+
+      db.query(`
+        /* executive_response_metrics */
+        WITH audited_responses AS (
+          SELECT
+            target_id::int AS incident_id,
+            MIN(created_at) AS first_response_at
+          FROM audit_events
+          WHERE target_type IN ('incident', 'case')
+            AND target_id ~ '^[1-9][0-9]*$'
+            AND event_type IN ('incident.status_updated', 'case.updated', 'case.note_added')
+            AND outcome = 'success'
+          GROUP BY target_id::int
+        ),
+        milestones AS (
+          SELECT
+            i.id,
+            i.created_at,
+            COALESCE(i.first_response_at, a.first_response_at) AS first_response_at
+          FROM incidents i
+          LEFT JOIN audited_responses a ON a.incident_id = i.id
+          WHERE i.created_at >= NOW() - ($1::int * INTERVAL '2 day')
+        )
+        SELECT
+          ROUND((AVG(
+            GREATEST(0, EXTRACT(EPOCH FROM (first_response_at - created_at)) / 3600)
+          ) FILTER (
+            WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+              AND first_response_at IS NOT NULL
+          ))::numeric, 1) AS current_hours,
+          ROUND((AVG(
+            GREATEST(0, EXTRACT(EPOCH FROM (first_response_at - created_at)) / 3600)
+          ) FILTER (
+            WHERE created_at < NOW() - ($1::int * INTERVAL '1 day')
+              AND created_at >= NOW() - ($1::int * INTERVAL '2 day')
+              AND first_response_at IS NOT NULL
+          ))::numeric, 1) AS previous_hours,
+          (COUNT(*) FILTER (
+            WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+          ))::int AS incidents_in_scope,
+          (COUNT(*) FILTER (
+            WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+              AND first_response_at IS NOT NULL
+          ))::int AS incidents_with_response
+        FROM milestones
       `, [days]),
 
       db.query(`
@@ -1560,7 +1843,11 @@ r.get('/executive/overview', async (req, res) => {
             (COUNT(*) FILTER (WHERE severity = 'high'))::int AS high_incidents,
             (COUNT(*) FILTER (WHERE severity IN ('critical', 'high')))::int AS high_impact,
             (COUNT(*) FILTER (WHERE severity = 'medium'))::int AS medium_impact,
-            (COUNT(*) FILTER (WHERE severity IN ('low', 'informational')))::int AS low_impact
+            (COUNT(*) FILTER (WHERE severity IN ('low', 'informational')))::int AS low_impact,
+            ROUND((AVG(
+              GREATEST(0, EXTRACT(EPOCH FROM (first_response_at - created_at)) / 3600)
+            ) FILTER (WHERE first_response_at IS NOT NULL))::numeric, 1) AS response_time_hours,
+            (COUNT(*) FILTER (WHERE first_response_at IS NOT NULL))::int AS responded_incidents
           FROM incidents
           WHERE created_at >= CURRENT_DATE - ($1::int - 1)
           GROUP BY created_at::date
@@ -1578,7 +1865,9 @@ r.get('/executive/overview', async (req, res) => {
           COALESCE(daily_incidents.high_incidents, 0)::int AS high_incidents,
           COALESCE(daily_incidents.high_impact, 0)::int AS high_impact,
           COALESCE(daily_incidents.medium_impact, 0)::int AS medium_impact,
-          COALESCE(daily_incidents.low_impact, 0)::int AS low_impact
+          COALESCE(daily_incidents.low_impact, 0)::int AS low_impact,
+          daily_incidents.response_time_hours,
+          COALESCE(daily_incidents.responded_incidents, 0)::int AS responded_incidents
         FROM days
         LEFT JOIN daily_activities USING (day)
         LEFT JOIN daily_incidents USING (day)
@@ -1592,6 +1881,7 @@ r.get('/executive/overview', async (req, res) => {
             COALESCE(group_key, id) AS activity_id,
             timestamp,
             ${severityExpression} AS severity,
+            event_dataset,
             COALESCE(
               NULLIF(enrichment #>> '{dst_asset,hostname}', ''),
               NULLIF(enrichment #>> '{src_asset,hostname}', ''),
@@ -1616,6 +1906,7 @@ r.get('/executive/overview', async (req, res) => {
         SELECT
           asset_name AS name,
           asset_type AS type,
+          m.business_service,
           COUNT(*)::int AS activity_count,
           (COUNT(*) FILTER (WHERE severity IN ('critical', 'high')))::int AS high_risk_activity_count,
           CASE
@@ -1625,8 +1916,30 @@ r.get('/executive/overview', async (req, res) => {
           END AS business_impact,
           MAX(timestamp) AS last_seen
         FROM evidence
+        LEFT JOIN LATERAL (
+          SELECT mapped.business_service
+          FROM business_service_mappings mapped
+          WHERE (
+              mapped.mapping_type = 'asset_name'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.asset_name, ''))
+            )
+            OR (
+              mapped.mapping_type = 'ci_type'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.asset_type, ''))
+            )
+            OR (
+              mapped.mapping_type = 'event_dataset'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.event_dataset, ''))
+            )
+          ORDER BY CASE mapped.mapping_type
+            WHEN 'asset_name' THEN 1
+            WHEN 'ci_type' THEN 2
+            ELSE 3
+          END
+          LIMIT 1
+        ) m ON TRUE
         WHERE asset_name IS NOT NULL
-        GROUP BY asset_name, asset_type
+        GROUP BY asset_name, asset_type, m.business_service
         ORDER BY high_risk_activity_count DESC, activity_count DESC, last_seen DESC
         LIMIT 20
       `, [days]),
@@ -1668,6 +1981,8 @@ r.get('/executive/overview', async (req, res) => {
     const activityRow = activitySummaryResult.rows[0] || {};
     const riskRow = businessRiskSummaryResult.rows[0] || {};
     const runRow = fetchMetricsResult.rows[0] || {};
+    const serviceRiskRow = businessServiceRiskResult.rows[0] || {};
+    const responseRow = responseMetricsResult.rows[0] || {};
     const workflowRow = workflowControlResult.rows[0] || {};
     const coverageRow = coverageResult.rows[0] || {};
     const activity = {
@@ -1682,11 +1997,27 @@ r.get('/executive/overview', async (req, res) => {
     const businessRiskCounts = {
       total: numericCount(riskRow.total),
       critical: numericCount(riskRow.critical),
+      previousCritical: numericCount(riskRow.previous_critical),
       unassignedHigh: numericCount(riskRow.unassigned_high),
       high: numericCount(riskRow.high),
       medium: numericCount(riskRow.medium),
       low: numericCount(riskRow.low),
     };
+    const businessServices = Array.isArray(serviceRiskRow.services) ? serviceRiskRow.services : [];
+    const criticalBusinessServicesAtRisk = numericCount(serviceRiskRow.current_services);
+    const previousCriticalBusinessServicesAtRisk = numericCount(serviceRiskRow.previous_services);
+    const currentHighRiskIncidents = numericCount(serviceRiskRow.current_high_risk_incidents);
+    const mappedHighRiskIncidents = numericCount(serviceRiskRow.mapped_high_risk_incidents);
+    const businessServiceCoverage = currentHighRiskIncidents > 0
+      ? Number(((mappedHighRiskIncidents / currentHighRiskIncidents) * 100).toFixed(1))
+      : 100;
+    const incidentsWithResponse = numericCount(responseRow.incidents_with_response);
+    const incidentsInResponseScope = numericCount(responseRow.incidents_in_scope);
+    const responseCoverage = incidentsInResponseScope > 0
+      ? Number(((incidentsWithResponse / incidentsInResponseScope) * 100).toFixed(1))
+      : 0;
+    const currentMttr = responseRow.current_hours == null ? null : Number(responseRow.current_hours);
+    const previousMttr = responseRow.previous_hours == null ? null : Number(responseRow.previous_hours);
     const pressure = executiveRiskPressure({
       ...activity,
       highImpact: businessRiskCounts.high,
@@ -1748,6 +2079,8 @@ r.get('/executive/overview', async (req, res) => {
         incidents_created: incidentsCreated,
         critical_incidents_created: numericCount(row.critical_incidents),
         high_incidents_created: numericCount(row.high_incidents),
+        response_time_hours: row.response_time_hours == null ? null : Number(row.response_time_hours),
+        responded_incidents: numericCount(row.responded_incidents),
       };
     });
 
@@ -1823,23 +2156,42 @@ r.get('/executive/overview', async (req, res) => {
           confidence: activity.total > 0 ? 'medium' : 'unavailable',
         },
         critical_business_services_at_risk: {
-          value: null,
-          available: false,
-          reason: 'No durable business-service mapping is stored. Technical asset exposure is shown as supporting evidence.',
-          confidence: 'unavailable',
+          value: criticalBusinessServicesAtRisk,
+          available: currentHighRiskIncidents === 0 || mappedHighRiskIncidents > 0,
+          reason: mappedHighRiskIncidents === 0 && currentHighRiskIncidents > 0
+            ? 'High-impact incidents exist, but none of their evidence is linked to a mapped CMDB business service.'
+            : null,
+          previous_period: previousCriticalBusinessServicesAtRisk,
+          target: 0,
+          confidence: currentHighRiskIncidents === 0 || businessServiceCoverage >= 80
+            ? 'high'
+            : businessServiceCoverage >= 50 ? 'medium' : 'low',
+          coverage_percent: businessServiceCoverage,
+          mapped_incidents: mappedHighRiskIncidents,
+          incidents_in_scope: currentHighRiskIncidents,
         },
         open_critical_incidents: {
           value: businessRiskCounts.critical,
           available: true,
-          previous_period: null,
+          previous_period: businessRiskCounts.previousCritical,
           target: 0,
           confidence: 'high',
+          scope: `open incidents with activity observed in the last ${days} days`,
         },
         mean_time_to_respond: {
-          value: null,
-          available: false,
-          reason: 'Reliable acknowledgement and response milestone timestamps are not stored.',
-          confidence: 'unavailable',
+          value: currentMttr,
+          unit: 'hours',
+          available: currentMttr != null,
+          reason: currentMttr == null
+            ? `No recorded analyst response milestone exists for incidents created in the last ${days} days.`
+            : null,
+          previous_period: previousMttr,
+          target: null,
+          confidence: responseCoverage >= 80 ? 'high' : responseCoverage >= 50 ? 'medium' : 'low',
+          coverage_percent: responseCoverage,
+          incidents_with_response: incidentsWithResponse,
+          incidents_in_scope: incidentsInResponseScope,
+          milestone: 'first recorded analyst status change, ownership change, or case note',
         },
         estimated_analyst_time_saved: {
           value: Number((minutesSaved / 60).toFixed(1)),
@@ -1859,13 +2211,38 @@ r.get('/executive/overview', async (req, res) => {
         },
         items: businessRiskItemsResult.rows.map(executiveIncidentView),
         methodology: {
-          scope: 'currently open incidents',
+          scope: `currently open incidents with activity observed in the last ${days} days`,
           derived_from: 'incident severity',
           mapping: {
             high: ['critical', 'high'],
             medium: ['medium'],
             low: ['low', 'informational', 'unknown'],
           },
+        },
+      },
+      business_services_at_risk: {
+        total: criticalBusinessServicesAtRisk,
+        services: businessServices,
+        coverage_percent: businessServiceCoverage,
+        mapped_incidents: mappedHighRiskIncidents,
+        incidents_in_scope: currentHighRiskIncidents,
+        methodology: {
+          incident_scope: `open critical or high-severity incidents observed in the last ${days} days`,
+          mapping_source: 'stored CMDB CI-type to business-service mappings',
+          service_scope: 'services classified as critical or high business criticality',
+        },
+      },
+      response_performance: {
+        mean_time_to_respond_hours: currentMttr,
+        previous_period_hours: previousMttr,
+        coverage_percent: responseCoverage,
+        incidents_with_response: incidentsWithResponse,
+        incidents_in_scope: incidentsInResponseScope,
+        methodology: {
+          start: 'incident record creation',
+          end: 'first recorded analyst status change, ownership change, or case note',
+          scope: `incidents created in the last ${days} days`,
+          excludes: 'incidents without a recorded response milestone',
         },
       },
       automation: {
@@ -1925,7 +2302,10 @@ r.get('/executive/overview', async (req, res) => {
         enrichment_percent: coverageActivities > 0
           ? Number(((enrichedActivities / coverageActivities) * 100).toFixed(1))
           : null,
-        business_service_mapping_available: false,
+        business_service_mapping_available: true,
+        business_service_mapping_percent: currentHighRiskIncidents > 0
+          ? businessServiceCoverage
+          : 100,
         threat_intelligence_freshness: null,
         vulnerability_source_freshness: null,
       },

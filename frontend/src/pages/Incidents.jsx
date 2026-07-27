@@ -333,7 +333,7 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
 
       <section className="incident-command-summary" aria-label="Incident command summary">
         <article><span>What happened</span><strong>{detail.title || 'Correlated security activity'}</strong><small>{model.stages.length ? `${model.stages.length} ATT&CK stages are represented in stored evidence.` : 'No ATT&CK stage mapping is available.'}</small></article>
-        <article><span>Business impact</span><strong>{detail.severity ? `${humanize(detail.severity)} impact potential` : 'Not assessed'}</strong><small>Business-service mapping is not stored; impact is based on incident severity.</small></article>
+        <article><span>Business impact</span><strong>{detail.severity ? `${humanize(detail.severity)} impact potential` : 'Not assessed'}</strong><small>This incident-level impact remains severity-based; mapped service exposure is calculated in the executive overview.</small></article>
         <article><span>Containment status</span><strong>{containmentStatus}</strong><small>{detail.status === 'closed' ? 'Closure does not prove an external containment action occurred.' : 'No approved external containment state is stored.'}</small></article>
         <article><span>Remaining exposure</span><strong>{detail.status === 'open' ? `${highCount} high-risk alerts` : 'Requires closure validation'}</strong><small>{alertCount} correlated alerts remain available as evidence.</small></article>
         <article><span>Owner and age</span><strong>{detail.owner || 'Unassigned'}</strong><small>Opened {relativeTime(detail.first_seen || detail.created_at)}</small></article>

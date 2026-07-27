@@ -48,7 +48,7 @@ function MetricCard({ icon:Icon, title, value, suffix, available = true, reason,
   );
 }
 
-export default function ExecutiveKpiGrid({ overview, onOpenRisks, onOpenAssets, onOpenMethodology, onOpenAutomation }) {
+export default function ExecutiveKpiGrid({ overview, onOpenRisks, onOpenServices, onOpenMethodology, onOpenResponse, onOpenAutomation }) {
   const metrics = overview?.executive_metrics || {};
   const exposure = metrics.cyber_risk_exposure || {
     value:overview?.health?.score == null ? null : 100 - Number(overview.health.score),
@@ -65,9 +65,9 @@ export default function ExecutiveKpiGrid({ overview, onOpenRisks, onOpenAssets, 
   return (
     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label="Executive security metrics">
       <MetricCard icon={Gauge} title="Cyber Risk Exposure" value={exposure.value} suffix="/100" available={exposure.available} reason={exposure.reason} definition="A derived exposure score based on severe activity, open incidents, and the triage backlog. Lower is better." confidence={exposure.confidence} target={exposure.target} previous={exposure.previous_period} lowerIsBetter onOpen={onOpenMethodology} tone={exposureTone} />
-      <MetricCard icon={Building2} title="Critical Business Services at Risk" value={services.value} available={services.available} reason={services.reason} definition="Count of mapped business services affected by open critical or high-impact incidents." confidence={services.confidence} target={0} previous={services.previous_period} lowerIsBetter onOpen={onOpenAssets} tone="amber" />
-      <MetricCard icon={AlertOctagon} title="Open Critical Incidents" value={critical.value} available={critical.available} reason={critical.reason} definition="Currently open incident records whose stored severity is critical." confidence={critical.confidence} target={critical.target} previous={critical.previous_period} lowerIsBetter onOpen={onOpenRisks} tone={Number(critical.value) > 0 ? 'red' : 'green'} />
-      <MetricCard icon={Clock3} title="Mean Time to Respond" value={mttr.value} suffix="h" available={mttr.available} reason={mttr.reason} definition="Average elapsed time from detection to a recorded response milestone. Not calculated without trustworthy milestones." confidence={mttr.confidence} target={mttr.target} previous={mttr.previous_period} lowerIsBetter onOpen={onOpenMethodology} />
+      <MetricCard icon={Building2} title="Critical Business Services at Risk" value={services.value} available={services.available} reason={services.reason} definition="Distinct critical or high-importance business services linked through stored CMDB mappings to open high-impact incidents in the selected period." confidence={services.confidence} target={services.target ?? 0} previous={services.previous_period} lowerIsBetter onOpen={onOpenServices} tone={Number(services.value) > 0 ? 'amber' : 'green'} />
+      <MetricCard icon={AlertOctagon} title="Open Critical Incidents" value={critical.value} available={critical.available} reason={critical.reason} definition="Open critical incidents with security activity observed during the selected reporting period." confidence={critical.confidence} target={critical.target} previous={critical.previous_period} lowerIsBetter onOpen={onOpenRisks} tone={Number(critical.value) > 0 ? 'red' : 'green'} />
+      <MetricCard icon={Clock3} title="Mean Time to Respond" value={mttr.value} suffix="h" available={mttr.available} reason={mttr.reason} definition="Average time from incident creation to the first recorded analyst status change, ownership change, or case note in the selected period." confidence={mttr.confidence} target={mttr.target} previous={mttr.previous_period} lowerIsBetter onOpen={onOpenResponse} />
       <MetricCard icon={Bot} title="Estimated Analyst Time Saved" value={workload.value} suffix="h" available={workload.available} reason={workload.reason} definition="Estimated hours avoided using observed AI-assisted workflow outputs and explicit task-time assumptions. This is not measured ROI." confidence={workload.confidence} target={workload.target} previous={workload.previous_period} onOpen={onOpenAutomation} tone="purple" estimated />
     </section>
   );

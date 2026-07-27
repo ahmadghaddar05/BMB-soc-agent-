@@ -11,24 +11,29 @@ function TrendCard({ icon:Icon, title, value, unit, data, dataKey, color, detail
   return <article className="rounded-xl border border-[#143047] bg-[#071521] p-4"><div className="flex items-start justify-between gap-3"><div><span className="flex items-center gap-2 text-xs font-semibold text-[#9cb2c2]"><Icon size={14} style={{ color }} />{title}</span><strong className="mt-2 block text-2xl font-semibold tabular-nums text-[#edf5fa]">{unavailable ? '—' : value}<small className="ml-1 text-xs font-medium text-[#668299]">{unit}</small></strong></div></div><div className="mt-2"><Sparkline data={unavailable ? [] : data} dataKey={dataKey} color={color} /></div><p className="mt-2 min-h-8 text-[11px] leading-4 text-[#607c92]">{detail}</p></article>;
 }
 
-export default function RiskTrendChart({ data = [], windowDays = 30 }) {
+export default function RiskTrendChart({ data = [], windowDays = 30, responsePerformance = null }) {
   const chartData = data.map(point => ({
     ...point,
     label:new Date(point.date).toLocaleDateString(undefined, { month:'short', day:'numeric' }),
     exposure:point.risk_score == null ? null : Number(point.risk_score),
     criticalIncidents:Number(point.critical_incidents_created || 0),
-    responseTime:null,
+    responseTime:point.response_time_hours == null ? null : Number(point.response_time_hours),
   }));
   const measured = chartData.filter(item => item.exposure != null);
   const latestExposure = measured.at(-1)?.exposure ?? '—';
   const criticalTotal = chartData.reduce((sum, item) => sum + item.criticalIncidents, 0);
+  const responseTime = responsePerformance?.mean_time_to_respond_hours;
+  const responseAvailable = responseTime != null;
+  const responseDetail = responseAvailable
+    ? `Average first analyst response across ${responsePerformance.incidents_with_response} of ${responsePerformance.incidents_in_scope} incidents. Unmeasured days remain gaps.`
+    : 'No incident in this period has a recorded analyst response milestone.';
   return (
     <section className="rounded-2xl border border-[#17334a] bg-[#081725] p-5" aria-labelledby="executive-trends-title">
       <div><p className="text-xs font-semibold text-[#7891a5]">Change over time</p><h2 id="executive-trends-title" className="mt-1 text-lg font-semibold text-[#edf5fa]">Exposure and incident trends</h2><p className="mt-1 text-xs text-[#668299]">Last {windowDays} days. Missing telemetry remains visible as a gap.</p></div>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <TrendCard icon={Activity} title="Risk exposure" value={latestExposure} unit="/100" data={chartData} dataKey="exposure" color="#3988ff" detail="Derived daily from severity, open-risk pressure, and pending triage. Lower is better." />
         <TrendCard icon={AlertOctagon} title="Critical incidents created" value={criticalTotal} unit={`in ${windowDays}d`} data={chartData} dataKey="criticalIncidents" color="#ef4453" detail="New critical incident records created during the reporting window." />
-        <TrendCard icon={Clock3} title="Response time" value="—" unit="hours" data={chartData} dataKey="responseTime" color="#f2c94c" unavailable detail="Unavailable: acknowledgement and response milestone timestamps are not stored." />
+        <TrendCard icon={Clock3} title="Response time" value={responseTime} unit="hours" data={chartData} dataKey="responseTime" color="#f2c94c" unavailable={!responseAvailable} detail={responseDetail} />
       </div>
     </section>
   );

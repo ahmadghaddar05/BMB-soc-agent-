@@ -122,6 +122,16 @@ test('raw-event evidence migration preserves existing evidence types and adds du
   assert.match(sql, /ADD CONSTRAINT agent_evidence_links_evidence_type_check/);
 });
 
+test('executive metric migration adds durable service mappings and response milestones', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/011_executive_metrics.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS business_service_mappings/);
+  assert.match(sql, /Identity & Authentication/);
+  assert.match(sql, /Core Banking/);
+  assert.match(sql, /incidents ADD COLUMN IF NOT EXISTS first_response_at/);
+  assert.match(sql, /incidents ADD COLUMN IF NOT EXISTS resolved_at/);
+  assert.match(sql, /incident\.status_updated','case\.updated','case\.note_added/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

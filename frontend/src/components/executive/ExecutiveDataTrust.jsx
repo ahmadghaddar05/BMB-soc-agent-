@@ -12,6 +12,7 @@ export default function ExecutiveDataTrust({ health = {}, coverage = {}, generat
     ['Elastic', services.alert_source?.reachable ?? (health.source === 'elastic' ? true : null), 'Risk and incident metrics'],
     ['Enrichment', services.enrichment?.reachable ?? null, 'Identity, asset, threat and vulnerability context'],
     ['Asset mapping', coverage.asset_mapping_percent == null ? null : coverage.asset_mapping_percent > 0, `${coverage.asset_mapping_percent ?? '—'}% of activities`],
+    ['Business services', coverage.business_service_mapping_available ?? null, `${coverage.business_service_mapping_percent ?? '—'}% of in-scope high-impact incidents`],
     ['AI service', services.hermes?.reachable ?? null, 'New AI-assisted outputs'],
   ];
   return (
@@ -20,7 +21,7 @@ export default function ExecutiveDataTrust({ health = {}, coverage = {}, generat
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {checks.map(([label, ok, impact]) => { const [copy, color] = status(ok); const Icon = ok === false ? CircleAlert : CheckCircle2; return <div key={label} className="rounded-xl border border-[#143047] bg-[#071521] p-3"><div className="flex items-center justify-between gap-3"><strong className="text-xs text-[#bdd0dd]">{label}</strong><span className={`flex items-center gap-1 text-[11px] font-semibold ${color}`}><Icon size={11} />{copy}</span></div><p className="mt-1.5 text-[11px] leading-4 text-[#607c92]">{impact}</p></div>; })}
       </div>
-      <p className="mt-3 text-[11px] leading-5 text-[#607c92]">Threat-intelligence and vulnerability freshness are unavailable from the current health contract. Business-service mapping is not connected; affected executive metrics remain blank.</p>
+      <p className="mt-3 text-[11px] leading-5 text-[#607c92]">Threat-intelligence and vulnerability freshness remain unavailable from the current health contract. Business-service coverage reflects stored CMDB CI-type mappings and exposes incomplete coverage instead of filling data gaps.</p>
     </section>
   );
 }

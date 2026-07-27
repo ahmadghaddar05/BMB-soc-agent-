@@ -22,21 +22,29 @@ function selectionFromParams(params) {
   const type = params.get('detail');
   const id = params.get('id');
   if (!type || !id || !['risk-summary','incident','asset','metric'].includes(type)) return null;
-  const days = type === 'asset' && [7,30,90].includes(Number(params.get('days'))) ? Number(params.get('days')) : null;
+  const days = [7,30,90].includes(Number(params.get('days'))) ? Number(params.get('days')) : null;
   return { type, id, days, key:`${type}:${id}:${days || ''}` };
 }
 
 async function loadSelection(selection, seed, signal) {
   if (selection.type === 'metric') {
     if (seed?.evidence_type === 'risk-summary') {
-      const result = await api('/executive/risks?page=1&limit=100', { signal });
+      const days = seed?.window_days || seed?.overview?.window_days || selection.days;
+      const result = await api(`/executive/risks?page=1&limit=100${days ? `&days=${days}` : ''}`, { signal });
       return { ...seed, evidence:result.risks || [], total:result.total || 0 };
     }
     if (seed?.evidence_type === 'assets') return { ...seed, evidence:seed?.overview?.top_assets || [] };
+    if (seed?.evidence_type === 'business-services') {
+      return { ...seed, evidence:seed?.overview?.business_services_at_risk?.services || [] };
+    }
+    if (seed?.evidence_type === 'response-performance') {
+      return { ...seed, response_performance:seed?.overview?.response_performance || null, evidence:[] };
+    }
     return { ...seed, evidence:[] };
   }
   if (selection.type === 'risk-summary') {
-    const result = await api('/executive/risks?page=1&limit=100', { signal });
+    const days = seed?.window_days || selection.days;
+    const result = await api(`/executive/risks?page=1&limit=100${days ? `&days=${days}` : ''}`, { signal });
     return { ...seed, risks:result.risks || [], total:result.total || 0 };
   }
   if (selection.type === 'incident') {
@@ -83,7 +91,7 @@ export default function useDeepDiveDrawer() {
   }, [selection?.key]);
 
   const open = useCallback((next, trigger = null) => {
-    const days = next.type === 'asset' ? next.seed?.window_days || null : null;
+    const days = next.seed?.window_days || next.seed?.overview?.window_days || null;
     const normalized = { ...next, id:String(next.id), days, key:`${next.type}:${next.id}:${days || ''}` };
     if (next.seed) seeds.current.set(normalized.key, next.seed);
     if (!selection) returnFocus.current = trigger || document.activeElement;

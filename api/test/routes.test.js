@@ -198,7 +198,10 @@ test('executive overview returns an auditable aggregate contract with no fabrica
       triage_pending:20, triaged:75,
     }] };
     if (text.includes('executive_business_risk_summary')) {
-      return { rows:[{ total:5, critical:1, unassigned_high:1, high:2, medium:2, low:1 }] };
+      return { rows:[{
+        total:5, critical:1, previous_critical:2,
+        unassigned_high:1, high:2, medium:2, low:1,
+      }] };
     }
     if (text.includes('executive_business_risk_items')) return { rows:[incident] };
     if (text.includes('executive_fetch_metrics')) return { rows:[{
@@ -210,8 +213,25 @@ test('executive overview returns an auditable aggregate contract with no fabrica
       day:'2026-07-19', activities:10, critical:1, high:2, medium:3, low:4,
       pending:2, incidents_created:1, critical_incidents:1, high_incidents:0,
       high_impact:1, medium_impact:0, low_impact:0,
+      response_time_hours:'1.5', responded_incidents:1,
     }] };
     if (text.includes('executive_top_assets')) return { rows:[asset] };
+    if (text.includes('executive_business_service_risk')) return { rows:[{
+      current_services:2,
+      previous_services:1,
+      current_high_risk_incidents:2,
+      mapped_high_risk_incidents:2,
+      services:[
+        { name:'Core Banking', criticality:'critical', incident_count:1, mapping_source:'bmb_cmdb_taxonomy' },
+        { name:'Identity & Authentication', criticality:'critical', incident_count:1, mapping_source:'bmb_cmdb_taxonomy' },
+      ],
+    }] };
+    if (text.includes('executive_response_metrics')) return { rows:[{
+      current_hours:'1.5',
+      previous_hours:'2.5',
+      incidents_in_scope:4,
+      incidents_with_response:3,
+    }] };
     if (text.includes('executive_workflow_controls')) return { rows:[{
       pending_approvals:2, failed_actions:1, executed_internal_actions:3,
     }] };
@@ -245,14 +265,23 @@ test('executive overview returns an auditable aggregate contract with no fabrica
   assert.equal(response.body.risk_trend[0].date, '2026-07-19');
   assert.equal(response.body.risk_trend[0].telemetry_sufficient, true);
   assert.equal(response.body.risk_trend[0].critical_incidents_created, 1);
+  assert.equal(response.body.risk_trend[0].response_time_hours, 1.5);
+  assert.equal(response.body.risk_trend[0].responded_incidents, 1);
   assert.equal(typeof response.body.risk_trend[0].risk_score, 'number');
   assert.equal(response.body.top_assets[0].name, 'Customer Data Platform');
   assert.equal(response.body.top_assets[0].type, 'observed technology category');
   assert.equal(response.body.top_assets[0].business_service_mapped, false);
   assert.equal(Object.prototype.hasOwnProperty.call(response.body.top_assets[0], 'hostname'), false);
   assert.equal(response.body.executive_metrics.cyber_risk_exposure.value, 19);
-  assert.equal(response.body.executive_metrics.critical_business_services_at_risk.available, false);
-  assert.equal(response.body.executive_metrics.mean_time_to_respond.available, false);
+  assert.equal(response.body.executive_metrics.critical_business_services_at_risk.available, true);
+  assert.equal(response.body.executive_metrics.critical_business_services_at_risk.value, 2);
+  assert.equal(response.body.executive_metrics.critical_business_services_at_risk.coverage_percent, 100);
+  assert.equal(response.body.executive_metrics.open_critical_incidents.previous_period, 2);
+  assert.equal(response.body.executive_metrics.mean_time_to_respond.available, true);
+  assert.equal(response.body.executive_metrics.mean_time_to_respond.value, 1.5);
+  assert.equal(response.body.executive_metrics.mean_time_to_respond.coverage_percent, 75);
+  assert.equal(response.body.business_services_at_risk.services.length, 2);
+  assert.equal(response.body.response_performance.incidents_with_response, 3);
   assert.equal(response.body.executive_metrics.estimated_analyst_time_saved.confidence, 'estimated');
   assert.equal(response.body.automation.pending_approvals, 2);
   assert.equal(response.body.automation.external_actions_supported, false);
@@ -333,7 +362,7 @@ test('executive overview only accepts documented windows and applies the selecte
   const valid = await request(routeApp()).get('/api/executive/overview?days=7');
   assert.equal(valid.status, 200);
   assert.equal(valid.body.window_days, 7);
-  assert.equal(parameterized.length, 5);
+  assert.equal(parameterized.length, 9);
   assert.ok(parameterized.every(params => params.length === 1 && params[0] === 7));
 });
 

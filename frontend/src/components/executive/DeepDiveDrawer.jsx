@@ -47,6 +47,9 @@ function MetricBrief({ data }) {
   const methodology = data.overview?.health?.methodology;
   const timeSaved = data.overview?.time_saved;
   const isWorkload = data.id === 'workload-reduction' || data.title?.toLowerCase().includes('workload');
+  const isBusinessServices = data.evidence_type === 'business-services';
+  const isResponsePerformance = data.evidence_type === 'response-performance';
+  const response = data.response_performance;
   return (
     <div className="space-y-4">
       <section className="rounded-2xl border border-[#223d52] bg-[#0b1824] p-5">
@@ -69,7 +72,39 @@ function MetricBrief({ data }) {
           <p className="mt-4 text-xs leading-5 text-[#718a9e]">This is an estimate, not measured ROI. Token use is not counted as human time and no external containment is included.</p>
         </section>
       )}
-      {!isWorkload && methodology && (
+      {isBusinessServices && (
+        <section className="rounded-2xl border border-[#1d394d] bg-[#091722] p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div><p className="text-xs font-semibold uppercase tracking-[.1em] text-[#7ea8c4]">Mapped service evidence</p><p className="mt-1 text-xs text-[#718a9e]">Derived from stored incident evidence and CMDB CI-type mappings.</p></div>
+            <span className="rounded-full bg-[#10283a] px-2.5 py-1 text-xs text-[#7fa5c0]">{data.evidence?.length || 0} at risk</span>
+          </div>
+          <div className="mt-4 space-y-2">
+            {data.evidence?.length ? data.evidence.map(service => (
+              <article key={service.name} className="flex items-center justify-between gap-4 rounded-xl border border-[#1c3549] bg-[#0b1824] px-4 py-3">
+                <span><strong className="block text-sm text-[#dce8f1]">{service.name}</strong><small className="mt-1 block capitalize text-[#718a9e]">{service.criticality} business criticality</small></span>
+                <span className="text-right"><strong className="block text-base tabular-nums text-white">{Number(service.incident_count || 0)}</strong><small className="text-[#718a9e]">linked incidents</small></span>
+              </article>
+            )) : <p className="rounded-xl border border-dashed border-[#27445a] px-4 py-7 text-center text-sm text-[#718a9e]">No mapped critical service is linked to an in-scope high-impact incident.</p>}
+          </div>
+        </section>
+      )}
+      {isResponsePerformance && response && (
+        <section className="rounded-2xl border border-[#1d394d] bg-[#091722] p-5">
+          <p className="text-xs font-semibold uppercase tracking-[.1em] text-[#7ea8c4]">Observed response calculation</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <article className="rounded-xl bg-[#0a1522] p-3"><span className="text-xs text-[#718a9e]">Mean first response</span><strong className="mt-1 block text-xl text-white">{response.mean_time_to_respond_hours == null ? 'Unavailable' : `${Number(response.mean_time_to_respond_hours).toFixed(1)}h`}</strong></article>
+            <article className="rounded-xl bg-[#0a1522] p-3"><span className="text-xs text-[#718a9e]">Milestone coverage</span><strong className="mt-1 block text-xl text-white">{Number(response.coverage_percent || 0).toFixed(1)}%</strong></article>
+          </div>
+          <dl className="mt-4 space-y-2 text-xs text-[#8da4b7]">
+            <div className="flex justify-between gap-4"><dt>Incidents in selected period</dt><dd>{Number(response.incidents_in_scope || 0).toLocaleString()}</dd></div>
+            <div className="flex justify-between gap-4"><dt>Incidents with a response milestone</dt><dd>{Number(response.incidents_with_response || 0).toLocaleString()}</dd></div>
+            <div className="flex justify-between gap-4"><dt>Measurement starts</dt><dd className="text-right">{response.methodology?.start}</dd></div>
+            <div className="flex justify-between gap-4"><dt>Measurement ends</dt><dd className="max-w-[340px] text-right">{response.methodology?.end}</dd></div>
+          </dl>
+          <p className="mt-4 text-xs leading-5 text-[#718a9e]">Incidents without an observed response milestone are excluded from the average and remain visible through the coverage percentage.</p>
+        </section>
+      )}
+      {!isWorkload && !isBusinessServices && !isResponsePerformance && methodology && (
         <section className="rounded-2xl border border-[#1d394d] bg-[#091722] p-5">
           <p className="text-xs font-semibold uppercase tracking-[.1em] text-[#7ea8c4]">Calculation boundary</p>
           <p className="mt-3 text-sm leading-6 text-[#a9bdca]">{methodology.description}</p>

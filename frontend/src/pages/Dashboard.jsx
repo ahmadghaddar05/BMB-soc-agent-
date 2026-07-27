@@ -67,7 +67,11 @@ export default function Dashboard() {
 
   const hasOverview = overview && Object.keys(overview).length > 0;
   const collectorDelayed = Boolean(errors.collector || collector?.runtime?.last_error || collector?.collector?.scheduler_enabled === false || dependencies?.services?.alert_source?.reachable === false);
-  const openRisks = event => drawer.open({ type:'risk-summary', id:`${period}-day-risks`, seed:overview?.business_risks }, event?.currentTarget || event);
+  const openRisks = event => drawer.open({
+    type:'risk-summary',
+    id:`${period}-day-risks`,
+    seed:{ ...(overview?.business_risks || {}), window_days:period },
+  }, event?.currentTarget || event);
   const openMetric = (id, title, summary, evidenceType = 'risk-summary') => event => drawer.open({ type:'metric', id, seed:{ title, summary, evidence_type:evidenceType, overview } }, event.currentTarget);
 
   return (
@@ -82,8 +86,27 @@ export default function Dashboard() {
 
         {hasOverview ? <div className="space-y-4">
           <ExecutiveBriefing briefing={overview.briefing} onReview={openRisks} />
-          <ExecutiveKpiGrid overview={overview} onOpenRisks={openRisks} onOpenAssets={openMetric('business-service-coverage', 'Business-service coverage', overview.executive_metrics?.critical_business_services_at_risk?.reason, 'assets')} onOpenMethodology={openMetric('metric-methodology', 'Executive metric methodology', 'Risk exposure is derived from severe activity, open incident pressure, and the pending triage backlog. MTTR remains unavailable until reliable response milestones are stored.')} onOpenAutomation={openMetric('workload-reduction', 'Estimated analyst time saved', overview.time_saved?.methodology, 'automation')} />
-          <div className="grid gap-4 xl:grid-cols-12"><div className="xl:col-span-8"><RiskTrendChart data={overview.risk_trend || []} windowDays={overview.window_days || period} /></div><div className="xl:col-span-4"><ExecutiveDecisionQueue queue={overview.decision_queue} collectorDelayed={collectorDelayed} onReviewRisks={openRisks} onReviewControls={openMetric('decision-controls', 'Decision queue controls', 'Approval requests, failed internal workflow actions, and degraded source status require review in their role-authorized operational workspaces.', 'automation')} /></div></div>
+          <ExecutiveKpiGrid
+            overview={overview}
+            onOpenRisks={openRisks}
+            onOpenServices={openMetric(
+              'business-service-risk',
+              'Critical business services at risk',
+              `${overview.business_services_at_risk?.total || 0} mapped critical or high-importance services are linked to open high-impact incidents. Mapping coverage is ${overview.business_services_at_risk?.coverage_percent ?? 0}%.`,
+              'business-services'
+            )}
+            onOpenMethodology={openMetric('metric-methodology', 'Executive metric methodology', 'Risk exposure is derived from severe activity, open incident pressure, and the pending triage backlog.')}
+            onOpenResponse={openMetric(
+              'response-performance',
+              'Mean time to respond',
+              overview.response_performance?.mean_time_to_respond_hours == null
+                ? 'No incident in the selected period has a recorded analyst response milestone.'
+                : `The mean first-response time is ${overview.response_performance.mean_time_to_respond_hours} hours across ${overview.response_performance.incidents_with_response} of ${overview.response_performance.incidents_in_scope} incidents.`,
+              'response-performance'
+            )}
+            onOpenAutomation={openMetric('workload-reduction', 'Estimated analyst time saved', overview.time_saved?.methodology, 'automation')}
+          />
+          <div className="grid gap-4 xl:grid-cols-12"><div className="xl:col-span-8"><RiskTrendChart data={overview.risk_trend || []} windowDays={overview.window_days || period} responsePerformance={overview.response_performance} /></div><div className="xl:col-span-4"><ExecutiveDecisionQueue queue={overview.decision_queue} collectorDelayed={collectorDelayed} onReviewRisks={openRisks} onReviewControls={openMetric('decision-controls', 'Decision queue controls', 'Approval requests, failed internal workflow actions, and degraded source status require review in their role-authorized operational workspaces.', 'automation')} /></div></div>
           <div className="grid gap-4 xl:grid-cols-12"><div className="xl:col-span-7"><ExecutiveRiskPanel risks={overview.business_risks} onSelect={(item, trigger) => drawer.open({ type:'incident', id:item.id, seed:item }, trigger)} /></div><div className="xl:col-span-5"><BusinessAssetList assets={overview.top_assets || []} onSelect={(asset, trigger) => drawer.open({ type:'asset', id:asset.asset_key || asset.id || asset.name, seed:{ ...asset, window_days:overview.window_days || period } }, trigger)} /></div></div>
           <div className="grid gap-4 xl:grid-cols-12"><div className="xl:col-span-7"><ExecutiveAiValue automation={overview.automation} timeSaved={overview.time_saved} onOpen={openMetric('ai-value', 'AI-assisted value assumptions', overview.time_saved?.methodology, 'automation')} /></div><div className="xl:col-span-5"><ExecutiveDataTrust health={dependencies || {}} coverage={overview.source_coverage} generatedAt={overview.generated_at} /></div></div>
         </div> : loading ? <div className="space-y-4" aria-label="Loading executive overview"><span className="block h-32 animate-pulse rounded-2xl border border-[#17334a] bg-[#081725]" /><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{Array.from({ length:5 }, (_, index) => <span key={index} className="h-[202px] animate-pulse rounded-2xl border border-[#17334a] bg-[#081725]" />)}</div></div> : <OverviewUnavailable message={errors.overview} />}
