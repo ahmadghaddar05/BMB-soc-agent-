@@ -93,7 +93,7 @@ export const ROUTE_ACCESS = Object.freeze({
   '/alerts': [ROLES.SOC_ANALYST],
   '/ai-triage': [ROLES.SOC_ANALYST],
   '/investigations': [ROLES.SOC_ANALYST],
-  '/incidents': [ROLES.EXECUTIVE, ROLES.SOC_ANALYST],
+  '/incidents': [ROLES.SOC_ANALYST],
   '/cases': [ROLES.SOC_ANALYST],
   '/approvals': [ROLES.SOC_ANALYST],
   '/responses': [ROLES.SOC_ANALYST],

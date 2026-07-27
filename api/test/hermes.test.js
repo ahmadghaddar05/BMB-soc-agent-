@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { createHermesClient } = require('../src/services/hermes/client');
 const { HermesError } = require('../src/services/hermes/errors');
 const { parseAnalystTurn, parseChatOutput, validateCitations } = require('../src/services/hermes/schemas');
-const { chatHermes } = require('../src/services/hermes/chat');
+const { chatHermes, specsForAuthorization } = require('../src/services/hermes/chat');
 
 const config = {
   hermesUrl: 'http://hermes.test:8642/v1', hermesApiKey: 'secret-key', hermesModel: 'hermes-agent',
@@ -15,6 +15,23 @@ const config = {
   hermesRequireToollessProfile: true,
   hermesForbiddenTools: ['terminal', 'write_file', 'web_search', 'delegate_task'],
 };
+
+test('executive assistant receives only the aggregate posture tool', () => {
+  const specs = [
+    { name:'get_executive_summary' },
+    { name:'search_alerts' },
+    { name:'get_incident' },
+    { name:'request_soc_action' },
+  ];
+  assert.deepEqual(
+    specsForAuthorization(specs, { role:'executive' }).map(item => item.name),
+    ['get_executive_summary']
+  );
+  assert.deepEqual(
+    specsForAuthorization(specs, { role:'soc_analyst' }).map(item => item.name),
+    specs.map(item => item.name)
+  );
+});
 
 function jsonResponse(body, status = 200, headers = {}) {
   return new Response(JSON.stringify(body), {

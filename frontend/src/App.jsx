@@ -218,7 +218,7 @@ function Shell({ session, onLogout }) {
               <Route path="/alerts" element={protect(<Alerts />)} />
               <Route path="/ai-triage" element={protect(<AITriage />)} />
               <Route path="/investigations" element={protect(<Investigations />)} />
-              <Route path="/incidents" element={protect(<Incidents readOnly={role === ROLES.EXECUTIVE} />)} />
+              <Route path="/incidents" element={protect(<Incidents />)} />
               <Route path="/cases" element={protect(<Cases />)} />
               <Route path="/approvals" element={protect(<Approvals />)} />
               <Route path="/responses" element={protect(<Responses />)} />

@@ -127,6 +127,38 @@ test('raw Elastic event search requires an exact pivot and returns citable bound
   );
 });
 
+test('executive AI access is limited to aggregate posture without technical identifiers', async () => {
+  const database = {
+    async getAlertStats() {
+      return {
+        grouped_activities:120,
+        critical_activities:8,
+        high_activities:16,
+        triaged:90,
+        triage_pending:30,
+      };
+    },
+    async query(sql) {
+      if (String(sql).includes('FROM incidents')) {
+        return { rows:[{ open_risks:5, critical_risks:2, unassigned_high_risks:3 }] };
+      }
+      return { rows:[{ pending_approvals:1, workflow_failures:0 }] };
+    },
+  };
+  const toolkit = createSocToolkit({ database, config });
+  const executive = { authorization:{ canReadSoc:true, canRequestActions:false, role:'executive' } };
+
+  await assert.rejects(
+    toolkit.execute('search_alerts', { severity:'critical' }, executive),
+    error => error.code === 'HERMES_TOOL_UNAUTHORIZED' && error.status === 403
+  );
+  const result = await toolkit.execute('get_executive_summary', {}, executive);
+  assert.equal(result.data.leadership_risks.critical, 2);
+  assert.equal(result.data.governance.pending_approvals, 1);
+  assert.deepEqual(result.evidence, []);
+  assert.doesNotMatch(JSON.stringify(result.data), /(?:src_ip|username|hostname|alert_ids|common_entities)/);
+});
+
 test('controlled action tool requires separate action permission and delegates only to the policy service', async () => {
   const submitted = [];
   const actionService = {

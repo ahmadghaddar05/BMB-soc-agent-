@@ -269,26 +269,29 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Alerts are live; collector health is unavailable');
   });
 
-  it('renders incident evidence read-only for an executive session', async () => {
+  it('keeps executives out of the technical incident workspace', async () => {
+    const requests = [];
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);
+      requests.push(url);
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'ciso', role:'executive' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
-      if (url.includes('/incidents?status=open')) return jsonResponse({ total:1, incidents:[{
-        id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[], first_seen:new Date().toISOString(),
-      }] });
-      if (url.endsWith('/incidents/7')) return jsonResponse({
-        id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[], alerts:[],
-        first_seen:new Date().toISOString(), last_seen:new Date().toISOString(),
+      if (url.endsWith('/executive/overview?days=30')) return jsonResponse({
+        generated_at:new Date().toISOString(), window_days:30,
+        health:{ score:82, status:'guarded', drivers:[] },
+        business_risks:{ total:0, by_impact:{ critical:0, high:0, medium:0, low:0 }, items:[] },
+        automation:{ activities_seen:0, triaged:0, triage_rate:0 },
+        time_saved:{ hours:0, period_days:30 }, risk_trend:[], top_assets:[],
       });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:true } });
       return jsonResponse({});
     });
 
     await renderAt('/incidents?incident=7');
 
-    expect(document.body.textContent).toContain('Executive review');
-    expect(document.body.textContent).not.toContain('Close incident record');
-    expect(document.body.textContent).not.toContain('Assign to SOC Analyst');
+    expect(window.location.pathname).toBe('/dashboard');
+    expect(document.body.textContent).toContain('Risk, resilience, and required decisions');
+    expect(requests.some(url => /\/incidents(?:\/|\?)/.test(url))).toBe(false);
   });
 
   it('uses one URL-backed executive drawer and closes it with Escape', async () => {
@@ -306,7 +309,19 @@ describe('authenticated application flows', () => {
       });
       if (url.endsWith('/agent/status')) return jsonResponse({ enabled:true, readiness:{}, recent_operations:[] });
       if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:true } });
-      if (url.includes('/incidents?status=open&page=1&limit=100')) return jsonResponse({ total:1, incidents:[{ id:7, title:'Potential identity compromise', severity:'high', status:'open' }] });
+      if (url.includes('/executive/risks?page=1&limit=100')) return jsonResponse({ total:1, risks:[{
+        id:7, title:'Potential identity compromise', severity:'critical', business_impact:'high',
+        status:'open', owner:null, required_decision:'Assign an accountable incident owner',
+        last_seen:new Date().toISOString(),
+      }] });
+      if (url.endsWith('/executive/incidents/7')) return jsonResponse({
+        id:7, title:'Potential identity compromise', severity:'critical', business_impact:'high',
+        status:'open', owner:null, required_decision:'Assign an accountable incident owner',
+        executive_summary:'This incident remains open. Multiple correlated security signals support the record.',
+        impact_basis:'Stored incident severity; business-service criticality is not mapped.',
+        evidence_assurance:'Multiple correlated security signals support this incident record.',
+        containment_status:'not_recorded', technical_evidence_restricted:true,
+      });
       return jsonResponse({});
     });
 
@@ -316,8 +331,18 @@ describe('authenticated application flows', () => {
     await act(async () => trigger.click());
     await settle();
     expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
-    expect(document.body.textContent).toContain('Active business risks');
+    expect(document.body.textContent).toContain('Risks requiring attention');
     expect(window.location.search).toContain('detail=risk-summary');
+    expect(document.body.textContent).not.toContain('Open Technical Triage Board');
+
+    const risk = [...document.querySelectorAll('[role="dialog"] button')].find(button => button.textContent.includes('Potential identity compromise'));
+    expect(risk).toBeTruthy();
+    await act(async () => risk.click());
+    await settle();
+    expect(document.body.textContent).toContain('AI-assisted executive interpretation');
+    expect(document.body.textContent).toContain('Role-safe view');
+    expect(document.body.textContent).not.toContain('Correlation timeline');
+    expect(document.body.textContent).not.toContain('Selected evidence');
 
     await act(async () => document.dispatchEvent(new window.KeyboardEvent('keydown', { key:'Escape', bubbles:true })));
     await settle();

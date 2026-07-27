@@ -19,6 +19,11 @@ const TOOL_SPECS = [
     parameters: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
+    name: 'get_executive_summary',
+    description: 'Return leadership-safe aggregate security posture, risk ownership, and workflow coverage without technical identifiers or record-level evidence.',
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
     name: 'search_alerts',
     description: 'Search collected alerts, including alerts not yet triaged, using bounded filters.',
     parameters: {
@@ -415,6 +420,56 @@ function createSocToolkit({
       return { data: { count: alerts.length, alerts }, evidence: alerts.flatMap(row => evidence('alert', row.id)) };
     },
 
+    async get_executive_summary() {
+      const [stats, risks, workflow] = await Promise.all([
+        database.getAlertStats(),
+        database.query(`
+          SELECT
+            COUNT(*)::int AS open_risks,
+            (COUNT(*) FILTER (WHERE severity = 'critical'))::int AS critical_risks,
+            (COUNT(*) FILTER (
+              WHERE severity IN ('critical', 'high') AND NULLIF(BTRIM(owner), '') IS NULL
+            ))::int AS unassigned_high_risks
+          FROM incidents
+          WHERE status = 'open'
+        `),
+        database.query(`
+          SELECT
+            (COUNT(*) FILTER (WHERE status = 'pending'))::int AS pending_approvals,
+            (COUNT(*) FILTER (WHERE status = 'failed'))::int AS workflow_failures
+          FROM action_requests
+        `),
+      ]);
+      const posture = stats || {};
+      const risk = risks.rows[0] || {};
+      const control = workflow.rows[0] || {};
+      return {
+        data: {
+          security_activity: {
+            grouped_activities: Number(posture.grouped_activities || 0),
+            critical_activities: Number(posture.critical_activities || 0),
+            high_activities: Number(posture.high_activities || 0),
+            triaged: Number(posture.triaged || 0),
+            triage_pending: Number(posture.triage_pending || 0),
+          },
+          leadership_risks: {
+            open: Number(risk.open_risks || 0),
+            critical: Number(risk.critical_risks || 0),
+            unassigned_high: Number(risk.unassigned_high_risks || 0),
+          },
+          governance: {
+            pending_approvals: Number(control.pending_approvals || 0),
+            workflow_failures: Number(control.workflow_failures || 0),
+          },
+          limitations: [
+            'No raw alerts, observables, identities, hosts, or technical timelines are included.',
+            'Business-service impact remains unavailable until durable service mapping is connected.',
+          ],
+        },
+        evidence: [],
+      };
+    },
+
     async search_raw_events(args) {
       try {
         const events = await elasticService.searchEvents(args);
@@ -655,10 +710,15 @@ function createSocToolkit({
 
   async function execute(name, args, { signal, authorization, actor, runId, requestId } = {}) {
     const isAction = name === 'request_soc_action';
-    if (isAction ? authorization?.canRequestActions !== true : authorization?.canReadSoc !== true) {
+    const executiveToolDenied = authorization?.role === 'executive' && name !== 'get_executive_summary';
+    if (executiveToolDenied || (isAction ? authorization?.canRequestActions !== true : authorization?.canReadSoc !== true)) {
       throw new HermesError(
         'HERMES_TOOL_UNAUTHORIZED',
-        isAction ? 'The actor is not authorized to request SOC actions' : 'The actor is not authorized to read SOC evidence',
+        isAction
+          ? 'The actor is not authorized to request SOC actions'
+          : executiveToolDenied
+            ? 'Executive access is limited to aggregate security posture'
+            : 'The actor is not authorized to read SOC evidence',
         { status: 403 }
       );
     }

@@ -26,6 +26,13 @@ Every citation must exactly match evidence returned by a tool in this investigat
 Allowed application tools: ${JSON.stringify(catalog)}`;
 }
 
+function specsForAuthorization(specs, authorization = {}) {
+  if (authorization.role === 'executive') {
+    return specs.filter(spec => spec.name === 'get_executive_summary');
+  }
+  return specs;
+}
+
 function historyForHermes(history) {
   return history.map(message => ({ role: message.role, content: compactText(message.content, 2000) }));
 }
@@ -100,7 +107,7 @@ async function chatHermes(question, {
       try {
         hermes = await client.runAgent({
           input: investigationInput(question, transcript),
-          instructions: instructionsFor(toolkit.specs),
+          instructions: instructionsFor(specsForAuthorization(toolkit.specs, authorization)),
           sessionId: started.conversationId,
           sessionKey: `bmb-soc:${crypto.createHash('sha256').update(actor).digest('hex').slice(0, 32)}`,
           conversationHistory: historyForHermes(started.history),
@@ -231,5 +238,5 @@ async function chatHermes(question, {
 
 module.exports = {
   OUTPUT_SCHEMA_VERSION, PROMPT_VERSION, chatHermes, combinedSignal,
-  groupedEvidence, historyForHermes, instructionsFor, investigationInput,
+  groupedEvidence, historyForHermes, instructionsFor, investigationInput, specsForAuthorization,
 };

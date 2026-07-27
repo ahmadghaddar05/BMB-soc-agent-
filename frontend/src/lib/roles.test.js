@@ -32,7 +32,7 @@ describe('role-aware presentation model', () => {
 
   it('keeps technical and configuration routes out of unauthorized experiences', () => {
     expect(canAccessRoute(ROLES.EXECUTIVE, '/alerts')).toBe(false);
-    expect(canAccessRoute(ROLES.EXECUTIVE, '/incidents')).toBe(true);
+    expect(canAccessRoute(ROLES.EXECUTIVE, '/incidents')).toBe(false);
     expect(canAccessRoute(ROLES.SOC_ANALYST, '/settings')).toBe(false);
     expect(canAccessRoute(ROLES.SOC_ANALYST, '/responses')).toBe(true);
     expect(canAccessRoute(ROLES.ADMINISTRATOR, '/settings')).toBe(true);

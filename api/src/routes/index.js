@@ -24,7 +24,7 @@ const ANALYST_READ_PREFIXES = Object.freeze([
 ]);
 
 const EXECUTIVE_READ_PREFIXES = Object.freeze([
-  '/health', '/collector/status', '/agent/status', '/executive/overview', '/incidents',
+  '/health', '/collector/status', '/agent/status', '/executive',
 ]);
 
 function pathMatchesPrefix(path, prefix) {
@@ -144,6 +144,101 @@ function healthBand(score) {
   if (score >= 75) return 'guarded';
   if (score >= 60) return 'elevated';
   return 'at_risk';
+}
+
+function executiveImpact(severity) {
+  const normalized = String(severity || '').toLowerCase();
+  if (normalized === 'critical' || normalized === 'high') return 'high';
+  if (normalized === 'medium') return 'medium';
+  return 'low';
+}
+
+function executiveDecision(record = {}) {
+  if (!String(record.owner || '').trim()) return 'Assign an accountable incident owner';
+  if (['critical', 'high'].includes(String(record.severity || '').toLowerCase())) {
+    return 'Confirm the containment and recovery plan';
+  }
+  return 'Confirm continued monitoring or closure criteria';
+}
+
+function executiveIncidentView(record = {}) {
+  const severity = String(record.severity || 'unknown').toLowerCase();
+  const alertCount = numericCount(
+    record.alert_count ?? (Array.isArray(record.alert_ids) ? record.alert_ids.length : 0)
+  );
+  const status = String(record.status || 'open').toLowerCase();
+  const owner = String(record.owner || '').trim() || null;
+  const evidenceStatement = alertCount > 1
+    ? 'Multiple correlated security signals support this incident record.'
+    : alertCount === 1
+      ? 'A stored security signal supports this incident record.'
+      : 'Supporting evidence exists in the SOC workspace, but its aggregate count is unavailable.';
+
+  return {
+    id: record.id,
+    title: record.title || `Security incident ${record.id}`,
+    severity,
+    business_impact: executiveImpact(severity),
+    status,
+    owner,
+    confidence: record.confidence ?? null,
+    first_seen: record.first_seen || null,
+    last_seen: record.last_seen || null,
+    alert_count: alertCount,
+    business_service: null,
+    business_service_mapping_available: false,
+    containment_status: record.containment_status || 'not_recorded',
+    required_decision: record.required_decision || executiveDecision({ ...record, severity, owner }),
+    impact_basis: 'Stored incident severity; durable business-service criticality is not mapped.',
+    executive_summary: `${record.title || 'This security incident'} remains ${status.replaceAll('_', ' ')}. ${evidenceStatement} ${owner ? `${owner} is the recorded owner.` : 'No accountable owner is recorded.'}`,
+    evidence_assurance: evidenceStatement,
+  };
+}
+
+function executiveAssetCategory(record = {}) {
+  const name = String(record.name || '').toLowerCase();
+  const type = String(record.type || '').toLowerCase();
+  if (/customer.*(db|database)|crm.*(db|database)/.test(name)) return 'Customer Data Platform';
+  if (/\b(dc\d*|domain[-_ ]?controller|active[-_ ]?directory|identity|auth)\b/.test(name)) {
+    return 'Identity & Authentication';
+  }
+  if (/mail|email|exchange/.test(name)) return 'Corporate Communications';
+  if (/\b(fin|finance|payroll)/.test(name)) return 'Finance Operations';
+  if (/\b(hr|human[-_ ]?resources)/.test(name)) return 'Workforce Systems';
+  if (/web|portal|frontend|application/.test(name)) return 'Business Applications';
+  if (/\b(db|database|postgres|mysql|sql)\b/.test(name) || type.includes('database')) return 'Core Data Platforms';
+  if (type.includes('host') || type.includes('endpoint') || type.includes('server')) return 'Enterprise Systems';
+  return 'Other Technology Services';
+}
+
+function executiveAssetViews(records = []) {
+  const grouped = new Map();
+  for (const record of records) {
+    const name = executiveAssetCategory(record);
+    const current = grouped.get(name) || {
+      asset_key: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      name,
+      type: 'observed technology category',
+      activity_count: 0,
+      high_risk_activity_count: 0,
+      business_impact: 'low',
+      last_seen: null,
+      business_service_mapped: false,
+      mapping_method: 'derived from technical asset type',
+    };
+    current.activity_count += numericCount(record.activity_count);
+    current.high_risk_activity_count += numericCount(record.high_risk_activity_count);
+    if (executiveImpact(record.business_impact) === 'high') current.business_impact = 'high';
+    else if (record.business_impact === 'medium' && current.business_impact === 'low') current.business_impact = 'medium';
+    if (record.last_seen && (!current.last_seen || new Date(record.last_seen) > new Date(current.last_seen))) {
+      current.last_seen = record.last_seen;
+    }
+    grouped.set(name, current);
+  }
+  return [...grouped.values()].sort((a, b) =>
+    b.high_risk_activity_count - a.high_risk_activity_count
+    || b.activity_count - a.activity_count
+  );
 }
 
 const SETTING_KEYS = new Set([
@@ -1219,6 +1314,83 @@ r.post('/chat', async (req, res) => {
 // ────────────────────────────────────────────────────────────────────────────
 // Dashboard stats
 // ────────────────────────────────────────────────────────────────────────────
+// Executive incident contracts intentionally exclude raw alerts, observables,
+// technical timelines, model prompts, and response instructions.
+r.get('/executive/risks', async (req, res) => {
+  const pg = pagination(req.query, { defaultLimit: 50, maxLimit: 100 });
+  if (pg.error) return res.status(400).json({ error: pg.error });
+  try {
+    const [countResult, riskResult] = await Promise.all([
+      db.query(`SELECT COUNT(*)::int AS n FROM incidents WHERE status = 'open'`),
+      db.query(`
+        /* executive_risk_directory */
+        SELECT
+          id,
+          title,
+          severity,
+          confidence,
+          first_seen,
+          last_seen,
+          status,
+          owner,
+          COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count
+        FROM incidents
+        WHERE status = 'open'
+        ORDER BY
+          CASE severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+            ELSE 5
+          END,
+          last_seen DESC NULLS LAST,
+          id DESC
+        LIMIT $1 OFFSET $2
+      `, [pg.limit, pg.offset]),
+    ]);
+    res.json({
+      total: numericCount(countResult.rows[0]?.n),
+      page: pg.page,
+      limit: pg.limit,
+      risks: riskResult.rows.map(executiveIncidentView),
+      detail_level: 'executive_summary',
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+r.get('/executive/incidents/:id', async (req, res) => {
+  const invalid = positiveRecordId(req.params.id, 'incident id');
+  if (invalid) return res.status(400).json({ error: invalid });
+  try {
+    const result = await db.query(`
+      /* executive_incident_brief */
+      SELECT
+        id,
+        title,
+        severity,
+        confidence,
+        first_seen,
+        last_seen,
+        status,
+        owner,
+        COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count
+      FROM incidents
+      WHERE id = $1
+    `, [req.params.id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Incident not found' });
+    res.json({
+      ...executiveIncidentView(result.rows[0]),
+      detail_level: 'executive_summary',
+      technical_evidence_restricted: true,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Executive security posture. Every score is derived from stored SOC records;
 // the response exposes the weighting and time-saving assumptions used.
 r.get('/executive/overview', async (req, res) => {
@@ -1298,26 +1470,10 @@ r.get('/executive/overview', async (req, res) => {
           title,
           severity,
           confidence,
-          attack_stages,
-          common_entities,
-          alert_ids,
-          narrative,
-          recommended_actions,
           first_seen,
           last_seen,
           status,
           owner,
-          NULL::text AS business_service,
-          CASE
-            WHEN NULLIF(BTRIM(owner), '') IS NULL THEN 'Assign an accountable incident owner'
-            WHEN severity IN ('critical', 'high') THEN 'Confirm the containment and recovery plan'
-            ELSE 'Confirm continued monitoring or closure criteria'
-          END AS required_decision,
-          CASE
-            WHEN severity IN ('critical', 'high') THEN 'high'
-            WHEN severity = 'medium' THEN 'medium'
-            ELSE 'low'
-          END AS business_impact,
           COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count
         FROM incidents
         WHERE status = 'open'
@@ -1472,7 +1628,7 @@ r.get('/executive/overview', async (req, res) => {
         WHERE asset_name IS NOT NULL
         GROUP BY asset_name, asset_type
         ORDER BY high_risk_activity_count DESC, activity_count DESC, last_seen DESC
-        LIMIT 5
+        LIMIT 20
       `, [days]),
 
       db.query(`
@@ -1685,7 +1841,7 @@ r.get('/executive/overview', async (req, res) => {
           reason: 'Reliable acknowledgement and response milestone timestamps are not stored.',
           confidence: 'unavailable',
         },
-        analyst_workload_reduced: {
+        estimated_analyst_time_saved: {
           value: Number((minutesSaved / 60).toFixed(1)),
           unit: 'hours',
           available: true,
@@ -1701,7 +1857,7 @@ r.get('/executive/overview', async (req, res) => {
           medium: businessRiskCounts.medium,
           low: businessRiskCounts.low,
         },
-        items: businessRiskItemsResult.rows,
+        items: businessRiskItemsResult.rows.map(executiveIncidentView),
         methodology: {
           scope: 'currently open incidents',
           derived_from: 'incident severity',
@@ -1751,7 +1907,7 @@ r.get('/executive/overview', async (req, res) => {
         methodology: 'Estimated from completed workflow outputs and explicit task-time assumptions; token usage is not treated as human time.',
       },
       risk_trend: riskTrend,
-      top_assets: topAssetsResult.rows,
+      top_assets: executiveAssetViews(topAssetsResult.rows).slice(0, 5),
       decision_queue: {
         unassigned_high_impact_incidents: unassignedHighRisks,
         pending_approvals: pendingApprovals,

@@ -230,6 +230,10 @@ test('executive overview returns an auditable aggregate contract with no fabrica
   assert.equal(response.body.health.methodology.derived, true);
   assert.deepEqual(response.body.business_risks.by_impact, { critical:1, high:2, medium:2, low:1 });
   assert.equal(response.body.business_risks.items[0].title, incident.title);
+  assert.equal(response.body.business_risks.items[0].required_decision, 'Assign an accountable incident owner');
+  for (const restricted of ['attack_stages','common_entities','alert_ids','narrative','recommended_actions']) {
+    assert.equal(Object.prototype.hasOwnProperty.call(response.body.business_risks.items[0], restricted), false);
+  }
   assert.equal(response.body.automation.triage_rate, 75);
   assert.equal(response.body.automation.primary_metric, 'ai_triage_coverage');
   assert.equal(response.body.automation.end_to_end_completion_supported, false);
@@ -242,14 +246,64 @@ test('executive overview returns an auditable aggregate contract with no fabrica
   assert.equal(response.body.risk_trend[0].telemetry_sufficient, true);
   assert.equal(response.body.risk_trend[0].critical_incidents_created, 1);
   assert.equal(typeof response.body.risk_trend[0].risk_score, 'number');
-  assert.deepEqual(response.body.top_assets, [asset]);
+  assert.equal(response.body.top_assets[0].name, 'Customer Data Platform');
+  assert.equal(response.body.top_assets[0].type, 'observed technology category');
+  assert.equal(response.body.top_assets[0].business_service_mapped, false);
+  assert.equal(Object.prototype.hasOwnProperty.call(response.body.top_assets[0], 'hostname'), false);
   assert.equal(response.body.executive_metrics.cyber_risk_exposure.value, 19);
   assert.equal(response.body.executive_metrics.critical_business_services_at_risk.available, false);
   assert.equal(response.body.executive_metrics.mean_time_to_respond.available, false);
+  assert.equal(response.body.executive_metrics.estimated_analyst_time_saved.confidence, 'estimated');
   assert.equal(response.body.automation.pending_approvals, 2);
   assert.equal(response.body.automation.external_actions_supported, false);
   assert.equal(response.body.decision_queue.unassigned_high_impact_incidents, 1);
   assert.equal(response.body.source_coverage.asset_mapping_percent, 80);
+});
+
+test('executive incident endpoints return decision briefs without technical evidence', async () => {
+  const incident = {
+    id:42,
+    title:'Coordinated identity compromise',
+    severity:'critical',
+    confidence:0.91,
+    status:'open',
+    owner:null,
+    first_seen:'2026-07-19T10:00:00.000Z',
+    last_seen:'2026-07-19T10:10:00.000Z',
+    alert_count:14,
+    alert_ids:['elastic:1'],
+    narrative:'Raw technical narrative mentioning 192.168.10.26 and maya.georges.',
+    common_entities:{ users:['maya.georges'], hosts:['IT-ADMIN01'] },
+    recommended_actions:['Disable an account'],
+  };
+  db.query = async (sql, params = []) => {
+    const text = String(sql);
+    assert.ok(highestPlaceholder(text) <= params.length);
+    if (text.includes('COUNT(*)::int AS n')) return { rows:[{ n:1 }] };
+    if (text.includes('executive_risk_directory')) return { rows:[incident] };
+    if (text.includes('executive_incident_brief')) {
+      assert.deepEqual(params, ['42']);
+      return { rows:[incident] };
+    }
+    throw new Error(`Unexpected query: ${text}`);
+  };
+
+  const directory = await request(routeApp()).get('/api/executive/risks?page=1&limit=20');
+  assert.equal(directory.status, 200);
+  assert.equal(directory.body.risks[0].title, incident.title);
+
+  const brief = await request(routeApp()).get('/api/executive/incidents/42');
+  assert.equal(brief.status, 200);
+  assert.equal(brief.body.detail_level, 'executive_summary');
+  assert.equal(brief.body.technical_evidence_restricted, true);
+  assert.match(brief.body.executive_summary, /No accountable owner/);
+  assert.equal(brief.body.required_decision, 'Assign an accountable incident owner');
+  for (const payload of [directory.body.risks[0], brief.body]) {
+    for (const restricted of ['alerts','alert_ids','narrative','common_entities','recommended_actions','attack_stages']) {
+      assert.equal(Object.prototype.hasOwnProperty.call(payload, restricted), false);
+    }
+    assert.doesNotMatch(JSON.stringify(payload), /192\.168\.10\.26|maya\.georges|IT-ADMIN01/);
+  }
 });
 
 test('durable automation operation details remain addressable by id', async () => {

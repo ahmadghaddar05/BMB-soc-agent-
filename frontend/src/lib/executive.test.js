@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityTitle, businessAssetLabel, operationWin, severityOf, technicalLink } from './executive';
+import { activityTitle, businessAssetLabel, operationWin, severityOf } from './executive';
 
 describe('executive security adapters', () => {
   it('keeps a specific detection name unchanged', () => {
@@ -49,12 +49,5 @@ describe('executive security adapters', () => {
     const win = operationWin({ operation_type:'request_simulated_response', source_type:'case', source_id:'7' });
     expect(win.summary).toContain('No external system changed');
     expect(win.summary).not.toMatch(/isolated|contained|mitigated/i);
-  });
-
-  it('routes drawer handoffs to the correct technical workspace', () => {
-    expect(technicalLink({ type:'risk-summary', id:'30-day-risks' }, {})).toBe('/incidents?status=open');
-    expect(technicalLink({ type:'automation', id:'42' }, { source_type:'case', source_id:'7' }))
-      .toBe('/incidents?incident=7');
-    expect(technicalLink({ type:'asset', id:'DB01' }, { window_days:30 })).toBe('/alerts?time_range=43200&search=DB01');
   });
 });

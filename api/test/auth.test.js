@@ -126,6 +126,8 @@ test('executive sessions are read-only across protected SOC workflows', async ()
     request(app).get('/api/admin/runtime'),
     request(app).get('/api/settings'),
     request(app).get('/api/alerts'),
+    request(app).get('/api/incidents'),
+    request(app).get('/api/incidents/7'),
     request(app).get('/api/investigations'),
     request(app).get('/api/actions'),
     request(app).get('/api/responses'),
