@@ -7,6 +7,7 @@ const { validate } = require('./schemas');
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const RETRIABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const FAILURE_DETAIL_LIMIT = 240;
 
 function normalizedBaseUrl(value) {
   const trimmed = String(value || '').replace(/\/+$/, '');
@@ -70,6 +71,32 @@ function isForbiddenTool(toolName, forbidden) {
   });
 }
 
+function redactFailureText(value) {
+  return String(value || '')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/gi, '[redacted]')
+    .replace(/\b(?:api[_ -]?key|authorization|bearer|token|secret)\s*[:=]\s*[^\s,;]+/gi, '[redacted]')
+    .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/gi, '$1[redacted]@')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, FAILURE_DETAIL_LIMIT);
+}
+
+function failureSummary(value, depth = 0) {
+  if (depth > 2 || value == null) return null;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const message = redactFailureText(value);
+    return message ? { message } : null;
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const code = redactFailureText(value.code || value.type || value.status || '');
+  const direct = value.message || value.detail || value.reason || value.error_description;
+  const message = redactFailureText(direct || '');
+  if (message || code) return { ...(code ? { code } : {}), ...(message ? { message } : {}) };
+  return failureSummary(value.error, depth + 1);
+}
+
 function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch, sleepImpl = null } = {}) {
   if (typeof fetchImpl !== 'function') throw new Error('A fetch implementation is required');
   const baseUrl = normalizedBaseUrl(config.hermesUrl);
@@ -123,15 +150,18 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
       }
 
       if (!response.ok) {
-        response.body?.cancel?.().catch(() => {});
+        let responseFailure = null;
+        try { responseFailure = failureSummary(await readJson(response)); }
+        catch { response.body?.cancel?.().catch(() => {}); }
         cleanup();
         const retriable = RETRIABLE_STATUSES.has(response.status);
+        const reason = responseFailure?.message || responseFailure?.code;
         lastError = new HermesError(
           response.status === 401 || response.status === 403 ? 'HERMES_AUTH_FAILED' : 'HERMES_HTTP_ERROR',
           response.status === 401 || response.status === 403
             ? 'Hermes authentication failed'
-            : `Hermes request failed with HTTP ${response.status}`,
-          { status: response.status === 429 ? 503 : 502, retriable }
+            : `Hermes request failed with HTTP ${response.status}${reason ? `: ${reason}` : ''}`,
+          { status: response.status === 429 ? 503 : 502, retriable, details: responseFailure }
         );
         lastError.attempts = attempt + 1;
         if (!retriable || attempt >= maxRetries) throw lastError;
@@ -284,7 +314,13 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
           throw new HermesError('HERMES_APPROVAL_REQUIRED', 'Hermes requested an unsupported host-tool approval', { status: 503 });
         }
         if (state.status === 'failed') {
-          throw new HermesError('HERMES_RUN_FAILED', 'Hermes could not complete the run', { status: 502 });
+          const failure = failureSummary(state.error);
+          const reason = failure?.message || failure?.code;
+          throw new HermesError(
+            'HERMES_RUN_FAILED',
+            `Hermes could not complete the run${reason ? `: ${reason}` : ''}`,
+            { status: 502, details: failure }
+          );
         }
         if (state.status === 'cancelled') throw abortError();
       }
@@ -321,4 +357,6 @@ function defaultHermesClient() {
   return singleton;
 }
 
-module.exports = { createHermesClient, defaultHermesClient, isForbiddenTool, normalizedBaseUrl };
+module.exports = {
+  createHermesClient, defaultHermesClient, failureSummary, isForbiddenTool, normalizedBaseUrl,
+};

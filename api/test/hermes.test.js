@@ -149,6 +149,63 @@ test('Hermes run polling returns normalized usage and model output', async () =>
   assert.equal(result.output.includes('Investigate'), true);
 });
 
+test('Hermes failed runs retain a safe provider reason without leaking credentials', async () => {
+  const client = createHermesClient({
+    config, sleepImpl: async () => {},
+    fetchImpl: async (url, options) => {
+      const capability = handshakeResponse(url);
+      if (capability) return capability;
+      if (url.endsWith('/runs') && options.method === 'POST') {
+        return jsonResponse({ run_id: 'run-failed', status: 'started' }, 202);
+      }
+      if (url.endsWith('/runs/run-failed')) {
+        return jsonResponse({
+          object: 'hermes.run',
+          run_id: 'run-failed',
+          status: 'failed',
+          error: {
+            code: 'insufficient_quota',
+            message: 'Provider quota exhausted for token sk-super-secret-value',
+          },
+        });
+      }
+      if (url.endsWith('/runs/run-failed/stop')) return jsonResponse({ status: 'failed' });
+      throw new Error(`Unexpected URL ${url}`);
+    },
+  });
+
+  await assert.rejects(
+    client.runAgent({ input: 'question', instructions: 'instructions' }),
+    error => {
+      assert.equal(error.code, 'HERMES_RUN_FAILED');
+      assert.match(error.message, /Provider quota exhausted/);
+      assert.doesNotMatch(error.message, /sk-super-secret-value/);
+      assert.equal(error.details.code, 'insufficient_quota');
+      assert.equal(error.hermesRunId, 'run-failed');
+      return true;
+    }
+  );
+});
+
+test('Hermes HTTP failures retain a safe structured provider reason', async () => {
+  const client = createHermesClient({
+    config,
+    fetchImpl: async () => jsonResponse({
+      error: { code: 'model_unavailable', message: 'Configured model is temporarily unavailable' },
+    }, 503),
+    sleepImpl: async () => {},
+  });
+
+  await assert.rejects(
+    client.request('/test', { retries: 0 }),
+    error => {
+      assert.equal(error.code, 'HERMES_HTTP_ERROR');
+      assert.match(error.message, /Configured model is temporarily unavailable/);
+      return true;
+    }
+  );
+});
+
 test('cancelling a submitted Hermes run invokes the stop endpoint', async () => {
   const controller = new AbortController();
   let stopped = false;
