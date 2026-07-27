@@ -560,14 +560,15 @@ describe('authenticated application flows', () => {
 
     await renderAt('/responses');
     expect(document.body.textContent).toContain('Safe Response Simulation');
+    expect(document.body.textContent).toContain('Validate the AI recommendation without affecting production');
     expect(document.body.textContent).toContain('server-1');
-    expect(document.body.textContent).toContain('active confirmed in the BMB simulation ledger');
+    expect(document.body.textContent).toContain('active state confirmed; external side effects remain false.');
     const textarea = document.querySelector('.response-rollback textarea');
     await act(async () => {
       Object.getOwnPropertyDescriptor(globalThis.HTMLTextAreaElement.prototype, 'value').set.call(textarea, 'Exercise completed safely');
       textarea.dispatchEvent(new Event('input', { bubbles:true }));
     });
-    const rollback = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Request rollback review'));
+    const rollback = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Request rollback approval'));
     await act(async () => rollback.click());
     await settle();
 
