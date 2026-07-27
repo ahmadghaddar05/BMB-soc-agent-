@@ -1,7 +1,7 @@
 import React, { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRoot } from 'react-dom/client';
-import ChatWidget from './ChatWidget';
+import ChatWidget, { conversationStorageKey } from './ChatWidget';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -12,6 +12,15 @@ const response = body => new Response([
 ].join('\n'), {
   status: 200, headers: { 'Content-Type':'application/x-ndjson' },
 });
+
+const errorResponse = (code, message, status = 404) => new Response([
+  JSON.stringify({ type:'error', error:{ code, message }, status }),
+  '',
+].join('\n'), {
+  status: 200, headers: { 'Content-Type':'application/x-ndjson' },
+});
+
+const ACCOUNT_KEY = 'analyst:soc_analyst';
 
 async function settle(milliseconds = 30) {
   await act(async () => { await new Promise(resolve => setTimeout(resolve, milliseconds)); });
@@ -26,7 +35,7 @@ describe('Hermes chat widget', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    await act(async () => root.render(<ChatWidget />));
+    await act(async () => root.render(<ChatWidget role="soc_analyst" accountKey={ACCOUNT_KEY} />));
     await act(async () => container.querySelector('.soc-chat-launcher').click());
   });
 
@@ -73,7 +82,7 @@ describe('Hermes chat widget', () => {
     expect(container.textContent).toContain('queried: search_alerts (1)');
     expect(container.textContent).toContain('confidence: high');
     expect(container.textContent).toContain('limitations: Test limitation');
-    expect(window.sessionStorage.getItem('bmb-soc-conversation-id')).toBe('11111111-1111-4111-8111-111111111111');
+    expect(window.sessionStorage.getItem(conversationStorageKey(ACCOUNT_KEY))).toBe('11111111-1111-4111-8111-111111111111');
   });
 
   it('lets the analyst cancel an in-flight Hermes run', async () => {
@@ -104,6 +113,7 @@ describe('Hermes chat widget', () => {
     });
     await act(async () => root.render(<ChatWidget
       role="soc_analyst"
+      accountKey={ACCOUNT_KEY}
       pageContext={{ path:'/alerts?search=maya', title:'Technical Triage', subtitle:'Prioritize activity' }}
     />));
 
@@ -114,5 +124,38 @@ describe('Hermes chat widget', () => {
     expect(bodies[0].message).toContain('Route: /alerts?search=maya');
     expect(bodies[0].message).toContain('User question: What evidence is missing?');
     expect(container.textContent).toContain('What evidence is missing?');
+  });
+
+  it('recovers from a conversation owned by another authenticated account', async () => {
+    const staleId = '33333333-3333-4333-8333-333333333333';
+    const freshId = '44444444-4444-4444-8444-444444444444';
+    window.sessionStorage.setItem(conversationStorageKey('executive:executive'), staleId);
+    await act(async () => root.render(
+      <ChatWidget role="executive" accountKey="executive:executive" />
+    ));
+    await settle(5);
+
+    const bodies = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, options) => {
+      const body = JSON.parse(options.body);
+      bodies.push(body);
+      if (bodies.length === 1) {
+        return errorResponse('CONVERSATION_NOT_FOUND', 'Conversation was not found');
+      }
+      return response({
+        answer:'A new executive conversation is ready.',
+        conversation_id:freshId,
+        citations:[], limitations:[], tools_used:[],
+      });
+    });
+
+    await submit('Summarize current risk');
+
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0].conversation_id).toBe(staleId);
+    expect(bodies[1].conversation_id).toBeUndefined();
+    expect(window.sessionStorage.getItem(conversationStorageKey('executive:executive'))).toBe(freshId);
+    expect(container.textContent).toContain('A new executive conversation is ready.');
+    expect(container.textContent).not.toContain('Error: Conversation was not found');
   });
 });

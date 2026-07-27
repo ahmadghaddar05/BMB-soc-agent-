@@ -239,7 +239,11 @@ function Shell({ session, onLogout }) {
           </Suspense>
         </main>
       </section>
-      <ChatWidget role={role} pageContext={{ path: `${location.pathname}${location.search}`, title, subtitle }} />
+      <ChatWidget
+        role={role}
+        accountKey={`${session.user.username}:${authenticatedRole}`}
+        pageContext={{ path: `${location.pathname}${location.search}`, title, subtitle }}
+      />
       <SelectionAssistant />
     </div>
   );
