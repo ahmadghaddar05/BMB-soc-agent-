@@ -12,14 +12,34 @@ function boundedInt(value, fallback, min, max) {
   return Number.isInteger(number) ? Math.min(max, Math.max(min, number)) : fallback;
 }
 
+const AUTH_ROLES = Object.freeze(['executive', 'soc_analyst', 'administrator']);
+
+function authAccounts(env) {
+  return [
+    {
+      role:'executive',
+      username:String(env.SOC_EXECUTIVE_USERNAME || 'executive').trim(),
+      password:env.SOC_EXECUTIVE_PASSWORD || '',
+    },
+    {
+      role:'soc_analyst',
+      username:String(env.SOC_ANALYST_USERNAME || 'analyst').trim(),
+      password:env.SOC_ANALYST_PASSWORD || '',
+    },
+    {
+      role:'administrator',
+      username:String(env.SOC_ADMIN_USERNAME || 'admin').trim(),
+      password:env.SOC_ADMIN_PASSWORD || '',
+    },
+  ];
+}
+
 function runtimeConfig(env = process.env) {
   return {
     nodeEnv: env.NODE_ENV || 'development',
     databaseUrl: env.DATABASE_URL || '',
     authDisabled: bool(env.SOC_AUTH_DISABLED, false),
-    adminUsername: env.SOC_ADMIN_USERNAME || 'admin',
-    adminPassword: env.SOC_ADMIN_PASSWORD || '',
-    userRole: env.SOC_USER_ROLE || 'administrator',
+    authAccounts: authAccounts(env),
     sessionSecret: env.SOC_SESSION_SECRET || '',
     apiKey: env.SOC_API_KEY || '',
     sessionTtlMinutes: Math.min(1440, Math.max(15, parseInt(env.SOC_SESSION_TTL_MINUTES || '480', 10) || 480)),
@@ -74,10 +94,17 @@ function validateStartupConfig(config = runtimeConfig()) {
   }
   if (!config.authDisabled) {
     if (config.sessionSecret.length < 32) errors.push('SOC_SESSION_SECRET must be at least 32 characters');
-    if (config.adminPassword.length < 12) errors.push('SOC_ADMIN_PASSWORD must be at least 12 characters');
-    if (!['executive','soc_analyst','administrator'].includes(config.userRole)) {
-      errors.push('SOC_USER_ROLE must be executive, soc_analyst, or administrator');
+    for (const account of config.authAccounts) {
+      const prefix = account.role === 'soc_analyst'
+        ? 'SOC_ANALYST'
+        : account.role === 'administrator' ? 'SOC_ADMIN' : 'SOC_EXECUTIVE';
+      if (!account.username) errors.push(`${prefix}_USERNAME is required`);
+      if (account.username.length > 128) errors.push(`${prefix}_USERNAME must be at most 128 characters`);
+      if (account.password.length < 12) errors.push(`${prefix}_PASSWORD must be at least 12 characters`);
     }
+    const usernames = config.authAccounts.map(account => account.username.toLowerCase()).filter(Boolean);
+    if (new Set(usernames).size !== usernames.length) errors.push('Role account usernames must be unique');
+    if (config.authAccounts.some(account => !AUTH_ROLES.includes(account.role))) errors.push('Authentication account role is unsupported');
   }
   if (config.apiKey && config.apiKey.length < 24) warnings.push('SOC_API_KEY should be at least 24 characters');
   if (config.nodeEnv === 'production' && !config.cookieSecure) warnings.push('SOC_COOKIE_SECURE is false; use true when the UI is served over HTTPS');
@@ -107,4 +134,4 @@ function validateStartupConfig(config = runtimeConfig()) {
   return { ok: errors.length === 0, errors, warnings };
 }
 
-module.exports = { bool, boundedInt, runtimeConfig, validateStartupConfig };
+module.exports = { AUTH_ROLES, authAccounts, bool, boundedInt, runtimeConfig, validateStartupConfig };

@@ -41,13 +41,23 @@ function verifyPayload(token, secret) {
   }
 }
 
-function sessionFor(username, config = runtimeConfig()) {
+function sessionFor(username, role, config = runtimeConfig()) {
   return {
     sub: username,
-    role: config.userRole || 'administrator',
+    role,
     csrf: crypto.randomBytes(24).toString('base64url'),
     exp: Date.now() + config.sessionTtlMinutes * 60 * 1000,
   };
+}
+
+function matchingAccount(username, password, config) {
+  let match = null;
+  for (const account of config.authAccounts) {
+    const usernameMatches = equalSecret(username, account.username);
+    const passwordMatches = equalSecret(password, account.password);
+    if (usernameMatches && passwordMatches) match = account;
+  }
+  return match;
 }
 
 function cookieOptions(config = runtimeConfig()) {
@@ -127,12 +137,14 @@ function authRouter() {
     }
     const username = typeof req.body?.username === 'string' ? req.body.username : '';
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
-    if (!equalSecret(username, config.adminUsername) || !equalSecret(password, config.adminPassword)) {
+    const portalRole = typeof req.body?.portal_role === 'string' ? req.body.portal_role : '';
+    const account = matchingAccount(username, password, config);
+    if (!account || (portalRole && !equalSecret(portalRole, account.role))) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const session = sessionFor(username, config);
+    const session = sessionFor(account.username, account.role, config);
     setSessionCookie(res, signPayload(session, config.sessionSecret), config);
-    res.json({ user: { username, role: session.role }, csrf: session.csrf });
+    res.json({ user: { username:account.username, role:session.role }, csrf:session.csrf });
   });
 
   router.get('/auth/session', (req, res) => {
@@ -156,5 +168,5 @@ function authRouter() {
 
 module.exports = {
   COOKIE_NAME, authRouter, clearSessionCookie, parseCookies, readAuth,
-  requireAuth, requireCsrf, requireRoles, sessionFor, signPayload, verifyPayload,
+  matchingAccount, requireAuth, requireCsrf, requireRoles, sessionFor, signPayload, verifyPayload,
 };

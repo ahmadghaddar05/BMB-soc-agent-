@@ -29,15 +29,20 @@ router.get('/runtime', async (req, res) => {
   res.json({
     generated_at:new Date().toISOString(),
     authentication:{
-      mode:config.authDisabled ? 'development_disabled' : 'single_user',
+      mode:config.authDisabled ? 'development_disabled' : 'environment_managed_roles',
       current_user:req.user?.username || null,
       current_role:req.user?.role || null,
-      configured_role:config.userRole,
+      configured_accounts:config.authAccounts.map(account => ({
+        username:account.username,
+        role:account.role,
+        configured:Boolean(account.username && account.password),
+      })),
       session_ttl_minutes:config.sessionTtlMinutes,
       secure_cookie:config.cookieSecure,
       allowed_origins_count:config.allowedOrigins.length,
       service_api_key_configured:Boolean(config.apiKey),
       multi_user_directory_supported:false,
+      multi_role_accounts_supported:true,
     },
     alert_source:{
       type:config.alertSource,

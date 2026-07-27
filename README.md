@@ -21,7 +21,7 @@ Phase 9 adds an approval-gated simulated response lab on top of the proactive Ph
 
 1. Copy `.env.example` to `.env`.
 2. Keep `ALERT_SOURCE=mock` and `WAZUH_MODE=mock`.
-3. Replace `POSTGRES_PASSWORD`, `SOC_ADMIN_PASSWORD`, and `SOC_SESSION_SECRET` with strong random values. The session secret must contain at least 32 characters.
+3. Replace `POSTGRES_PASSWORD`, all three role passwords (`SOC_EXECUTIVE_PASSWORD`, `SOC_ANALYST_PASSWORD`, and `SOC_ADMIN_PASSWORD`), and `SOC_SESSION_SECRET` with strong random values. Every role must use a unique username and a password of at least 12 characters. The session secret must contain at least 32 characters.
 4. Set `HERMES_API_KEY` to the same secret as Hermes `API_SERVER_KEY` and prepare the isolated Hermes profile described below.
 5. Start the stack:
 
@@ -29,7 +29,13 @@ Phase 9 adds an approval-gated simulated response lab on top of the proactive Ph
 docker compose up --build -d
 ```
 
-Open `http://localhost:8080` and sign in with `SOC_ADMIN_USERNAME` and `SOC_ADMIN_PASSWORD`.
+Open `http://localhost:8080/login` and choose the appropriate secure portal:
+
+- Executive: `SOC_EXECUTIVE_USERNAME` and `SOC_EXECUTIVE_PASSWORD`
+- SOC Analyst: `SOC_ANALYST_USERNAME` and `SOC_ANALYST_PASSWORD`
+- Security Administrator: `SOC_ADMIN_USERNAME` and `SOC_ADMIN_PASSWORD`
+
+The selected portal is checked by the server. A valid account cannot authenticate through a different role portal.
 
 The API is bound to `http://127.0.0.1:3000`; the database is bound to `127.0.0.1:5432`. The enrichment service is internal to the Compose network. `GET /api/health` is public; operational and write endpoints require a signed session or the optional bearer API key.
 
@@ -95,6 +101,7 @@ Phase 9 adds `response.simulate` and `response.rollback` to that same controlled
 ## Authentication and security
 
 - Browser login creates an HMAC-signed, HttpOnly, SameSite=Strict cookie.
+- Executive, SOC analyst, and administrator credentials are configured separately. The server assigns the role from the matched credential pair; the browser cannot request or switch to a different production role.
 - The local HTTP quick start uses `SOC_COOKIE_SECURE=false`; set it to `true` whenever the browser origin is HTTPS.
 - Cookie-authenticated writes require the session CSRF token.
 - `SOC_API_KEY` optionally enables trusted automation with `Authorization: Bearer ...`.
@@ -102,7 +109,7 @@ Phase 9 adds `response.simulate` and `response.rollback` to that same controlled
 - `SOC_AUTH_DISABLED=true` is rejected in production.
 - Security headers, request IDs, JSON size limits, and login/chat rate limits are enabled.
 
-This is a single-user access boundary, not full multi-user RBAC. The authenticated account's presentation role is selected with `SOC_USER_ROLE` (`executive`, `soc_analyst`, or `administrator`); changing it invalidates no existing credentials, but requires a new login session to receive the new role.
+This is a small environment-managed three-account access boundary, not an LDAP/SSO-backed user directory. It provides real server-enforced role separation for the internship platform. Account rotation is performed through environment configuration, and usernames or passwords are never returned to the browser except for the authenticated session username.
 
 ## Database lifecycle
 

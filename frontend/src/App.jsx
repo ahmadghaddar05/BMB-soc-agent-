@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, Moon, Search, Sun } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, Moon, Search, Sun, UserRound } from 'lucide-react';
 import ChatWidget from './components/ChatWidget';
 import DataTrustBanner from './components/DataTrustBanner';
 import LoginPage from './components/LoginPage';
@@ -72,6 +72,8 @@ function Shell({ session, onLogout }) {
   const [search, setSearch] = useState('');
   const [platformHealth, setPlatformHealth] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem('bmb-theme') || 'dark');
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
   const [previewRole, setPreviewRole] = useState(() => {
     const stored = localStorage.getItem('bmb-experience-preview');
     return Object.values(ROLES).includes(stored) ? stored : null;
@@ -79,7 +81,7 @@ function Shell({ session, onLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
   const authenticatedRole = normalizeRole(session.user.role);
-  const canPreviewExperiences = import.meta.env.DEV || authenticatedRole === ROLES.ADMINISTRATOR;
+  const canPreviewExperiences = import.meta.env.DEV;
   const role = canPreviewExperiences && previewRole ? previewRole : authenticatedRole;
   const landing = getRoleLanding(role);
   const [title, subtitle] = PAGE_META[location.pathname] || PAGE_META[landing];
@@ -107,6 +109,25 @@ function Shell({ session, onLogout }) {
     document.documentElement.style.colorScheme = theme;
     localStorage.setItem('bmb-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!profileOpen) return undefined;
+    const closeOnOutsideClick = event => {
+      if (!profileRef.current?.contains(event.target)) setProfileOpen(false);
+    };
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') {
+        setProfileOpen(false);
+        profileRef.current?.querySelector('.analyst-profile')?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [profileOpen]);
 
   function submitSearch(event) {
     event.preventDefault();
@@ -161,10 +182,29 @@ function Shell({ session, onLogout }) {
             <button type="button" className="theme-toggle" onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
               {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
             </button>
-            <button type="button" className="analyst-profile" onClick={onLogout} title={previewRole ? `Sign out · authenticated as ${ROLE_LABELS[authenticatedRole]}` : 'Sign out'}>
-              <div><strong>{session.user.username}</strong><small>{previewRole ? `${ROLE_LABELS[role]} preview` : ROLE_LABELS[role]}</small></div>
-              <span className="avatar">{session.user.username.slice(0, 2).toUpperCase()}<i /></span>
-            </button>
+            <div className="profile-menu" ref={profileRef}>
+              <button
+                type="button"
+                className="analyst-profile"
+                onClick={() => setProfileOpen(value => !value)}
+                aria-expanded={profileOpen}
+                aria-haspopup="menu"
+                aria-label={`Open account menu for ${session.user.username}`}
+              >
+                <div><strong>{session.user.username}</strong><small>{previewRole ? `${ROLE_LABELS[role]} preview` : ROLE_LABELS[authenticatedRole]}</small></div>
+                <span className="avatar">{session.user.username.slice(0, 2).toUpperCase()}<i /></span>
+                <ChevronDown className={profileOpen ? 'profile-chevron open' : 'profile-chevron'} aria-hidden="true" />
+              </button>
+              {profileOpen && (
+                <div className="profile-dropdown" role="menu">
+                  <div className="profile-identity">
+                    <span><UserRound /></span>
+                    <div><small>Signed in as</small><strong>{session.user.username}</strong><p>{ROLE_LABELS[authenticatedRole]}</p></div>
+                  </div>
+                  <button type="button" role="menuitem" onClick={onLogout}><LogOut /> Sign out</button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -256,10 +296,24 @@ function AuthenticatedApp() {
   }
 
   if (loading) return <div className="auth-loading"><span /><p>Checking secure session…</p></div>;
-  if (!session) return <><LoginPage onAuthenticated={value => { setCsrfToken(value.csrf); setSession(value); }} /><ApiErrorBanner /></>;
-  return <BrowserRouter><Shell session={session} onLogout={logout} /><ApiErrorBanner /></BrowserRouter>;
+  if (!session) {
+    const authenticate = value => { setCsrfToken(value.csrf); setSession(value); };
+    return (
+      <>
+        <Routes>
+          <Route path="/login" element={<LoginPage onAuthenticated={authenticate} />} />
+          <Route path="/login/executive" element={<LoginPage portalRole={ROLES.EXECUTIVE} onAuthenticated={authenticate} />} />
+          <Route path="/login/soc-analyst" element={<LoginPage portalRole={ROLES.SOC_ANALYST} onAuthenticated={authenticate} />} />
+          <Route path="/login/administrator" element={<LoginPage portalRole={ROLES.ADMINISTRATOR} onAuthenticated={authenticate} />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+        <ApiErrorBanner />
+      </>
+    );
+  }
+  return <><Shell session={session} onLogout={logout} /><ApiErrorBanner /></>;
 }
 
 export default function App() {
-  return <AuthenticatedApp />;
+  return <BrowserRouter><AuthenticatedApp /></BrowserRouter>;
 }

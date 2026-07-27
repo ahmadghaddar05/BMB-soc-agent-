@@ -47,11 +47,14 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-socagent}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-socagent}
       ENRICHMENT_URL: http://enrichment:3001
       ALERT_SOURCE: ${ALERT_SOURCE:-mock}
-      # Temporary Phase 1 access boundary (full RBAC follows in a later phase)
+      # Environment-managed role accounts. Roles are assigned server-side.
       SOC_AUTH_DISABLED: "false"
+      SOC_EXECUTIVE_USERNAME: ${SOC_EXECUTIVE_USERNAME:-executive}
+      SOC_EXECUTIVE_PASSWORD: ${SOC_EXECUTIVE_PASSWORD:-}
+      SOC_ANALYST_USERNAME: ${SOC_ANALYST_USERNAME:-analyst}
+      SOC_ANALYST_PASSWORD: ${SOC_ANALYST_PASSWORD:-}
       SOC_ADMIN_USERNAME: ${SOC_ADMIN_USERNAME:-admin}
       SOC_ADMIN_PASSWORD: ${SOC_ADMIN_PASSWORD:-}
-      SOC_USER_ROLE: ${SOC_USER_ROLE:-administrator}
       SOC_SESSION_SECRET: ${SOC_SESSION_SECRET:-}
       SOC_SESSION_TTL_MINUTES: ${SOC_SESSION_TTL_MINUTES:-480}
       SOC_COOKIE_SECURE: ${SOC_COOKIE_SECURE:-false}

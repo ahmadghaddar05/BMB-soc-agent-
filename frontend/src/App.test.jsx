@@ -40,6 +40,77 @@ describe('authenticated application flows', () => {
     await settle();
   }
 
+  it('uses distinct role login portals and submits the selected server role', async () => {
+    const requests = [];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({ error:'Authentication required' }, 401);
+      if (url.endsWith('/auth/login')) return jsonResponse({
+        user:{ username:'ciso', role:'executive' }, csrf:'executive-csrf',
+      });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/executive/overview?days=30')) return jsonResponse({
+        generated_at:new Date().toISOString(), window_days:30,
+        health:{ score:90, status:'healthy', drivers:[] },
+        business_risks:{ total:0, by_impact:{ high:0, medium:0, low:0 } },
+        automation:{ activities_seen:0, triaged:0, triage_rate:0 },
+        time_saved:{ hours:0, period_days:30 }, risk_trend:[], top_assets:[],
+      });
+      if (url.endsWith('/agent/status')) return jsonResponse({ enabled:false, readiness:{}, recent_operations:[] });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:false, scheduler_running:false } });
+      return jsonResponse({});
+    });
+
+    await renderAt('/login/executive');
+    expect(document.body.textContent).toContain('Executive security briefing');
+    expect(document.body.textContent).toContain('Role-locked session');
+
+    const [username, password] = document.querySelectorAll('.login-card input');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value').set.call(username, 'ciso');
+      username.dispatchEvent(new Event('input', { bubbles:true }));
+      Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value').set.call(password, 'executive-secret');
+      password.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    await act(async () => document.querySelector('.login-card').dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })));
+    await vi.dynamicImportSettled();
+    await settle();
+
+    const login = requests.find(item => item.url.endsWith('/auth/login'));
+    expect(JSON.parse(login.options.body)).toEqual({
+      username:'ciso', password:'executive-secret', portal_role:'executive',
+    });
+    expect(window.location.pathname).toBe('/dashboard');
+  });
+
+  it('opens an account menu before signing out', async () => {
+    const calls = [];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      calls.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'admin', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/logout')) return jsonResponse({ ok:true });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      return jsonResponse({});
+    });
+
+    await renderAt('/integrations');
+    const profile = document.querySelector('[aria-label="Open account menu for admin"]');
+    expect(profile).toBeTruthy();
+    await act(async () => profile.click());
+
+    expect(calls.some(item => item.url.endsWith('/auth/logout'))).toBe(false);
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain('Signed in as');
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain('Security Administrator');
+
+    const signOut = document.querySelector('[role="menuitem"]');
+    await act(async () => signOut.click());
+    await settle();
+    expect(calls.some(item => item.url.endsWith('/auth/logout'))).toBe(true);
+    expect(document.body.textContent).toContain('Choose your authorized workspace');
+  });
+
   it('uses the authenticated role for navigation and redirects unauthorized executive routes', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     globalThis.fetch = vi.fn(async input => {

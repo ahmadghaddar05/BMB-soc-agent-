@@ -6,7 +6,9 @@ const { runtimeConfig, validateStartupConfig } = require('../src/config');
 
 const base = {
   NODE_ENV:'test', DATABASE_URL:'postgres://test', ALERT_SOURCE:'mock',
-  SOC_ADMIN_PASSWORD:'correct-horse-battery',
+  SOC_EXECUTIVE_USERNAME:'ciso', SOC_EXECUTIVE_PASSWORD:'executive-horse-battery',
+  SOC_ANALYST_USERNAME:'analyst', SOC_ANALYST_PASSWORD:'analyst-horse-battery',
+  SOC_ADMIN_USERNAME:'admin', SOC_ADMIN_PASSWORD:'admin-horse-battery',
   SOC_SESSION_SECRET:'0123456789abcdef0123456789abcdef',
 };
 
@@ -31,12 +33,14 @@ test('production cannot disable authentication and warns when HTTPS cookies are 
   assert.ok(result.warnings.some(message => message.includes('SOC_COOKIE_SECURE')));
 });
 
-test('authenticated dashboard role is restricted to supported experiences', () => {
-  const valid = validateStartupConfig(runtimeConfig({ ...base, SOC_USER_ROLE:'soc_analyst' }));
-  assert.equal(valid.ok, true);
-  const invalid = validateStartupConfig(runtimeConfig({ ...base, SOC_USER_ROLE:'superuser' }));
-  assert.equal(invalid.ok, false);
-  assert.ok(invalid.errors.includes('SOC_USER_ROLE must be executive, soc_analyst, or administrator'));
+test('all role accounts require strong passwords and unique usernames', () => {
+  const weak = validateStartupConfig(runtimeConfig({ ...base, SOC_ANALYST_PASSWORD:'short' }));
+  assert.equal(weak.ok, false);
+  assert.ok(weak.errors.includes('SOC_ANALYST_PASSWORD must be at least 12 characters'));
+
+  const duplicate = validateStartupConfig(runtimeConfig({ ...base, SOC_EXECUTIVE_USERNAME:'admin' }));
+  assert.equal(duplicate.ok, false);
+  assert.ok(duplicate.errors.includes('Role account usernames must be unique'));
 });
 
 test('Hermes-required startup fails closed without its server credential', () => {
