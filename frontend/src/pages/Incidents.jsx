@@ -54,6 +54,12 @@ function correlatedCount(incident) {
   return Number(incident.alert_count || incident.alert_ids?.length || incident.correlated_alert_count || 0);
 }
 
+function incidentSeverity(incident = {}) {
+  const stored = String(incident.severity || '').toLowerCase();
+  if (['critical', 'high', 'medium', 'low'].includes(stored)) return stored;
+  return severityOf(incident);
+}
+
 function IncidentSelection({
   incidents, total, status, setStatus, loading, error, reload, openIncident, workspace,
 }) {
@@ -62,7 +68,7 @@ function IncidentSelection({
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     return incidents.filter(incident => {
-      if (severity !== 'all' && severityOf(incident) !== severity) return false;
+      if (severity !== 'all' && incidentSeverity(incident) !== severity) return false;
       if (!term) return true;
       return [
         incidentReference(incident.id), incident.title, incident.owner, incident.narrative,
@@ -70,8 +76,8 @@ function IncidentSelection({
       ].filter(Boolean).some(value => String(value).toLowerCase().includes(term));
     });
   }, [incidents, query, severity]);
-  const critical = incidents.filter(item => severityOf(item) === 'critical').length;
-  const high = incidents.filter(item => severityOf(item) === 'high').length;
+  const critical = incidents.filter(item => incidentSeverity(item) === 'critical').length;
+  const high = incidents.filter(item => incidentSeverity(item) === 'high').length;
   const unassigned = incidents.filter(item => !item.owner).length;
 
   return (
@@ -129,7 +135,7 @@ function IncidentSelection({
         {error && <div className="module-notice danger" role="alert"><span>{error}</span><button type="button" onClick={reload}>Retry</button></div>}
         <div className="incident-card-list">
           {filtered.map(incident => {
-            const itemSeverity = severityOf(incident);
+            const itemSeverity = incidentSeverity(incident);
             const count = correlatedCount(incident);
             return (
               <article key={incident.id} className={`incident-queue-card severity-${itemSeverity}`}>

@@ -332,15 +332,17 @@ describe('authenticated application flows', () => {
       requests.push({ url, options });
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'mock' });
-      if (url.includes('/incidents?status=')) return jsonResponse({ total:1, incidents:[{ id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[] }] });
+      if (url.includes('/incidents?status=')) return jsonResponse({ total:1, incidents:[{ id:7, title:'Credential attack', severity:'critical', status:'open', alert_ids:[] }] });
       if (url.endsWith('/incidents/7') && (options.method || 'GET') === 'PATCH') return jsonResponse({ id:7, status:'closed' });
-      if (url.endsWith('/incidents/7')) return jsonResponse({ id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[], alerts:[] });
+      if (url.endsWith('/incidents/7')) return jsonResponse({ id:7, title:'Credential attack', severity:'critical', status:'open', alert_ids:[], alerts:[] });
       return jsonResponse({});
     });
 
     await renderAt('/incidents');
     expect(document.body.textContent).toContain('Select an incident to enter its command workspace');
     expect(document.body.textContent).toContain('Credential attack');
+    expect(document.querySelector('.incident-queue-severity')?.textContent).toContain('Critical');
+    expect(document.querySelector('.incident-queue-severity')?.textContent).not.toContain('Low');
     expect(document.body.textContent).not.toContain('Close incident record');
 
     const openButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Open incident'));
