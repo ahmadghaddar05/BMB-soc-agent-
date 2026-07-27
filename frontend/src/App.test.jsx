@@ -339,6 +339,15 @@ describe('authenticated application flows', () => {
     });
 
     await renderAt('/incidents');
+    expect(document.body.textContent).toContain('Select an incident to enter its command workspace');
+    expect(document.body.textContent).toContain('Credential attack');
+    expect(document.body.textContent).not.toContain('Close incident record');
+
+    const openButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Open incident'));
+    expect(openButton).toBeTruthy();
+    await act(async () => openButton.click());
+    await settle();
+
     const closeButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Close incident record'));
     expect(closeButton).toBeTruthy();
     await act(async () => closeButton.click());

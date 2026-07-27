@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  AlertTriangle, Bot, Check, ChevronDown, CircleUserRound, Clock3, Download,
-  FileText, Fingerprint, Link2, LockKeyhole, Monitor, Network, RefreshCw,
-  Server, Shield, ShieldAlert, ShieldCheck, Sparkles, Target, UserRound, Users, X,
+  ArrowLeft, ArrowRight, Bot, Check, CircleUserRound, Clock3, Download,
+  Fingerprint, Link2, LockKeyhole, Monitor, Network, RefreshCw, Search,
+  Server, Shield, ShieldAlert, ShieldCheck, Sparkles, Target, UserRound,
 } from 'lucide-react';
 import { api, fmtTs, sevClass } from '../lib/api';
 import { activityTitle, humanize, severityOf } from '../lib/executive';
@@ -46,8 +46,127 @@ function IncidentEmpty() {
   return <div className="incident-empty"><ShieldCheck /><strong>No incidents in this view</strong><span>Change the status filter or wait for the next correlation cycle.</span></div>;
 }
 
+function incidentReference(id) {
+  return `INC-${String(id).padStart(5, '0')}`;
+}
+
+function correlatedCount(incident) {
+  return Number(incident.alert_count || incident.alert_ids?.length || incident.correlated_alert_count || 0);
+}
+
+function IncidentSelection({
+  incidents, total, status, setStatus, loading, error, reload, openIncident, workspace,
+}) {
+  const [query, setQuery] = useState('');
+  const [severity, setSeverity] = useState('all');
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return incidents.filter(incident => {
+      if (severity !== 'all' && severityOf(incident) !== severity) return false;
+      if (!term) return true;
+      return [
+        incidentReference(incident.id), incident.title, incident.owner, incident.narrative,
+        incident.severity, ...(incident.common_entities ? Object.values(incident.common_entities).flat() : []),
+      ].filter(Boolean).some(value => String(value).toLowerCase().includes(term));
+    });
+  }, [incidents, query, severity]);
+  const critical = incidents.filter(item => severityOf(item) === 'critical').length;
+  const high = incidents.filter(item => severityOf(item) === 'high').length;
+  const unassigned = incidents.filter(item => !item.owner).length;
+
+  return (
+    <div className="incident-command incident-selection">
+      <header className="incident-selection-hero">
+        <div>
+          <span className="eyebrow"><ShieldAlert />Security operations</span>
+          <h2>{workspace === 'cases' ? 'Case-linked Incidents' : 'Incident Command'}</h2>
+          <p>Select an incident to enter its command workspace. Nothing is opened automatically, so analysts retain control of their investigation context.</p>
+        </div>
+        <button type="button" onClick={reload} disabled={loading}><RefreshCw className={loading ? 'animate-spin' : ''} />Refresh incidents</button>
+      </header>
+
+      <section className="incident-selection-metrics" aria-label="Incident queue summary">
+        <article><span>Incidents in view</span><strong>{total}</strong><small>{status === 'open' ? 'Requiring review or ownership' : humanize(status)}</small></article>
+        <article className="critical"><span>Critical</span><strong>{critical}</strong><small>Confirmed critical severity only</small></article>
+        <article className="high"><span>High</span><strong>{high}</strong><small>Elevated analyst priority</small></article>
+        <article className="attention"><span>Without owner</span><strong>{unassigned}</strong><small>Assignment is the next decision</small></article>
+      </section>
+
+      <section className="incident-browser">
+        <div className="incident-browser-toolbar">
+          <div className="incident-search">
+            <Search />
+            <input
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder="Search incident title, reference, owner, or entity"
+              aria-label="Search incidents"
+            />
+          </div>
+          <label>Status
+            <select value={status} onChange={event => setStatus(event.target.value)}>
+              <option value="open">Open incidents</option>
+              <option value="closed">Closed incidents</option>
+              <option value="false_positive">False positives</option>
+            </select>
+          </label>
+          <label>Severity
+            <select value={severity} onChange={event => setSeverity(event.target.value)}>
+              <option value="all">All severities</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="incident-browser-heading">
+          <div><strong>{filtered.length} displayed</strong><span>{total} total {status.replaceAll('_', ' ')}</span></div>
+          <span>Choose an incident to review its attack story, evidence, ownership, and containment plan.</span>
+        </div>
+
+        {error && <div className="module-notice danger" role="alert"><span>{error}</span><button type="button" onClick={reload}>Retry</button></div>}
+        <div className="incident-card-list">
+          {filtered.map(incident => {
+            const itemSeverity = severityOf(incident);
+            const count = correlatedCount(incident);
+            return (
+              <article key={incident.id} className={`incident-queue-card severity-${itemSeverity}`}>
+                <span className={`incident-queue-severity ${itemSeverity}`}><Shield /><b>{humanize(itemSeverity)}</b></span>
+                <div className="incident-queue-main">
+                  <div><code>{incidentReference(incident.id)}</code><span>{humanize(incident.status || status)}</span></div>
+                  <h3>{incident.title || 'Untitled security incident'}</h3>
+                  <p>{incident.narrative || 'Open the incident command workspace to review its correlated evidence and attack path.'}</p>
+                  <dl>
+                    <div><dt>Correlated alerts</dt><dd>{count || 'Not summarized'}</dd></div>
+                    <div><dt>Owner</dt><dd>{incident.owner || 'Unassigned'}</dd></div>
+                    <div><dt>Opened</dt><dd>{relativeTime(incident.first_seen || incident.created_at)}</dd></div>
+                    <div><dt>Last activity</dt><dd>{relativeTime(incident.last_seen || incident.updated_at)}</dd></div>
+                  </dl>
+                </div>
+                <div className="incident-queue-decision">
+                  <small>Next decision</small>
+                  <strong>{incident.owner ? 'Review evidence and containment' : 'Assign an accountable owner'}</strong>
+                  <button type="button" onClick={() => openIncident(incident.id)}>Open incident <ArrowRight /></button>
+                </div>
+              </article>
+            );
+          })}
+          {loading && !incidents.length && <div className="incident-empty" role="status"><RefreshCw className="animate-spin" /><strong>Loading incident queue</strong><span>Reading correlated incident records and ownership state.</span></div>}
+          {!loading && !error && !filtered.length && (
+            query || severity !== 'all'
+              ? <div className="incident-empty"><Search /><strong>No matching incidents</strong><span>Clear the search or broaden the severity filter.</span><button type="button" onClick={() => { setQuery(''); setSeverity('all'); }}>Clear filters</button></div>
+              : <IncidentEmpty />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function Incidents({ workspace = 'incidents', readOnly = false }) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const requestedIncident = searchParams.get('incident');
   const [incidents, setIncidents] = useState([]);
   const [total, setTotal] = useState(0);
@@ -59,22 +178,26 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
   const [graphExpanded, setGraphExpanded] = useState(false);
   const [showAllEvidence, setShowAllEvidence] = useState(false);
   const [completedActions, setCompletedActions] = useState({});
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const data = await api(`/incidents?status=${status}&page=1&limit=50`);
       let rows = data.incidents || [];
       if (requestedIncident && !rows.some(item => String(item.id) === String(requestedIncident))) {
         const requested = await api(`/incidents/${encodeURIComponent(requestedIncident)}`).catch(() => null);
         if (requested) rows = [requested, ...rows];
+        else setLoadError(`Incident ${requestedIncident} was not found or is no longer available.`);
       }
       setIncidents(rows);
       setTotal(data.total || 0);
-      setSelectedId(current => requestedIncident && rows.some(item => String(item.id) === String(requestedIncident))
+      setSelectedId(requestedIncident && rows.some(item => String(item.id) === String(requestedIncident))
         ? requestedIncident
-        : rows.some(item => String(item.id) === String(current)) ? current : rows[0]?.id || null);
-    } catch {
+        : null);
+    } catch (error) {
+      setLoadError(error.message || 'The incident queue could not be loaded.');
       setIncidents([]); setTotal(0); setSelectedId(null);
     } finally { setLoading(false); }
   }, [requestedIncident, status]);
@@ -84,9 +207,16 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
     if (!selectedId) { setDetail(null); return; }
     let live = true;
     setDetail(null);
-    api(`/incidents/${selectedId}`).then(data => { if (live) setDetail(data); }).catch(() => { if (live) setDetail(incidents.find(item => String(item.id) === String(selectedId)) || null); });
+    setLoadError('');
+    api(`/incidents/${selectedId}`)
+      .then(data => { if (live) setDetail(data); })
+      .catch(error => {
+        if (!live) return;
+        setDetail(null);
+        setLoadError(error.message || 'The selected incident details could not be loaded.');
+      });
     return () => { live = false; };
-  }, [selectedId, incidents]);
+  }, [selectedId]);
 
   const model = useMemo(() => {
     if (!detail) return null;
@@ -120,8 +250,53 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
     setCompletedActions({ ...completedActions, [key]: current.includes(index) ? current.filter(value => value !== index) : [...current,index] });
   }
 
+  function openIncident(id) {
+    const next = new URLSearchParams(searchParams);
+    next.set('incident', String(id));
+    setSelectedId(String(id));
+    setSearchParams(next);
+  }
+
+  function returnToQueue() {
+    const next = new URLSearchParams(searchParams);
+    next.delete('incident');
+    setSelectedId(null);
+    setDetail(null);
+    setLoadError('');
+    setGraphExpanded(false);
+    setShowAllEvidence(false);
+    setSearchParams(next);
+  }
+
+  if (!requestedIncident) {
+    return (
+      <IncidentSelection
+        incidents={incidents}
+        total={total}
+        status={status}
+        setStatus={setStatus}
+        loading={loading}
+        error={loadError}
+        reload={load}
+        openIncident={openIncident}
+        workspace={workspace}
+      />
+    );
+  }
+
   if (!detail || !model) {
-    return <div className="incident-command"><div className="incident-list-toolbar"><div><h2>{workspace === 'cases' ? 'Case Workspace' : 'Incident Command'}</h2><span>{total} {status}</span></div><div><select value={status} onChange={event => setStatus(event.target.value)}><option value="open">Open</option><option value="closed">Closed</option><option value="false_positive">False positive</option></select><button onClick={load}><RefreshCw className={loading ? 'animate-spin' : ''} /></button></div></div><IncidentEmpty /></div>;
+    return (
+      <div className="incident-command">
+        <div className="incident-command-nav">
+          <button type="button" onClick={returnToQueue}><ArrowLeft />All incidents</button>
+          <span>{incidentReference(requestedIncident)}</span>
+          <button type="button" onClick={load} aria-label="Refresh incident"><RefreshCw className={loading ? 'animate-spin' : ''} /></button>
+        </div>
+        {loadError
+          ? <div className="incident-empty"><ShieldAlert /><strong>Incident could not be opened</strong><span>{loadError}</span><button type="button" onClick={load}>Retry</button></div>
+          : <div className="incident-empty" role="status"><RefreshCw className="animate-spin" /><strong>Opening incident command</strong><span>Loading attack story, evidence, ownership, and containment context.</span></div>}
+      </div>
+    );
   }
 
   const alertCount = model.alerts.length || detail.alert_ids?.length || 0;
@@ -136,9 +311,10 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
 
   return (
     <div className="incident-command">
-      <div className="incident-list-toolbar">
-        <div><span className="incident-breadcrumb">Incidents <b>›</b> INC-{String(detail.id).padStart(5, '0')}</span><h2>{workspace === 'cases' ? 'Case Workspace' : 'Incident Command'}</h2></div>
-        <div><select value={selectedId || ''} onChange={event => setSelectedId(event.target.value)}>{incidents.map(item => <option key={item.id} value={item.id}>{item.title || `Incident ${item.id}`}</option>)}</select><select value={status} onChange={event => setStatus(event.target.value)}><option value="open">Open incidents</option><option value="closed">Closed incidents</option><option value="false_positive">False positives</option></select><button onClick={load} aria-label="Refresh"><RefreshCw className={loading ? 'animate-spin' : ''} /></button></div>
+      <div className="incident-command-nav">
+        <button type="button" onClick={returnToQueue}><ArrowLeft />All incidents</button>
+        <div><span>{incidentReference(detail.id)}</span><b>{workspace === 'cases' ? 'Case-linked incident' : 'Incident command workspace'}</b></div>
+        <button type="button" onClick={load} aria-label="Refresh incident"><RefreshCw className={loading ? 'animate-spin' : ''} /></button>
       </div>
 
       <section className="incident-hero">
