@@ -100,14 +100,14 @@ async function ingestAlerts(alerts, runId) {
            entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
            input_summary,output_summary,reason,idempotency_key,finished_at
          )
-         SELECT 'alert',id,'collected','completed','system','system:collector',$34,
+         SELECT 'alert',id,'collected','completed','system','system:collector',$34::integer,
                 jsonb_build_object(
                   'source_system',source_system,
                   'source_index',source_index
                 ),
                 jsonb_build_object('stored',true,'fetched_at',fetched_at),
                 'Alert was collected from the configured security source.',
-                CONCAT('fetch:',$34,':alert:',id,':collected'),NOW()
+                CONCAT('fetch:',$34::integer,':alert:',id,':collected'),NOW()
          FROM inserted
          ON CONFLICT(idempotency_key) DO NOTHING
        ), normalized AS (
@@ -115,14 +115,14 @@ async function ingestAlerts(alerts, runId) {
            entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
            input_summary,output_summary,reason,idempotency_key,finished_at
          )
-         SELECT 'alert',id,'normalized','completed','system','system:normalizer',$34,
+         SELECT 'alert',id,'normalized','completed','system','system:normalizer',$34::integer,
                 jsonb_build_object('source_system',source_system),
                 jsonb_build_object(
                   'canonical_alert_id',id,
                   'source_index',source_index
                 ),
                 'Source evidence was mapped into the canonical BMB alert schema.',
-                CONCAT('fetch:',$34,':alert:',id,':normalized'),NOW()
+                CONCAT('fetch:',$34::integer,':alert:',id,':normalized'),NOW()
          FROM inserted
          ON CONFLICT(idempotency_key) DO NOTHING
        )
@@ -194,11 +194,11 @@ async function enrichPending(limit = 100, {
              entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
              input_summary,output_summary,reason,idempotency_key,finished_at
            )
-           SELECT 'alert',id,'enriched','completed','system',$3,$4,
+           SELECT 'alert',id,'enriched','completed','system',$3::text,$4::integer,
                   jsonb_build_object('service','security_enrichment'),
                   jsonb_build_object('context_available',true),
                   'Identity, asset, endpoint, threat-intelligence, and vulnerability context was requested.',
-                  $5,enriched_at
+                  $5::text,enriched_at
            FROM changed
            ON CONFLICT(idempotency_key) DO NOTHING
          )
@@ -222,11 +222,11 @@ async function enrichPending(limit = 100, {
              input_summary,output_summary,reason,error_code,error_message,
              idempotency_key,finished_at
            )
-           SELECT 'alert',id,'enriched','failed','system',$3,$4,
+           SELECT 'alert',id,'enriched','failed','system',$3::text,$4::integer,
                   jsonb_build_object('service','security_enrichment'),
                   '{}'::jsonb,
                   'Enrichment context could not be persisted as a completed stage.',
-                  'ENRICHMENT_FAILED',$1,$5,NOW()
+                  'ENRICHMENT_FAILED',$1::text,$5::text,NOW()
            FROM changed
            ON CONFLICT(idempotency_key) DO NOTHING
          )
@@ -371,17 +371,17 @@ async function triagePending(settings, limit = 50, alertId = null, {
              agent_run_id,provider,model,confidence_kind,confidence,
              input_summary,output_summary,reason,limitations,idempotency_key,finished_at
            )
-           SELECT 'alert',id,'triaged','completed',$5,$6,$16,$3,'hermes',$7,
-                  'triage',$8,
-                  jsonb_build_object('triage_source',$9,'cache_used',$5='cache'),
+           SELECT 'alert',id,'triaged','completed',$5::text,$6::text,$16::integer,$3::uuid,'hermes',$7::text,
+                  'triage',$8::double precision,
+                  jsonb_build_object('triage_source',$9::text,'cache_used',$5::text='cache'),
                   jsonb_build_object(
-                    'verdict',$10,
-                    'severity',$11,
-                    'attack_stage',$12,
-                    'citation_count',$13
+                    'verdict',$10::text,
+                    'severity',$11::text,
+                    'attack_stage',$12::text,
+                    'citation_count',$13::integer
                   ),
-                  $14,$15::jsonb,
-                  CONCAT('triage:',$3,':alert:',id,':',$9),triaged_at
+                  $14::text,$15::jsonb,
+                  CONCAT('triage:',$3::uuid,':alert:',id,':',$9::text),triaged_at
            FROM changed
            ON CONFLICT(idempotency_key) DO NOTHING
          )
@@ -413,11 +413,11 @@ async function triagePending(settings, limit = 50, alertId = null, {
              input_summary,output_summary,reason,error_code,error_message,
              idempotency_key,finished_at
            )
-           SELECT 'alert',id,'triaged','failed','ai',$4,$7,
-                  jsonb_build_object('mode',$5),
+           SELECT 'alert',id,'triaged','failed','ai',$4::text,$7::integer,
+                  jsonb_build_object('mode',$5::text),
                   '{}'::jsonb,
                   'AI triage did not produce a valid persisted verdict.',
-                  'TRIAGE_FAILED',$1,$6,NOW()
+                  'TRIAGE_FAILED',$1::text,$6::text,NOW()
            FROM changed
            ON CONFLICT(idempotency_key) DO NOTHING
          )

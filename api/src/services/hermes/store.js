@@ -351,8 +351,8 @@ function createAgentStore(database = db) {
                provider,model,confidence_kind,confidence,input_summary,output_summary,
                reason,limitations,idempotency_key,finished_at
              ) VALUES(
-               'alert',$1,'correlated','completed','ai',$2,$11,$3,'hermes',$4,
-               'correlation',$5,$6::jsonb,$7::jsonb,$8,$9::jsonb,$10,NOW()
+               'alert',$1::text,'correlated','completed','ai',$2::text,$11::integer,$3::uuid,'hermes',$4::text,
+               'correlation',$5::double precision,$6::jsonb,$7::jsonb,$8::text,$9::jsonb,$10::text,NOW()
              ) ON CONFLICT(idempotency_key) DO NOTHING`,
             [
               String(alertId), actor, runId, hermes.model, confidence,
@@ -371,8 +371,8 @@ function createAgentStore(database = db) {
              provider,model,confidence_kind,confidence,input_summary,output_summary,
              reason,limitations,idempotency_key,finished_at
            ) VALUES(
-             'incident',$1,'incident_decision','completed','ai',$2,$11,$3,'hermes',$4,
-             'incident',$5,$6::jsonb,$7::jsonb,$8,$9::jsonb,$10,NOW()
+             'incident',$1::text,'incident_decision','completed','ai',$2::text,$11::integer,$3::uuid,'hermes',$4::text,
+             'incident',$5::double precision,$6::jsonb,$7::jsonb,$8::text,$9::jsonb,$10::text,NOW()
            ) ON CONFLICT(idempotency_key) DO NOTHING`,
           [
             String(incidentId), actor, runId, hermes.model, confidence,
@@ -405,10 +405,10 @@ function createAgentStore(database = db) {
              entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
              provider,model,input_summary,output_summary,reason,idempotency_key,finished_at
            ) VALUES(
-             'alert',$1,'correlated','skipped','ai',$2,$7,$3,'hermes',$4,
+             'alert',$1::text,'correlated','skipped','ai',$2::text,$7::integer,$3::uuid,'hermes',$4::text,
              $5::jsonb,'{}'::jsonb,
              'The alert was evaluated but was not included in a validated correlation group.',
-             $6,NOW()
+             $6::text,NOW()
            ) ON CONFLICT(idempotency_key) DO NOTHING`,
           [
             alertId, actor, runId, hermes.model,
@@ -464,11 +464,11 @@ function createAgentStore(database = db) {
          provider,input_summary,output_summary,reason,error_code,error_message,
          idempotency_key,finished_at
        )
-       SELECT 'alert',links.evidence_id,'correlated','failed','ai',$2,$5,$1,
+       SELECT 'alert',links.evidence_id,'correlated','failed','ai',$2::text,$5::integer,$1::uuid,
               'hermes',jsonb_build_object('candidate_run_id',$1),
               '{}'::jsonb,
               'The correlation run did not produce a valid completed decision.',
-              $3,$4,CONCAT('correlation:',$1,':alert:',links.evidence_id),NOW()
+              $3::text,$4::text,CONCAT('correlation:',$1::uuid,':alert:',links.evidence_id),NOW()
        FROM agent_evidence_links links
        WHERE links.run_id=$1
          AND links.evidence_type='alert'

@@ -85,6 +85,14 @@ test('mock collection and enrichment complete with AI disabled and zero AI usage
   }
 });
 
+test('workflow provenance SQL explicitly types nullable and standalone parameters', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../src/workers/pipeline.js'), 'utf8');
+  assert.match(source, /\$5::text,enriched_at/);
+  assert.match(source, /'ENRICHMENT_FAILED',\$1::text,\$5::text,NOW\(\)/);
+  assert.match(source, /\$34::integer/);
+  assert.match(source, /\$3::uuid/);
+});
+
 test('live collection stores new alerts without invoking enrichment or AI processing', async () => {
   const originals = {
     getAllSettings:db.getAllSettings,

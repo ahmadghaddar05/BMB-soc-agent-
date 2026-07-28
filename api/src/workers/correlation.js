@@ -206,14 +206,14 @@ async function correlatePending(settings = {}, fetchRunId = null, {
          entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
          input_summary,output_summary,reason,idempotency_key,finished_at
        )
-       SELECT 'alert',candidate_id,'correlated','skipped','system',$2,$3,
+       SELECT 'alert',candidate_id,'correlated','skipped','system',$2::text,$3::integer,
               jsonb_build_object(
                 'entity_window_hours',$4::int,
                 'candidate_count',$5::int
               ),
               '{}'::jsonb,
               'No plausible shared entity was found within the configured correlation window.',
-              CONCAT('correlation-screen:',$6,':alert:',candidate_id),NOW()
+              CONCAT('correlation-screen:',$6::text,':alert:',candidate_id),NOW()
        FROM UNNEST($1::text[]) AS candidate_id
        ON CONFLICT(idempotency_key) DO NOTHING`,
       [
