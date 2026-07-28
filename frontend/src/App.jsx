@@ -6,7 +6,6 @@ import DataTrustBanner from './components/DataTrustBanner';
 import LoginPage from './components/LoginPage';
 import PermissionGuard from './components/PermissionGuard';
 import RoleAwareSidebar from './components/RoleAwareSidebar';
-import RolePreviewSelector from './components/RolePreviewSelector';
 import SelectionAssistant from './components/SelectionAssistant';
 import { api, setCsrfToken } from './lib/api';
 import { getRoleLanding, normalizeRole, ROLE_LABELS, ROLES } from './lib/roles';
@@ -74,15 +73,9 @@ function Shell({ session, onLogout }) {
   const [theme, setTheme] = useState(() => localStorage.getItem('bmb-theme') || 'dark');
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
-  const [previewRole, setPreviewRole] = useState(() => {
-    const stored = localStorage.getItem('bmb-experience-preview');
-    return Object.values(ROLES).includes(stored) ? stored : null;
-  });
   const location = useLocation();
   const navigate = useNavigate();
-  const authenticatedRole = normalizeRole(session.user.role);
-  const canPreviewExperiences = import.meta.env.DEV;
-  const role = canPreviewExperiences && previewRole ? previewRole : authenticatedRole;
+  const role = normalizeRole(session.user.role);
   const landing = getRoleLanding(role);
   const [title, subtitle] = PAGE_META[location.pathname] || PAGE_META[landing];
 
@@ -137,18 +130,6 @@ function Shell({ session, onLogout }) {
     setMobileOpen(false);
   }
 
-  function changePreviewRole(nextRole) {
-    if (nextRole === authenticatedRole) {
-      localStorage.removeItem('bmb-experience-preview');
-      setPreviewRole(null);
-    } else {
-      localStorage.setItem('bmb-experience-preview', nextRole);
-      setPreviewRole(nextRole);
-    }
-    setMobileOpen(false);
-    navigate(getRoleLanding(nextRole));
-  }
-
   const protect = element => <PermissionGuard role={role}>{element}</PermissionGuard>;
 
   return (
@@ -178,7 +159,6 @@ function Shell({ session, onLogout }) {
             </form>
           )}
           <div className="topbar-actions">
-            <RolePreviewSelector enabled={canPreviewExperiences} role={role} onChange={changePreviewRole} />
             <button type="button" className="theme-toggle" onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
               {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
             </button>
@@ -191,7 +171,7 @@ function Shell({ session, onLogout }) {
                 aria-haspopup="menu"
                 aria-label={`Open account menu for ${session.user.username}`}
               >
-                <div><strong>{session.user.username}</strong><small>{previewRole ? `${ROLE_LABELS[role]} preview` : ROLE_LABELS[authenticatedRole]}</small></div>
+                <div><strong>{session.user.display_name || session.user.username}</strong><small>{ROLE_LABELS[role]}</small></div>
                 <span className="avatar">{session.user.username.slice(0, 2).toUpperCase()}<i /></span>
                 <ChevronDown className={profileOpen ? 'profile-chevron open' : 'profile-chevron'} aria-hidden="true" />
               </button>
@@ -199,7 +179,7 @@ function Shell({ session, onLogout }) {
                 <div className="profile-dropdown" role="menu">
                   <div className="profile-identity">
                     <span><UserRound /></span>
-                    <div><small>Signed in as</small><strong>{session.user.username}</strong><p>{ROLE_LABELS[authenticatedRole]}</p></div>
+                    <div><small>Signed in as</small><strong>{session.user.display_name || session.user.username}</strong><p>{session.user.username} · {ROLE_LABELS[role]}</p></div>
                   </div>
                   <button type="button" role="menuitem" onClick={onLogout}><LogOut /> Sign out</button>
                 </div>
@@ -241,7 +221,7 @@ function Shell({ session, onLogout }) {
       </section>
       <ChatWidget
         role={role}
-        accountKey={`${session.user.username}:${authenticatedRole}`}
+        accountKey={`${session.user.id || session.user.username}:${role}`}
         pageContext={{ path: `${location.pathname}${location.search}`, title, subtitle }}
       />
       <SelectionAssistant />
@@ -306,9 +286,6 @@ function AuthenticatedApp() {
       <>
         <Routes>
           <Route path="/login" element={<LoginPage onAuthenticated={authenticate} />} />
-          <Route path="/login/executive" element={<LoginPage portalRole={ROLES.EXECUTIVE} onAuthenticated={authenticate} />} />
-          <Route path="/login/soc-analyst" element={<LoginPage portalRole={ROLES.SOC_ANALYST} onAuthenticated={authenticate} />} />
-          <Route path="/login/administrator" element={<LoginPage portalRole={ROLES.ADMINISTRATOR} onAuthenticated={authenticate} />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
         <ApiErrorBanner />

@@ -40,14 +40,14 @@ describe('authenticated application flows', () => {
     await settle();
   }
 
-  it('uses distinct role login portals and submits the selected server role', async () => {
+  it('uses one login page and redirects from the server-assigned role', async () => {
     const requests = [];
     globalThis.fetch = vi.fn(async (input, options = {}) => {
       const url = String(input);
       requests.push({ url, options });
       if (url.endsWith('/auth/session')) return jsonResponse({ error:'Authentication required' }, 401);
       if (url.endsWith('/auth/login')) return jsonResponse({
-        user:{ username:'ciso', role:'executive' }, csrf:'executive-csrf',
+        user:{ id:'1', username:'ciso', display_name:'Executive User', role:'executive' }, csrf:'executive-csrf',
       });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
       if (url.endsWith('/executive/overview?days=30')) return jsonResponse({
@@ -62,9 +62,10 @@ describe('authenticated application flows', () => {
       return jsonResponse({});
     });
 
-    await renderAt('/login/executive');
-    expect(document.body.textContent).toContain('Executive security briefing');
-    expect(document.body.textContent).toContain('Role-locked session');
+    await renderAt('/login');
+    expect(document.body.textContent).toContain('One secure entry point');
+    expect(document.body.textContent).toContain('Roles cannot be selected');
+    expect(document.querySelectorAll('.login-portal-card')).toHaveLength(0);
 
     const [username, password] = document.querySelectorAll('.login-card input');
     await act(async () => {
@@ -78,9 +79,7 @@ describe('authenticated application flows', () => {
     await settle();
 
     const login = requests.find(item => item.url.endsWith('/auth/login'));
-    expect(JSON.parse(login.options.body)).toEqual({
-      username:'ciso', password:'executive-secret', portal_role:'executive',
-    });
+    expect(JSON.parse(login.options.body)).toEqual({ username:'ciso', password:'executive-secret' });
     expect(window.location.pathname).toBe('/dashboard');
   });
 
@@ -108,7 +107,7 @@ describe('authenticated application flows', () => {
     await act(async () => signOut.click());
     await settle();
     expect(calls.some(item => item.url.endsWith('/auth/logout'))).toBe(true);
-    expect(document.body.textContent).toContain('Choose your authorized workspace');
+    expect(document.body.textContent).toContain('One secure entry point');
   });
 
   it('uses the authenticated role for navigation and redirects unauthorized executive routes', async () => {
@@ -137,32 +136,84 @@ describe('authenticated application flows', () => {
     expect(document.querySelector('.global-search')).toBeNull();
   });
 
-  it('switches role experience through the development-only preview without changing authentication', async () => {
+  it('does not expose a client-side role switcher', async () => {
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'admin', role:'administrator' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
-      if (url.endsWith('/alerts?page=1&limit=100')) return jsonResponse({ total:0, alerts:[] });
-      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:false } });
       return jsonResponse({});
     });
 
     await renderAt('/integrations');
     const preview = document.querySelector('[aria-label="Preview experience as role"]');
-    expect(preview).toBeTruthy();
+    expect(preview).toBeNull();
     expect(document.body.textContent).toContain('Integrations');
+    expect(document.body.textContent).toContain('Security Administrator');
+    expect(document.body.textContent).not.toContain('SOC Analyst preview');
+  });
 
-    await act(async () => {
-      preview.value = 'soc_analyst';
-      preview.dispatchEvent(new Event('change', { bubbles:true }));
+  it('lets an administrator create a role-bound user from Users & Access', async () => {
+    const requests = [];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({
+        user:{ id:'3', username:'admin', display_name:'Security Administrator', role:'administrator' },
+        csrf:'csrf-token',
+      });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/admin/runtime')) return jsonResponse({
+        generated_at:new Date().toISOString(),
+        authentication:{
+          mode:'database_managed_rbac', current_user:'admin', current_user_id:'3',
+          current_role:'administrator', session_ttl_minutes:480,
+          directory:{ total:1, active:1, executives:0, analysts:0, administrators:1 },
+        },
+      });
+      if (url.endsWith('/admin/users') && String(options.method || 'GET').toUpperCase() === 'POST') {
+        const body = JSON.parse(options.body);
+        return jsonResponse({ user:{
+          id:'4', username:body.username, display_name:body.display_name, role:body.role,
+          active:true, created_by:'admin', created_at:new Date().toISOString(), last_login_at:null,
+        } }, 201);
+      }
+      if (url.endsWith('/admin/users')) return jsonResponse({
+        total:1,
+        users:[{
+          id:'3', username:'admin', display_name:'Security Administrator', role:'administrator',
+          active:true, created_by:'bootstrap', created_at:new Date().toISOString(), last_login_at:null,
+        }],
+      });
+      return jsonResponse({});
     });
-    await vi.dynamicImportSettled();
+
+    await renderAt('/users-access');
+    expect(document.body.textContent).toContain('Create role-bound account');
+    const [displayName, username, password] = document.querySelectorAll('.access-form input');
+    const role = document.querySelector('.access-form select');
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value').set;
+      setter.call(displayName, 'Maya Georges');
+      displayName.dispatchEvent(new Event('input', { bubbles:true }));
+      setter.call(username, 'maya.georges');
+      username.dispatchEvent(new Event('input', { bubbles:true }));
+      setter.call(password, 'maya-secure-password');
+      password.dispatchEvent(new Event('input', { bubbles:true }));
+      role.value = 'soc_analyst';
+      role.dispatchEvent(new Event('change', { bubbles:true }));
+    });
+    await act(async () => document.querySelector('.access-form').dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })));
     await settle();
 
-    expect(window.location.pathname).toBe('/live-monitoring');
-    expect(document.body.textContent).toContain('Security Operations');
-    expect(document.body.textContent).toContain('SOC Analyst preview');
-    expect(document.body.textContent).not.toContain('Administration');
+    const create = requests.find(item =>
+      item.url.endsWith('/admin/users') && String(item.options.method).toUpperCase() === 'POST');
+    expect(JSON.parse(create.options.body)).toEqual({
+      display_name:'Maya Georges',
+      username:'maya.georges',
+      role:'soc_analyst',
+      password:'maya-secure-password',
+    });
+    expect(document.body.textContent).toContain('Maya Georges was created as SOC Analyst');
   });
 
   it('routes to alert search and loads the selected alert detail', async () => {

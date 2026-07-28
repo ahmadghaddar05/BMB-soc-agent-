@@ -19,19 +19,22 @@ function authAccounts(env) {
     {
       role:'executive',
       username:String(env.SOC_EXECUTIVE_USERNAME || 'executive').trim(),
+      displayName:'Executive User',
       password:env.SOC_EXECUTIVE_PASSWORD || '',
     },
     {
       role:'soc_analyst',
       username:String(env.SOC_ANALYST_USERNAME || 'analyst').trim(),
+      displayName:'SOC Analyst',
       password:env.SOC_ANALYST_PASSWORD || '',
     },
     {
       role:'administrator',
       username:String(env.SOC_ADMIN_USERNAME || 'admin').trim(),
+      displayName:'Security Administrator',
       password:env.SOC_ADMIN_PASSWORD || '',
     },
-  ];
+  ].filter(account => account.password !== '');
 }
 
 function runtimeConfig(env = process.env) {

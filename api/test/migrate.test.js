@@ -132,6 +132,16 @@ test('executive metric migration adds durable service mappings and response mile
   assert.match(sql, /incident\.status_updated','case\.updated','case\.note_added/);
 });
 
+test('database RBAC migration creates role-bound users without storing plaintext passwords', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/012_database_rbac_users.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS app_users/);
+  assert.match(sql, /role IN \('executive', 'soc_analyst', 'administrator'\)/);
+  assert.match(sql, /password_hash TEXT NOT NULL/);
+  assert.match(sql, /session_version INTEGER NOT NULL/);
+  assert.match(sql, /UNIQUE INDEX IF NOT EXISTS app_users_username_unique[\s\S]+LOWER\(username\)/);
+  assert.doesNotMatch(sql, /password\s+TEXT/i);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

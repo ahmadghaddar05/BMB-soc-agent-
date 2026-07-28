@@ -21,7 +21,7 @@ Phase 9 adds an approval-gated simulated response lab on top of the proactive Ph
 
 1. Copy `.env.example` to `.env`.
 2. Keep `ALERT_SOURCE=mock` and `WAZUH_MODE=mock`.
-3. Replace `POSTGRES_PASSWORD`, all three role passwords (`SOC_EXECUTIVE_PASSWORD`, `SOC_ANALYST_PASSWORD`, and `SOC_ADMIN_PASSWORD`), and `SOC_SESSION_SECRET` with strong random values. Every role must use a unique username and a password of at least 12 characters. The session secret must contain at least 32 characters.
+3. Replace `POSTGRES_PASSWORD`, the three initial account passwords (`SOC_EXECUTIVE_PASSWORD`, `SOC_ANALYST_PASSWORD`, and `SOC_ADMIN_PASSWORD`), and `SOC_SESSION_SECRET` with strong random values. These initial accounts are imported into the database only when the managed user directory is empty. Every initial account must use a unique username and a password of at least 12 characters. The session secret must contain at least 32 characters.
 4. Set `HERMES_API_KEY` to the same secret as Hermes `API_SERVER_KEY` and prepare the isolated Hermes profile described below.
 5. Start the stack:
 
@@ -29,13 +29,13 @@ Phase 9 adds an approval-gated simulated response lab on top of the proactive Ph
 docker compose up --build -d
 ```
 
-Open `http://localhost:8080/login` and choose the appropriate secure portal:
+Open `http://localhost:8080/login`. Every account uses this one login page:
 
 - Executive: `SOC_EXECUTIVE_USERNAME` and `SOC_EXECUTIVE_PASSWORD`
 - SOC Analyst: `SOC_ANALYST_USERNAME` and `SOC_ANALYST_PASSWORD`
 - Security Administrator: `SOC_ADMIN_USERNAME` and `SOC_ADMIN_PASSWORD`
 
-The selected portal is checked by the server. A valid account cannot authenticate through a different role portal.
+The server reads the account role from PostgreSQL and automatically opens the correct workspace. Users cannot select or override their role from the browser. After the first start, a security administrator can create and remove accounts under **Users & Access**. Environment credentials are not re-imported while the directory contains users and may be removed after a successful bootstrap. An empty directory requires at least the administrator bootstrap account.
 
 The API is bound to `http://127.0.0.1:3000`; the database is bound to `127.0.0.1:5432`. The enrichment service is internal to the Compose network. `GET /api/health` is public; operational and write endpoints require a signed session or the optional bearer API key.
 
@@ -101,7 +101,10 @@ Phase 9 adds `response.simulate` and `response.rollback` to that same controlled
 ## Authentication and security
 
 - Browser login creates an HMAC-signed, HttpOnly, SameSite=Strict cookie.
-- Executive, SOC analyst, and administrator credentials are configured separately. The server assigns the role from the matched credential pair; the browser cannot request or switch to a different production role.
+- Accounts and fixed roles are stored in the PostgreSQL `app_users` directory. Passwords are hashed with scrypt and never returned to the browser.
+- Executive, SOC analyst, and administrator accounts all use one login endpoint. The server assigns the role from the authenticated database record and the browser cannot request or switch roles.
+- Every session is revalidated against the current user record. Removing an account invalidates its existing browser sessions immediately.
+- Only administrators can list, create, or remove users. Administrators cannot remove their own account or the last active administrator.
 - The local HTTP quick start uses `SOC_COOKIE_SECURE=false`; set it to `true` whenever the browser origin is HTTPS.
 - Cookie-authenticated writes require the session CSRF token.
 - `SOC_API_KEY` optionally enables trusted automation with `Authorization: Bearer ...`.
@@ -109,11 +112,11 @@ Phase 9 adds `response.simulate` and `response.rollback` to that same controlled
 - `SOC_AUTH_DISABLED=true` is rejected in production.
 - Security headers, request IDs, JSON size limits, and login/chat rate limits are enabled.
 
-This is a small environment-managed three-account access boundary, not an LDAP/SSO-backed user directory. It provides real server-enforced role separation for the internship platform. Account rotation is performed through environment configuration, and usernames or passwords are never returned to the browser except for the authenticated session username.
+This is a small database-managed RBAC directory, not an LDAP/SSO identity provider. It provides server-enforced role separation for the internship platform. The three environment accounts are a one-time bootstrap path for a new directory; routine user provisioning is performed from **Users & Access**.
 
 ## Database lifecycle
 
-The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent records, Phase 3 added independently queryable Hermes sub-runs, Phase 4 added exact triage cache provenance plus `alerts.triage_run_id`, Phase 5 added `incidents.correlation_run_id`, Phase 6 added durable investigations/cases, Phase 7 activated policy-controlled action requests and approvals, Phase 8 added durable autonomous runs and retry-safe operations, and Phase 9 added reversible simulated response state and events.
+The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent records, Phase 3 added independently queryable Hermes sub-runs, Phase 4 added exact triage cache provenance plus `alerts.triage_run_id`, Phase 5 added `incidents.correlation_run_id`, Phase 6 added durable investigations/cases, Phase 7 activated policy-controlled action requests and approvals, Phase 8 added durable autonomous runs and retry-safe operations, Phase 9 added reversible simulated response state and events, and migration 012 added the database-managed RBAC user directory.
 
 ## Health and metrics
 

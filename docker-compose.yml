@@ -47,7 +47,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-socagent}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-socagent}
       ENRICHMENT_URL: http://enrichment:3001
       ALERT_SOURCE: ${ALERT_SOURCE:-mock}
-      # Environment-managed role accounts. Roles are assigned server-side.
+      # Initial RBAC accounts, imported only when the database user directory is empty.
       SOC_AUTH_DISABLED: "false"
       SOC_EXECUTIVE_USERNAME: ${SOC_EXECUTIVE_USERNAME:-executive}
       SOC_EXECUTIVE_PASSWORD: ${SOC_EXECUTIVE_PASSWORD:-}
