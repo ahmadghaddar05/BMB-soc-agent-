@@ -68,6 +68,7 @@ describe('Hermes chat widget', () => {
         answer: 'Investigate alert A.', conversation_id: '11111111-1111-4111-8111-111111111111',
         citations: [{ type:'alert', id:'A' }], confidence: 'high', limitations: ['Test limitation'],
         tools_used: [{ tool:'search_alerts', evidence_count:1 }],
+        provider:'hermes', model:'meta-llama/llama-3.3-70b-instruct', run_id:'run-llama',
       });
     });
 
@@ -82,6 +83,7 @@ describe('Hermes chat widget', () => {
     expect(container.textContent).toContain('queried: search_alerts (1)');
     expect(container.textContent).toContain('confidence: high');
     expect(container.textContent).toContain('limitations: Test limitation');
+    expect(container.textContent).toContain('runtime: hermes · meta-llama/llama-3.3-70b-instruct');
     expect(window.sessionStorage.getItem(conversationStorageKey(ACCOUNT_KEY))).toBe('11111111-1111-4111-8111-111111111111');
   });
 

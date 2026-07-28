@@ -168,6 +168,9 @@ export default function ChatWidget({ role, accountKey, pageContext = null }) {
         confidence: result.confidence,
         limitations: result.limitations,
         actions: result.actions,
+        provider: result.provider,
+        model: result.model,
+        runId: result.run_id,
       }]);
     } catch (error) {
       const cancelled = error?.name === 'AbortError';
@@ -256,6 +259,14 @@ export default function ChatWidget({ role, accountKey, pageContext = null }) {
                   {message.actions?.length > 0 && <div className="mt-1.5 pt-1.5 border-t border-dark-600 text-[11px] text-cyan-300">actions: {message.actions.map(action => `${action.action_type} (${action.status})`).join(', ')} · review in Approvals</div>}
                   {message.confidence && <div className="mt-1 text-[11px] text-gray-500">confidence: {message.confidence}</div>}
                   {message.limitations?.length > 0 && <div className="mt-1 text-[11px] text-amber-300/80">limitations: {message.limitations.join('; ')}</div>}
+                  {message.model && (
+                    <div
+                      className="mt-1.5 border-t border-dark-600 pt-1.5 font-mono text-[10px] text-cyan-300/80"
+                      title={message.runId ? `BMB run ${message.runId}` : undefined}
+                    >
+                      runtime: {message.provider || 'hermes'} · {message.model}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
