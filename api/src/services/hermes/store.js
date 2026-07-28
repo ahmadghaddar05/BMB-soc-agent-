@@ -310,7 +310,10 @@ function createAgentStore(database = db) {
     });
   }
 
-  async function completeCorrelation({ runId, actor, requestId, output, incidentIds, persistence, hermes }) {
+  async function completeCorrelation({
+    runId, actor, requestId, output, incidentIds, persistence, hermes,
+    fetchRunId = null,
+  }) {
     await transaction(database, async client => {
       await client.query(
         `UPDATE agent_runs SET status='completed',model=$2,capabilities=$3::jsonb,
@@ -331,6 +334,88 @@ function createAgentStore(database = db) {
           `INSERT INTO agent_evidence_links(run_id,evidence_type,evidence_id,relation)
            VALUES($1,'incident',$2,'output') ON CONFLICT DO NOTHING`,
           [runId, String(incidentId)]
+        );
+      }
+      const groupedAlertIds = new Set();
+      for (let index = 0; index < output.incidents.length; index += 1) {
+        const incident = output.incidents[index];
+        const incidentId = incidentIds[index];
+        const confidence = Number.isFinite(Number(incident.confidence))
+          ? Math.min(1, Math.max(0, Number(incident.confidence))) : null;
+        const limitations = Array.isArray(incident.limitations) ? incident.limitations : [];
+        for (const alertId of incident.alert_ids || []) {
+          groupedAlertIds.add(String(alertId));
+          await client.query(
+            `INSERT INTO workflow_stage_events(
+               entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+               provider,model,confidence_kind,confidence,input_summary,output_summary,
+               reason,limitations,idempotency_key,finished_at
+             ) VALUES(
+               'alert',$1,'correlated','completed','ai',$2,$11,$3,'hermes',$4,
+               'correlation',$5,$6::jsonb,$7::jsonb,$8,$9::jsonb,$10,NOW()
+             ) ON CONFLICT(idempotency_key) DO NOTHING`,
+            [
+              String(alertId), actor, runId, hermes.model, confidence,
+              json({ candidate_run_id: runId }),
+              json({ incident_id: incidentId, group_size: incident.alert_ids.length }),
+              incident.narrative || 'The alert was included in an evidence-grounded correlation group.',
+              json(limitations),
+              `correlation:${runId}:alert:${alertId}`,
+              fetchRunId,
+            ]
+          );
+        }
+        await client.query(
+          `INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+             provider,model,confidence_kind,confidence,input_summary,output_summary,
+             reason,limitations,idempotency_key,finished_at
+           ) VALUES(
+             'incident',$1,'incident_decision','completed','ai',$2,$11,$3,'hermes',$4,
+             'incident',$5,$6::jsonb,$7::jsonb,$8,$9::jsonb,$10,NOW()
+           ) ON CONFLICT(idempotency_key) DO NOTHING`,
+          [
+            String(incidentId), actor, runId, hermes.model, confidence,
+            json({ alert_ids: incident.alert_ids }),
+            json({
+              persistence_status: 'persisted',
+              run_created: persistence.created || 0,
+              run_updated: persistence.updated || 0,
+              run_unchanged: persistence.unchanged || 0,
+              severity: incident.severity,
+              attack_stages: incident.attack_stages || [],
+            }),
+            incident.narrative || 'Stored correlation evidence produced an incident decision.',
+            json(limitations),
+            `incident-decision:${runId}:incident:${incidentId}`,
+            fetchRunId,
+          ]
+        );
+      }
+      const candidateLinks = await client.query(
+        `SELECT evidence_id FROM agent_evidence_links
+         WHERE run_id=$1 AND evidence_type='alert' AND relation='input'`,
+        [runId]
+      );
+      for (const candidate of candidateLinks.rows) {
+        const alertId = String(candidate.evidence_id);
+        if (groupedAlertIds.has(alertId)) continue;
+        await client.query(
+          `INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+             provider,model,input_summary,output_summary,reason,idempotency_key,finished_at
+           ) VALUES(
+             'alert',$1,'correlated','skipped','ai',$2,$7,$3,'hermes',$4,
+             $5::jsonb,'{}'::jsonb,
+             'The alert was evaluated but was not included in a validated correlation group.',
+             $6,NOW()
+           ) ON CONFLICT(idempotency_key) DO NOTHING`,
+          [
+            alertId, actor, runId, hermes.model,
+            json({ candidate_run_id: runId }),
+            `correlation:${runId}:alert:${alertId}`,
+            fetchRunId,
+          ]
         );
       }
       await client.query(
@@ -371,8 +456,30 @@ function createAgentStore(database = db) {
     return failChat({ runId, actor, requestId, error });
   }
 
-  async function failCorrelation({ runId, actor, requestId, error }) {
-    return failChat({ runId, actor, requestId, error });
+  async function failCorrelation({ runId, actor, requestId, error, fetchRunId = null }) {
+    await failChat({ runId, actor, requestId, error });
+    await database.query(
+      `INSERT INTO workflow_stage_events(
+         entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+         provider,input_summary,output_summary,reason,error_code,error_message,
+         idempotency_key,finished_at
+       )
+       SELECT 'alert',links.evidence_id,'correlated','failed','ai',$2,$5,$1,
+              'hermes',jsonb_build_object('candidate_run_id',$1),
+              '{}'::jsonb,
+              'The correlation run did not produce a valid completed decision.',
+              $3,$4,CONCAT('correlation:',$1,':alert:',links.evidence_id),NOW()
+       FROM agent_evidence_links links
+       WHERE links.run_id=$1
+         AND links.evidence_type='alert'
+         AND links.relation='input'
+       ON CONFLICT(idempotency_key) DO NOTHING`,
+      [
+        runId, actor, error?.code || 'HERMES_CORRELATION_FAILED',
+        String(error?.message || 'Hermes correlation failed').slice(0, 500),
+        fetchRunId,
+      ]
+    );
   }
 
   return {

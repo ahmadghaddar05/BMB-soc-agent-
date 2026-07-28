@@ -79,7 +79,8 @@ async function ingestAlerts(alerts, runId) {
         (String(a.id).startsWith('mock-') ? 'mock' : 'wazuh');
 
       const r = await db.query(
-        `INSERT INTO alerts
+        `WITH inserted AS (
+         INSERT INTO alerts
            (id, timestamp, rule_id, rule_level, rule_desc, rule_groups,
             decoder, agent_id, agent_name, full_log,
             src_ip, dst_ip, username, hostname, target_db, process,
@@ -92,7 +93,40 @@ async function ingestAlerts(alerts, runId) {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
                  $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
                  $31,$32,$33,'pending','pending',$34,NOW())
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT (id) DO NOTHING
+         RETURNING id,source_system,source_index,fetched_at
+       ), collected AS (
+         INSERT INTO workflow_stage_events(
+           entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+           input_summary,output_summary,reason,idempotency_key,finished_at
+         )
+         SELECT 'alert',id,'collected','completed','system','system:collector',$34,
+                jsonb_build_object(
+                  'source_system',source_system,
+                  'source_index',source_index
+                ),
+                jsonb_build_object('stored',true,'fetched_at',fetched_at),
+                'Alert was collected from the configured security source.',
+                CONCAT('fetch:',$34,':alert:',id,':collected'),NOW()
+         FROM inserted
+         ON CONFLICT(idempotency_key) DO NOTHING
+       ), normalized AS (
+         INSERT INTO workflow_stage_events(
+           entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+           input_summary,output_summary,reason,idempotency_key,finished_at
+         )
+         SELECT 'alert',id,'normalized','completed','system','system:normalizer',$34,
+                jsonb_build_object('source_system',source_system),
+                jsonb_build_object(
+                  'canonical_alert_id',id,
+                  'source_index',source_index
+                ),
+                'Source evidence was mapped into the canonical BMB alert schema.',
+                CONCAT('fetch:',$34,':alert:',id,':normalized'),NOW()
+         FROM inserted
+         ON CONFLICT(idempotency_key) DO NOTHING
+       )
+       SELECT id FROM inserted`,
         [
           a.id, a.timestamp, a.rule_id, a.rule_level, a.rule_desc,
           a.rule_groups || [], a.decoder, a.agent_id, a.agent_name,
@@ -134,7 +168,9 @@ async function ingestAlerts(alerts, runId) {
 }
 
 // ── Enrich pending alerts ─────────────────────────────────────────────────
-async function enrichPending(limit = 100) {
+async function enrichPending(limit = 100, {
+  fetchRunId = null, actor = 'system:enrichment',
+} = {}) {
   const { rows } = await db.query(
     `SELECT id, src_ip, username, hostname, dst_ip, timestamp
      FROM alerts WHERE enrichment_status='pending'
@@ -146,21 +182,56 @@ async function enrichPending(limit = 100) {
     try {
       const ctx = await enrichAlert(row);
       // Store as JSONB -- pass object directly, pg handles serialization
+      const eventKey = `enrichment:${fetchRunId || 'standalone'}:${row.id}:${crypto.randomUUID()}`;
       await db.query(
-        `UPDATE alerts
-         SET enrichment=$1, enrichment_status='enriched', enriched_at=NOW()
-         WHERE id=$2`,
-        [ctx, row.id]          // pg will serialize the object to JSONB
+        `WITH changed AS (
+           UPDATE alerts
+           SET enrichment=$1, enrichment_status='enriched', enriched_at=NOW()
+           WHERE id=$2
+           RETURNING id,enriched_at
+         ), recorded AS (
+           INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+             input_summary,output_summary,reason,idempotency_key,finished_at
+           )
+           SELECT 'alert',id,'enriched','completed','system',$3,$4,
+                  jsonb_build_object('service','security_enrichment'),
+                  jsonb_build_object('context_available',true),
+                  'Identity, asset, endpoint, threat-intelligence, and vulnerability context was requested.',
+                  $5,enriched_at
+           FROM changed
+           ON CONFLICT(idempotency_key) DO NOTHING
+         )
+         SELECT id FROM changed`,
+        [ctx, row.id, actor, fetchRunId, eventKey]
       );
       return 'enriched';
     } catch (err) {
       const msg = safeError(err);
       console.error(`[enrich] failed for ${row.id}:`, msg);
+      const eventKey = `enrichment:${fetchRunId || 'standalone'}:${row.id}:${crypto.randomUUID()}`;
       await db.query(
-        `UPDATE alerts
-         SET enrichment_status='enrichment_failed', enrichment_error=$1
-         WHERE id=$2`,
-        [msg.slice(0, 500), row.id]
+        `WITH changed AS (
+           UPDATE alerts
+           SET enrichment_status='enrichment_failed', enrichment_error=$1
+           WHERE id=$2
+           RETURNING id
+         ), recorded AS (
+           INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+             input_summary,output_summary,reason,error_code,error_message,
+             idempotency_key,finished_at
+           )
+           SELECT 'alert',id,'enriched','failed','system',$3,$4,
+                  jsonb_build_object('service','security_enrichment'),
+                  '{}'::jsonb,
+                  'Enrichment context could not be persisted as a completed stage.',
+                  'ENRICHMENT_FAILED',$1,$5,NOW()
+           FROM changed
+           ON CONFLICT(idempotency_key) DO NOTHING
+         )
+         SELECT id FROM changed`,
+        [msg.slice(0, 500), row.id, actor, fetchRunId, eventKey]
       );
       return 'failed';
     }
@@ -173,7 +244,7 @@ async function enrichPending(limit = 100) {
 
 // ── Triage enriched alerts ────────────────────────────────────────────────
 async function triagePending(settings, limit = 50, alertId = null, {
-  actor = 'system:scheduler', bypassCache = false,
+  actor = 'system:scheduler', bypassCache = false, fetchRunId = null,
 } = {}) {
   const scopedCondition = alertId ? 'AND id=$1' : '';
   const queryParams = alertId ? [alertId, limit] : [limit];
@@ -285,20 +356,76 @@ async function triagePending(settings, limit = 50, alertId = null, {
       const storedVerdict = {
         ...verdict, signature: sig, triage_source: source, cluster_size: 1,
       };
+      const confidence = Number.isFinite(Number(verdict.confidence))
+        ? Math.min(1, Math.max(0, Number(verdict.confidence))) : null;
+      const limitations = Array.isArray(verdict.limitations) ? verdict.limitations : [];
       await db.query(
-        `UPDATE alerts SET verdict=$1,triage_status='triaged',triaged_at=NOW(),
-           auto_closed=false,auto_close_reason=NULL,signature=$2,triage_run_id=$3
-         WHERE id=$4`,
-        [storedVerdict, sig, triageRunId, row.id]
+        `WITH changed AS (
+           UPDATE alerts SET verdict=$1,triage_status='triaged',triaged_at=NOW(),
+             auto_closed=false,auto_close_reason=NULL,signature=$2,triage_run_id=$3
+           WHERE id=$4
+           RETURNING id,triaged_at
+         ), recorded AS (
+           INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+             agent_run_id,provider,model,confidence_kind,confidence,
+             input_summary,output_summary,reason,limitations,idempotency_key,finished_at
+           )
+           SELECT 'alert',id,'triaged','completed',$5,$6,$16,$3,'hermes',$7,
+                  'triage',$8,
+                  jsonb_build_object('triage_source',$9,'cache_used',$5='cache'),
+                  jsonb_build_object(
+                    'verdict',$10,
+                    'severity',$11,
+                    'attack_stage',$12,
+                    'citation_count',$13
+                  ),
+                  $14,$15::jsonb,
+                  CONCAT('triage:',$3,':alert:',id,':',$9),triaged_at
+           FROM changed
+           ON CONFLICT(idempotency_key) DO NOTHING
+         )
+         SELECT id FROM changed`,
+        [
+          storedVerdict, sig, triageRunId, row.id,
+          source === 'cache' ? 'cache' : 'ai', actor,
+          verdict.model || activeModelIdentity,
+          confidence, source, verdict.verdict || null, verdict.severity || null,
+          verdict.attack_stage || null,
+          Array.isArray(verdict.citations) ? verdict.citations.length : 0,
+          verdict.narrative || 'Evidence-grounded triage completed.',
+          JSON.stringify(limitations),
+          fetchRunId,
+        ]
       );
       triaged++;
     } catch (err) {
       const msg = safeError(err);
       console.error(`[triage] alert ${row.id} failed:`, msg);
       await db.query(
-        `UPDATE alerts SET triage_status='triage_failed',triage_error=$1,
-           signature=$2,auto_closed=false,auto_close_reason=NULL WHERE id=$3`,
-        [msg.slice(0, 500), sig, row.id]
+        `WITH changed AS (
+           UPDATE alerts SET triage_status='triage_failed',triage_error=$1,
+             signature=$2,auto_closed=false,auto_close_reason=NULL WHERE id=$3
+           RETURNING id
+         ), recorded AS (
+           INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+             input_summary,output_summary,reason,error_code,error_message,
+             idempotency_key,finished_at
+           )
+           SELECT 'alert',id,'triaged','failed','ai',$4,$7,
+                  jsonb_build_object('mode',$5),
+                  '{}'::jsonb,
+                  'AI triage did not produce a valid persisted verdict.',
+                  'TRIAGE_FAILED',$1,$6,NOW()
+           FROM changed
+           ON CONFLICT(idempotency_key) DO NOTHING
+         )
+         SELECT id FROM changed`,
+        [
+          msg.slice(0, 500), sig, row.id, actor, mode,
+          `triage-failed:${row.id}:${crypto.randomUUID()}`, fetchRunId,
+        ]
       );
       failed++;
     }
@@ -574,9 +701,10 @@ async function runCycle(trigger = 'scheduler', options = {}) {
       1000
     );
 
-    const er = await enrichPending(
-      enrichmentBatchSize
-    );
+    const er = await enrichPending(enrichmentBatchSize, {
+      fetchRunId: runId,
+      actor: `system:${trigger}`,
+    });
 
     stats.enriched = er.enriched;
     stats.enrichment_failed = er.failed;
@@ -591,7 +719,10 @@ async function runCycle(trigger = 'scheduler', options = {}) {
       (settings.triage_enabled || 'false') === 'true';
 
     if (triageEnabled) {
-      const tr = await triagePending(settings, 50);
+      const tr = await triagePending(settings, 50, null, {
+        actor: `system:${trigger}`,
+        fetchRunId: runId,
+      });
       stats.triaged = tr.triaged;
       stats.triage_failed = tr.failed;
       stats.llm_calls = tr.llm_calls || 0;

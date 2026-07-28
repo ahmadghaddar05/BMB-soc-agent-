@@ -138,6 +138,68 @@ test('individual alerts filter on source severity and expose descriptive Elastic
   }
 });
 
+test('alert journey exposes recorded provenance without inferring missing stages', async () => {
+  db.query = async (sql, params = []) => {
+    assert.deepEqual(params, ['elastic:journey-1']);
+    const text = String(sql);
+    if (text.includes('FROM workflow_stage_events')) {
+      return {
+        rows:[{
+          id:1, stage:'collected', status:'completed', executor_type:'system',
+          reason:'Alert was collected from Elastic.',
+        }],
+      };
+    }
+    if (text.includes('FROM alerts WHERE id=$1')) {
+      return {
+        rows:[{
+          id:'elastic:journey-1', source_system:'elastic',
+          enrichment_status:'pending', triage_status:'pending',
+        }],
+      };
+    }
+    throw new Error(`Unexpected journey query: ${text.slice(0, 80)}`);
+  };
+
+  const response = await request(routeApp()).get('/api/alerts/elastic%3Ajourney-1/journey');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.entity.type, 'alert');
+  assert.equal(response.body.stages[0].stage, 'collected');
+  assert.equal(response.body.provenance.append_only, true);
+  assert.match(response.body.provenance.description, /Missing stages are not inferred/);
+});
+
+test('incident journey exposes incident decisions without embedding raw alert evidence', async () => {
+  db.query = async (sql, params = []) => {
+    assert.deepEqual(params, ['17']);
+    const text = String(sql);
+    if (text.includes('FROM workflow_stage_events')) {
+      return {
+        rows:[{
+          id:9, stage:'incident_decision', status:'completed',
+          executor_type:'ai', confidence_kind:'incident', confidence:0.84,
+        }],
+      };
+    }
+    if (text.includes('FROM incidents WHERE id=$1')) {
+      return {
+        rows:[{
+          id:17, title:'Correlated identity activity', alert_ids:['A','B'],
+          status:'open', severity:'critical',
+        }],
+      };
+    }
+    throw new Error(`Unexpected incident journey query: ${text.slice(0, 80)}`);
+  };
+
+  const response = await request(routeApp()).get('/api/incidents/17/journey');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.entity.type, 'incident');
+  assert.equal(response.body.entity.alert_count, 2);
+  assert.equal(response.body.stages[0].confidence_kind, 'incident');
+  assert.equal(Object.hasOwn(response.body, 'alerts'), false);
+});
+
 test('grouped alerts expose specific titles and search technical and asset identifiers', async () => {
   let groupsSql = '';
   const group = {

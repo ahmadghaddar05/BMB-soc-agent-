@@ -102,6 +102,12 @@ test('completed correlation links output incidents and usage to its Hermes run a
   });
   assert.ok(queries.some(call => call.sql.includes("status='completed'")));
   assert.ok(queries.some(call => call.sql.includes("'incident',$2,'output'") && call.params[1] === '17'));
+  assert.equal(
+    queries.filter(call => call.sql.includes('INSERT INTO workflow_stage_events')).length,
+    3
+  );
+  assert.ok(queries.some(call => call.sql.includes("'correlated','completed'")));
+  assert.ok(queries.some(call => call.sql.includes("'incident_decision','completed'")));
   assert.ok(queries.some(call => call.sql.includes("'agent.run.completed'")));
   assert.equal(queries[0].sql, 'BEGIN');
   assert.equal(queries.at(-1).sql, 'COMMIT');

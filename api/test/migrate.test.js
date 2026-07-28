@@ -157,6 +157,24 @@ test('live collection migration enables AI-independent alert ingestion by defaul
   assert.match(sql, /ON CONFLICT\(key\) DO NOTHING/);
 });
 
+test('workflow provenance migration creates an append-only explainability ledger', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/015_workflow_provenance.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS workflow_stage_events/);
+  for (const stage of [
+    'collected', 'normalized', 'enriched', 'triaged',
+    'correlated', 'incident_decision',
+  ]) {
+    assert.match(sql, new RegExp(`'${stage}'`));
+  }
+  for (const executor of ['system', 'ai', 'analyst', 'cache']) {
+    assert.match(sql, new RegExp(`'${executor}'`));
+  }
+  assert.match(sql, /idempotency_key TEXT NOT NULL UNIQUE/);
+  assert.match(sql, /confidence >= 0 AND confidence <= 1/);
+  assert.match(sql, /REFERENCES agent_runs\(id\) ON DELETE SET NULL/);
+  assert.match(sql, /REFERENCES fetch_runs\(id\) ON DELETE SET NULL/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

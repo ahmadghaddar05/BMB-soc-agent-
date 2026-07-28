@@ -168,7 +168,7 @@ function combinedSignal(parent, timeoutMs) {
 async function correlateHermes(candidates, newAlertIds, settings = {}, {
   actor = 'system:scheduler', requestId = crypto.randomUUID(), signal,
   client = defaultHermesClient(), store = createAgentStore(), config = runtimeConfig(),
-  persist,
+  persist, fetchRunId = null,
 } = {}) {
   if (!Array.isArray(candidates) || candidates.length < 2) {
     throw new HermesError('HERMES_CORRELATION_INPUT_INVALID', 'Correlation requires at least two candidate alerts', { status: 400 });
@@ -219,6 +219,7 @@ async function correlateHermes(candidates, newAlertIds, settings = {}, {
     await store.completeCorrelation({
       runId: started.runId, actor, requestId, output,
       incidentIds: persistence.incidentIds, persistence, hermes: aggregate,
+      fetchRunId,
     });
     return {
       incidents: output.incidents, ...persistence,
@@ -240,7 +241,9 @@ async function correlateHermes(candidates, newAlertIds, settings = {}, {
         status: 504, cause: error,
       }), { hermesRunId: error?.hermesRunId || submittedRunId, attempts: error?.attempts || 0, latencyMs: Date.now() - orchestrationStarted })
       : error;
-    await store.failCorrelation({ runId: started.runId, actor, requestId, error: finalError });
+    await store.failCorrelation({
+      runId: started.runId, actor, requestId, error: finalError, fetchRunId,
+    });
     throw finalError;
   } finally {
     bounded.cleanup();

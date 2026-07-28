@@ -1049,6 +1049,46 @@ r.get('/alerts/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+r.get('/alerts/:id/journey', async (req, res) => {
+  try {
+    const [alert, events] = await Promise.all([
+      db.query(
+        `SELECT id,timestamp,source_system,enrichment_status,triage_status,
+                triage_run_id,fetch_run_id
+         FROM alerts WHERE id=$1`,
+        [req.params.id]
+      ),
+      db.query(
+        `SELECT id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+                provider,model,confidence_kind,confidence,input_summary,
+                output_summary,reason,limitations,error_code,error_message,
+                started_at,finished_at,created_at
+         FROM workflow_stage_events
+         WHERE entity_type='alert' AND entity_id=$1
+         ORDER BY created_at ASC,
+                  CASE stage
+                    WHEN 'collected' THEN 1 WHEN 'normalized' THEN 2
+                    WHEN 'enriched' THEN 3 WHEN 'triaged' THEN 4
+                    WHEN 'correlated' THEN 5 WHEN 'incident_decision' THEN 6
+                    ELSE 99
+                  END ASC,
+                  id ASC`,
+        [req.params.id]
+      ),
+    ]);
+    if (!alert.rows.length) return res.status(404).json({ error: 'Alert not found' });
+    res.json({
+      entity: { type:'alert', ...alert.rows[0] },
+      stages: events.rows,
+      provenance: {
+        append_only: true,
+        observed_events: events.rows.length,
+        description: 'Recorded system, AI, cache, and analyst workflow stages. Missing stages are not inferred.',
+      },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Re-triage a single alert
 r.post('/alerts/:id/retriage', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
@@ -1114,6 +1154,53 @@ r.get('/incidents/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+r.get('/incidents/:id/journey', async (req, res) => {
+  try {
+    const idError = positiveRecordId(req.params.id, 'incident id');
+    if (idError) return res.status(400).json({ error: idError });
+    const [incident, events] = await Promise.all([
+      db.query(
+        `SELECT id,title,severity,confidence,status,alert_ids,correlation_run_id,
+                created_at,updated_at
+         FROM incidents WHERE id=$1`,
+        [req.params.id]
+      ),
+      db.query(
+        `SELECT id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+                provider,model,confidence_kind,confidence,input_summary,
+                output_summary,reason,limitations,error_code,error_message,
+                started_at,finished_at,created_at
+         FROM workflow_stage_events
+         WHERE entity_type='incident' AND entity_id=$1
+         ORDER BY created_at ASC,
+                  CASE stage
+                    WHEN 'collected' THEN 1 WHEN 'normalized' THEN 2
+                    WHEN 'enriched' THEN 3 WHEN 'triaged' THEN 4
+                    WHEN 'correlated' THEN 5 WHEN 'incident_decision' THEN 6
+                    ELSE 99
+                  END ASC,
+                  id ASC`,
+        [req.params.id]
+      ),
+    ]);
+    if (!incident.rows.length) return res.status(404).json({ error: 'Incident not found' });
+    const record = incident.rows[0];
+    res.json({
+      entity: {
+        type:'incident',
+        ...record,
+        alert_count: Array.isArray(record.alert_ids) ? record.alert_ids.length : 0,
+      },
+      stages: events.rows,
+      provenance: {
+        append_only: true,
+        observed_events: events.rows.length,
+        description: 'Recorded incident decisions only. Technical alert evidence remains available in the analyst incident view.',
+      },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 r.patch('/incidents/:id', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const idError = positiveRecordId(req.params.id, 'incident id');
@@ -1137,6 +1224,19 @@ r.patch('/incidents/:id', requireRoles('soc_analyst', 'administrator'), async (r
          INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
          SELECT $3,'incident.status_updated','incident',changed.id::text,'success',$4,
                 jsonb_build_object('status',$1) FROM changed
+       ), provenance AS (
+         INSERT INTO workflow_stage_events(
+           entity_type,entity_id,stage,status,executor_type,actor,
+           input_summary,output_summary,reason,idempotency_key,finished_at
+         )
+         SELECT 'incident',changed.id::text,'incident_decision','completed',
+                'analyst',$3,
+                jsonb_build_object('action','status_update'),
+                jsonb_build_object('status',$1),
+                'An authenticated analyst changed the incident workflow status.',
+                CONCAT('incident-status:',changed.id,':',changed.updated_at),NOW()
+         FROM changed
+         ON CONFLICT(idempotency_key) DO NOTHING
        ) SELECT * FROM changed`,
       [status, req.params.id, req.user?.username || 'unknown', req.id || null]
     );
