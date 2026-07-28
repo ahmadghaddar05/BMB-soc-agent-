@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { runtimeConfig } = require('../../config');
+const { resolveAiModelProfile, routingOptions } = require('../ai-model-profiles');
 const { defaultHermesClient } = require('./client');
 const { HermesError } = require('./errors');
 const { parseCorrelationOutput } = require('./schemas');
@@ -183,8 +184,10 @@ async function correlateHermes(candidates, newAlertIds, settings = {}, {
   const orchestrationStarted = Date.now();
   let submittedRunId = null;
   let hermes = null;
+  const modelProfile = resolveAiModelProfile(settings, config);
   try {
     hermes = await client.runAgent({
+      ...routingOptions(modelProfile),
       input: correlationInput(candidates, newAlertIds),
       instructions: instructions(entityWindowHours),
       sessionKey: `bmb-correlation:${started.runId}`,

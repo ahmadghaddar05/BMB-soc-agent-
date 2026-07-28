@@ -137,12 +137,16 @@ test('Hermes retries transient responses with an idempotency key', async () => {
 
 test('Hermes run polling returns normalized usage and model output', async () => {
   let polls = 0;
+  let submittedBody = null;
   const client = createHermesClient({
     config, sleepImpl: async () => {},
     fetchImpl: async (url, options) => {
       const capability = handshakeResponse(url);
       if (capability) return capability;
-      if (url.endsWith('/runs') && options.method === 'POST') return jsonResponse({ run_id: 'run-1', status: 'started' }, 202);
+      if (url.endsWith('/runs') && options.method === 'POST') {
+        submittedBody = JSON.parse(options.body);
+        return jsonResponse({ run_id: 'run-1', status: 'started' }, 202);
+      }
       if (url.endsWith('/runs/run-1')) {
         polls += 1;
         return jsonResponse(polls === 1
@@ -164,6 +168,43 @@ test('Hermes run polling returns normalized usage and model output', async () =>
   assert.deepEqual(submitted, ['run-1']);
   assert.equal(result.usage.total_tokens, 15);
   assert.equal(result.output.includes('Investigate'), true);
+  assert.equal(submittedBody.model, 'hermes-agent');
+  assert.equal(Object.hasOwn(submittedBody, 'provider'), false);
+});
+
+test('Hermes submits an explicit allowlisted provider and model override per run', async () => {
+  let submittedBody = null;
+  const client = createHermesClient({
+    config, sleepImpl: async () => {},
+    fetchImpl: async (url, options) => {
+      const capability = handshakeResponse(url);
+      if (capability) return capability;
+      if (url.endsWith('/runs') && options.method === 'POST') {
+        submittedBody = JSON.parse(options.body);
+        return jsonResponse({ run_id:'run-openrouter', status:'started' }, 202);
+      }
+      if (url.endsWith('/runs/run-openrouter')) {
+        return jsonResponse({
+          object:'hermes.run',
+          run_id:'run-openrouter',
+          status:'completed',
+          model:'meta-llama/llama-3.3-70b-instruct',
+          output:'READY',
+          usage:{ input_tokens:3, output_tokens:1, total_tokens:4 },
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    },
+  });
+  const result = await client.runAgent({
+    input:'test',
+    instructions:'test',
+    provider:'openrouter',
+    model:'meta-llama/llama-3.3-70b-instruct',
+  });
+  assert.equal(submittedBody.provider, 'openrouter');
+  assert.equal(submittedBody.model, 'meta-llama/llama-3.3-70b-instruct');
+  assert.equal(result.model, 'meta-llama/llama-3.3-70b-instruct');
 });
 
 test('Hermes failed runs retain a safe provider reason without leaking credentials', async () => {

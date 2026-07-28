@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Activity, AlertTriangle, Bot, CheckCircle2, GitMerge, Play, RefreshCw, Save,
-  ShieldCheck, Sparkles, Workflow,
+  Activity, AlertTriangle, Bot, CheckCircle2, ChevronDown, Cpu, GitMerge,
+  KeyRound, Play, RefreshCw, Save, ShieldCheck, Sparkles, Workflow,
 } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import { api, fmtDuration, fmtTs } from '../lib/api';
@@ -156,8 +156,94 @@ function SaveBar({ dirty, saving, onSave }) {
   );
 }
 
+function ModelRoutingPanel({
+  control, selectedId, onSelect, onTest, onActivate, busy, feedback,
+}) {
+  const profiles = control?.profiles || [];
+  const selected = profiles.find(profile => profile.id === selectedId) || profiles[0];
+  const activeId = control?.active_profile_id;
+  return (
+    <Panel
+      icon={Cpu}
+      title="AI model routing"
+      subtitle="Choose which allowlisted model Hermes uses for new BMB analysis runs"
+      action={<StatusBadge tone="success">{profiles.find(profile => profile.id === activeId)?.label || 'Not loaded'}</StatusBadge>}
+    >
+      <div className="mb-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] p-3 text-xs leading-5 text-cyan-100">
+        Hermes remains the single safety and audit boundary. Switching applies to new chat, triage, and correlation runs only; active runs continue unchanged. If the selected route fails, BMB reports the failure instead of silently using another model.
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2" role="radiogroup" aria-label="AI model profile">
+        {profiles.map(profile => {
+          const selectedProfile = profile.id === selectedId;
+          return (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={selectedProfile}
+              key={profile.id}
+              onClick={() => onSelect(profile.id)}
+              className={`rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                selectedProfile
+                  ? 'border-cyan-400/70 bg-cyan-500/10'
+                  : 'border-[var(--border-soft)] bg-[var(--surface-2)] hover:border-cyan-500/40'
+              }`}
+            >
+              <span className="flex items-start justify-between gap-3">
+                <span>
+                  <strong className="block text-sm text-[var(--text)]">{profile.label}</strong>
+                  <small className="mt-1 block text-xs text-[var(--muted)]">{profile.provider}</small>
+                </span>
+                {profile.active
+                  ? <StatusBadge tone="success">Active</StatusBadge>
+                  : <span className={`mt-1 h-4 w-4 rounded-full border ${selectedProfile ? 'border-cyan-300 bg-cyan-400' : 'border-slate-500'}`} aria-hidden="true" />}
+              </span>
+              <span className="mt-3 block text-xs leading-5 text-[var(--muted)]">{profile.description}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {selected && (
+        <details className="mt-4 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-2)]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[var(--text)]">
+            View selected route details
+            <ChevronDown className="h-4 w-4 text-[var(--muted)]" aria-hidden="true" />
+          </summary>
+          <div className="border-t border-[var(--border-soft)] p-4">
+            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Fact label="Gateway" value={control.gateway || 'Hermes'} detail="All model requests remain server-to-server." />
+              <Fact label="Provider route" value={selected.provider} detail="Provider selection is sent to Hermes per run." />
+              <Fact label="Model identifier" value={selected.model} detail="Exact allowlisted routing identifier." />
+              <Fact label="Credential" value={selected.credential} detail="The secret is never stored in BMB or returned to this page." />
+              <Fact label="Change scope" value="New runs only" detail="In-progress runs are not interrupted." />
+              <Fact label="Failure policy" value="No silent fallback" detail="A route failure remains visible and auditable." />
+            </dl>
+            <div className="mt-4 flex flex-col gap-3 border-t border-[var(--border-soft)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="flex max-w-2xl items-start gap-2 text-xs leading-5 text-[var(--muted)]">
+                <KeyRound className="mt-0.5 h-4 w-4 flex-none text-cyan-300" aria-hidden="true" />
+                Test the selected route before activation. A test makes one small model request and records only safe routing metadata in the audit log.
+              </p>
+              <span className="flex flex-wrap gap-2">
+                <button type="button" className="btn-secondary" disabled={Boolean(busy)} onClick={() => onTest(selected.id)}>
+                  {busy === 'test' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
+                  {busy === 'test' ? 'Testing…' : 'Test selected route'}
+                </button>
+                <button type="button" className="btn-primary" disabled={Boolean(busy) || selected.id === activeId} onClick={() => onActivate(selected.id)}>
+                  {busy === 'activate' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  {selected.id === activeId ? 'Currently active' : busy === 'activate' ? 'Activating…' : 'Activate for new runs'}
+                </button>
+              </span>
+            </div>
+            <Feedback value={feedback} />
+          </div>
+        </details>
+      )}
+    </Panel>
+  );
+}
+
 export default function AIConfiguration() {
-  const [snapshot, setSnapshot] = useState({ dependencies:null, runtime:null, settings:null, agent:null });
+  const [snapshot, setSnapshot] = useState({ dependencies:null, runtime:null, settings:null, agent:null, models:null });
   const [drafts, setDrafts] = useState(initialDrafts);
   const [dirty, setDirty] = useState({ triage:false, correlation:false, workflow:false });
   const [saving, setSaving] = useState({ triage:false, correlation:false, workflow:false });
@@ -168,6 +254,9 @@ export default function AIConfiguration() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [selectedModelId, setSelectedModelId] = useState('');
+  const [modelBusy, setModelBusy] = useState('');
+  const [modelFeedback, setModelFeedback] = useState(null);
   const dirtyRef = useRef({ triage:false, correlation:false, workflow:false });
   const savingRef = useRef(false);
   const requestRef = useRef(null);
@@ -185,6 +274,7 @@ export default function AIConfiguration() {
         api('/admin/runtime', { signal:controller.signal }),
         api('/settings', { signal:controller.signal }),
         api('/agent/status', { signal:controller.signal }),
+        api('/admin/ai-models', { signal:controller.signal }),
       ]);
       if (requestRef.current !== controller) return;
       const failures = results.filter(result => result.status === 'rejected');
@@ -193,12 +283,17 @@ export default function AIConfiguration() {
       const runtime = results[1].status === 'fulfilled' ? results[1].value : null;
       const settingsResponse = results[2].status === 'fulfilled' ? results[2].value : null;
       const agent = results[3].status === 'fulfilled' ? results[3].value : null;
+      const models = results[4].status === 'fulfilled' ? results[4].value : null;
       setSnapshot(current => ({
         dependencies:dependencies ?? current.dependencies,
         runtime:runtime ?? current.runtime,
         settings:settingsResponse?.settings ?? current.settings,
         agent:agent ?? current.agent,
+        models:models ?? current.models,
       }));
+      if (models?.active_profile_id) {
+        setSelectedModelId(current => current || models.active_profile_id);
+      }
       if (settingsResponse?.settings) {
         setDrafts(current => Object.fromEntries(SECTIONS.map(section => [
           section,
@@ -291,6 +386,46 @@ export default function AIConfiguration() {
     }
   }
 
+  async function testModel(profileId) {
+    setModelBusy('test');
+    setModelFeedback(null);
+    try {
+      const result = await api('/admin/ai-models/test', {
+        method:'POST',
+        body:JSON.stringify({ profile_id:profileId }),
+      });
+      setModelFeedback({
+        tone:'success',
+        text:`Route verified with ${result.returned_model || result.label} in ${Number(result.latency_ms || 0).toLocaleString()} ms.`,
+      });
+    } catch (error) {
+      setModelFeedback({ tone:'danger', text:error.message || 'The selected model route could not be verified.' });
+    } finally {
+      setModelBusy('');
+    }
+  }
+
+  async function activateModel(profileId) {
+    setModelBusy('activate');
+    setModelFeedback(null);
+    try {
+      const result = await api('/admin/ai-model', {
+        method:'PUT',
+        body:JSON.stringify({ profile_id:profileId }),
+      });
+      setSnapshot(current => ({ ...current, models:result }));
+      setSelectedModelId(result.active_profile_id);
+      setModelFeedback({
+        tone:'success',
+        text:`${result.profiles?.find(profile => profile.id === result.active_profile_id)?.label || 'The selected model'} is active for new runs.`,
+      });
+    } catch (error) {
+      setModelFeedback({ tone:'danger', text:error.message || 'The selected model could not be activated.' });
+    } finally {
+      setModelBusy('');
+    }
+  }
+
   if (loading && !snapshot.dependencies && !snapshot.runtime) {
     return <div className="module-page"><div className="module-notice"><RefreshCw className="animate-spin" />Loading AI configuration…</div></div>;
   }
@@ -317,6 +452,19 @@ export default function AIConfiguration() {
 
       {loadError && <div className="module-notice danger" role="alert"><AlertTriangle />{loadError} Previously loaded values remain visible where available.</div>}
 
+      <ModelRoutingPanel
+        control={snapshot.models}
+        selectedId={selectedModelId}
+        onSelect={profileId => {
+          setSelectedModelId(profileId);
+          setModelFeedback(null);
+        }}
+        onTest={testModel}
+        onActivate={activateModel}
+        busy={modelBusy}
+        feedback={modelFeedback}
+      />
+
       <Panel icon={ShieldCheck} title="Hermes runtime" subtitle="Observed health and masked deployment configuration"
         action={<StatusBadge tone={healthTone(hermes.status)}>{hermes.status || 'unknown'}</StatusBadge>}>
         <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
@@ -326,7 +474,7 @@ export default function AIConfiguration() {
         </div>
         <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Fact label="Provider" value={runtime.provider || 'Hermes'} detail="Deployment-managed provider" />
-          <Fact label="Model" value={runtime.model || hermes.model || 'Not reported'} detail={`${Number(hermes.advertised_models || 0).toLocaleString()} model${Number(hermes.advertised_models || 0) === 1 ? '' : 's'} advertised`} />
+          <Fact label="Active route" value={runtime.route || hermes.selected_provider || 'Not reported'} detail={runtime.model || hermes.selected_model || hermes.model || 'Model not reported'} />
           <Fact label="Credential" value={runtime.credential_configured ? 'Configured' : 'Not configured'} detail="The credential value is never returned to the browser." />
           <Fact label="Safety profile" value={hermes.safe ? 'Verified' : 'Not verified'} detail={`${booleanFact(runtime.safe_toolsets_enforced)} safe-toolset enforcement`} />
           <Fact label="Capability checks" value={booleanFact(runtime.strict_capabilities)} detail="Required run capabilities are verified before use." />

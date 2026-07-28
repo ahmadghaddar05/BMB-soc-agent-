@@ -88,7 +88,19 @@ The UI uses `POST /api/chat/stream` for bounded progress events and final output
 
 `GET /api/health/dependencies` reports Hermes reachability, model/capabilities, host toolsets, safe-profile state, and the BMB application tool count. `HERMES_REQUIRED=true` makes the production container reject missing credentials at startup. There is no Groq, Anthropic, or Ollama fallback for chat, triage, or correlation.
 
-Phase 4 supports strict `pipeline`, bounded `agentic`, and deterministic `hybrid` triage modes. Verdict cache entries bind the exact alert, material signature, successful enrichment evidence, prompt/schema versions, and Hermes model. Every verdict links to a durable Hermes run. Failed enrichment is never triaged.
+### Switching between GPT-5.6 Sol and Meta Llama 3.3 70B
+
+BMB keeps Hermes as the only AI gateway. The administrator can open **AI Configuration → AI model routing**, inspect both approved routes, make a small connectivity test, and activate one for new chat, triage, and correlation runs. In-progress runs are not interrupted. A failed selected route is reported and audited; BMB never silently falls back to the other model.
+
+The GPT-5.6 Sol profile uses the existing authenticated default route in Hermes. To enable the Llama profile, the only new secret to add is the OpenRouter key on the server running Hermes:
+
+```bash
+printf '\nOPENROUTER_API_KEY=%s\n' 'PASTE_YOUR_OPENROUTER_KEY_HERE' >> /home/trainee/.hermes/.env
+```
+
+Restart the Hermes gateway using the same service or process manager that starts it, then use **Test selected route** before activation. Do not put `OPENROUTER_API_KEY` in the BMB repository, BMB `.env`, Docker Compose, PostgreSQL, or the browser. The approved Llama route is `openrouter` / `meta-llama/llama-3.3-70b-instruct`. Only the profile identifier is stored in BMB settings, and triage cache identity includes the selected provider and model.
+
+Phase 4 supports strict `pipeline`, bounded `agentic`, and deterministic `hybrid` triage modes. Verdict cache entries bind the exact alert, material signature, successful enrichment evidence, prompt/schema versions, and selected provider/model route. Every verdict links to a durable Hermes run. Failed enrichment is never triaged.
 
 Phase 5 correlation is incremental and tool-less. The application selects newly triaged alerts, adds only recent context with exact shared entities, and bounds the batch and token estimate. Hermes returns a strict incident schema. The API rejects unknown IDs, duplicate membership, groups without a newly triaged alert, and groups lacking a connected entity/time chain. Common entities and severity are recomputed from supplied evidence before persistence. Incident keys remain stable as membership grows, closed or false-positive incidents are never reopened, and unchanged membership does not rewrite the narrative. The correlation cursor advances only after the Hermes result and every incident/audit write succeed. `POST /api/scheduler/correlate-now` runs a manual pass; scheduled correlation is controlled independently by `correlation_enabled`.
 
@@ -116,7 +128,7 @@ This is a small database-managed RBAC directory, not an LDAP/SSO identity provid
 
 ## Database lifecycle
 
-The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent records, Phase 3 added independently queryable Hermes sub-runs, Phase 4 added exact triage cache provenance plus `alerts.triage_run_id`, Phase 5 added `incidents.correlation_run_id`, Phase 6 added durable investigations/cases, Phase 7 activated policy-controlled action requests and approvals, Phase 8 added durable autonomous runs and retry-safe operations, Phase 9 added reversible simulated response state and events, and migration 012 added the database-managed RBAC user directory.
+The API obtains a PostgreSQL advisory lock and applies versioned SQL files from `api/src/db/migrations` before starting workers. Applied versions are recorded in `schema_migrations`. Phase 2 added durable agent records, Phase 3 added independently queryable Hermes sub-runs, Phase 4 added exact triage cache provenance plus `alerts.triage_run_id`, Phase 5 added `incidents.correlation_run_id`, Phase 6 added durable investigations/cases, Phase 7 activated policy-controlled action requests and approvals, Phase 8 added durable autonomous runs and retry-safe operations, Phase 9 added reversible simulated response state and events, migration 012 added the database-managed RBAC user directory, and migration 013 added the administrator-selected AI model profile.
 
 ## Health and metrics
 

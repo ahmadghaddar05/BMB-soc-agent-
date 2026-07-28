@@ -43,7 +43,9 @@ async function dependencyHealth() {
       const data = await response.json();
       return { status: data.status === 'ok' ? 'online' : 'degraded', latency_ms: Date.now() - started, counts: data.counts || null };
     }),
-    timedCheck('hermes', checkHermesHealth, { configured: Boolean(process.env.HERMES_API_KEY) }),
+    timedCheck('hermes', () => checkHermesHealth({ settings }), {
+      configured: Boolean(process.env.HERMES_API_KEY),
+    }),
   ];
 
   if (source === 'elastic') {

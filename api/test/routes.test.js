@@ -33,6 +33,7 @@ function highestPlaceholder(sql) {
 }
 
 test('administrator runtime summary exposes configuration state without credentials', async () => {
+  db.getAllSettings = async () => ({ ai_model_profile:'gpt_5_6_sol' });
   const response = await request(routeApp()).get('/api/admin/runtime');
   assert.equal(response.status, 200);
   assert.equal(response.body.authentication.current_role, 'administrator');
@@ -40,6 +41,35 @@ test('administrator runtime summary exposes configuration state without credenti
   assert.equal(response.body.ai_provider.provider, 'Hermes');
   assert.equal(Object.prototype.hasOwnProperty.call(response.body.ai_provider, 'api_key'), false);
   assert.equal(Object.prototype.hasOwnProperty.call(response.body.alert_source, 'elastic_api_key'), false);
+});
+
+test('administrator can inspect and activate an allowlisted AI model profile without exposing secrets', async () => {
+  let active = 'gpt_5_6_sol';
+  let written = null;
+  db.getAllSettings = async () => ({ ai_model_profile:active });
+  db.setSettingsAtomic = async entries => {
+    written = entries;
+    active = entries[0][1];
+  };
+
+  const listed = await request(routeApp()).get('/api/admin/ai-models');
+  assert.equal(listed.status, 200);
+  assert.equal(listed.body.active_profile_id, 'gpt_5_6_sol');
+  assert.equal(listed.body.profiles.length, 2);
+  assert.equal(JSON.stringify(listed.body).includes('OPENROUTER_API_KEY='), false);
+  assert.equal(Object.hasOwn(listed.body.profiles[1], 'api_key'), false);
+
+  const activated = await request(routeApp())
+    .put('/api/admin/ai-model')
+    .send({ profile_id:'llama_3_3_70b' });
+  assert.equal(activated.status, 200);
+  assert.deepEqual(written, [['ai_model_profile', 'llama_3_3_70b']]);
+  assert.equal(activated.body.active_profile_id, 'llama_3_3_70b');
+
+  const rejected = await request(routeApp())
+    .put('/api/admin/ai-model')
+    .send({ profile_id:'arbitrary-provider-model' });
+  assert.equal(rejected.status, 400);
 });
 
 test('administrator audit feed is bounded and applies supported filters', async () => {

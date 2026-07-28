@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { runtimeConfig } = require('../../config');
+const { resolveAiModelProfile, routingOptions } = require('../ai-model-profiles');
 const { defaultHermesClient } = require('./client');
 const { HermesError } = require('./errors');
 const { parseAnalystTurn, validateCitations } = require('./schemas');
@@ -80,7 +81,8 @@ function combinedSignal(parent, timeoutMs) {
 async function chatHermes(question, {
   conversationId = null, actor = 'system', requestId = crypto.randomUUID(), signal,
   client = defaultHermesClient(), store = createAgentStore(), toolkit = createSocToolkit(),
-  config = runtimeConfig(), onProgress = null, authorization = { canReadSoc: false },
+  config = runtimeConfig(), settings = {}, onProgress = null,
+  authorization = { canReadSoc: false },
 } = {}) {
   const started = await store.beginChat({
     conversationId, actor, question, requestId,
@@ -99,6 +101,7 @@ async function chatHermes(question, {
     if (typeof onProgress !== 'function') return;
     try { await onProgress(event); } catch { /* progress delivery is best effort */ }
   };
+  const modelProfile = resolveAiModelProfile(settings, config);
   try {
     for (let step = 1; step <= config.hermesAnalystMaxToolCalls + 1; step += 1) {
       await progress({ stage: 'thinking', step });
@@ -106,6 +109,7 @@ async function chatHermes(question, {
       let hermes;
       try {
         hermes = await client.runAgent({
+          ...routingOptions(modelProfile),
           input: investigationInput(question, transcript),
           instructions: instructionsFor(specsForAuthorization(toolkit.specs, authorization)),
           sessionId: started.conversationId,

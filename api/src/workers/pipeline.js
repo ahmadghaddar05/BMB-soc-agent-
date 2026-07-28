@@ -7,6 +7,7 @@ const {
   searchAlertsCursor,
 } = require('../services/elastic');
 const { runtimeConfig } = require('../config');
+const { modelIdentity, resolveAiModelProfile } = require('../services/ai-model-profiles');
 const {
   OUTPUT_SCHEMA_VERSION,
   PROMPT_VERSION,
@@ -202,10 +203,12 @@ async function triagePending(settings, limit = 50, alertId = null, {
   let llm_tokens = 0, prompt_tokens = 0, completion_tokens = 0;
   let agentic_escalations = 0, budget_exhausted = false;
   const config = runtimeConfig();
+  const activeModel = resolveAiModelProfile(settings, config);
+  const activeModelIdentity = modelIdentity(activeModel);
 
   for (const row of rows) {
     const sig = alertSignature(row);
-    const { cacheKey, enrichmentHash } = triageCacheIdentity(row, sig, config.hermesModel);
+    const { cacheKey, enrichmentHash } = triageCacheIdentity(row, sig, activeModelIdentity);
     try {
       let verdict, source, triageRunId = null;
 
@@ -218,7 +221,7 @@ async function triagePending(settings, limit = 50, alertId = null, {
              AND output_schema_version=$5 AND model=$6
              AND expires_at>NOW() AND agent_run_id IS NOT NULL`,
           [cacheKey, sig, enrichmentHash, PROMPT_VERSION,
-            OUTPUT_SCHEMA_VERSION, config.hermesModel]
+            OUTPUT_SCHEMA_VERSION, activeModelIdentity]
         );
         if (c.rows.length) {
           verdict = c.rows[0].verdict;
@@ -273,7 +276,7 @@ async function triagePending(settings, limit = 50, alertId = null, {
                agent_run_id=EXCLUDED.agent_run_id,
                expires_at=EXCLUDED.expires_at,updated_at=NOW()`,
             [cacheKey, row.rule_id, verdict, sig, PROMPT_VERSION,
-              OUTPUT_SCHEMA_VERSION, config.hermesModel, enrichmentHash,
+              OUTPUT_SCHEMA_VERSION, activeModelIdentity, enrichmentHash,
               triageRunId, String(cacheTtlHours)]
           );
         }

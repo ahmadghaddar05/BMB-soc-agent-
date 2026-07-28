@@ -322,7 +322,10 @@ test('SOC analyst sessions can read operational policy but not administration da
   const operational = await request(app).get('/api/action-policy').set('Cookie', cookie);
   assert.equal(operational.status, 200);
 
-  for (const path of ['/api/settings', '/api/scheduler/status', '/api/runs', '/api/admin/runtime', '/api/admin/users']) {
+  for (const path of [
+    '/api/settings', '/api/scheduler/status', '/api/runs',
+    '/api/admin/runtime', '/api/admin/users', '/api/admin/ai-models',
+  ]) {
     const response = await request(app).get(path).set('Cookie', cookie);
     assert.equal(response.status, 403);
     assert.match(JSON.stringify(response.body), /role cannot access/i);

@@ -257,16 +257,27 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
     } catch { return false; }
   }
 
-  async function runAgent({ input, instructions, sessionId, sessionKey, conversationHistory = [], signal, idempotencyKey, onSubmitted } = {}) {
+  async function runAgent({
+    input, instructions, sessionId, sessionKey, conversationHistory = [], signal,
+    idempotencyKey, onSubmitted, model, provider,
+  } = {}) {
     const startedAt = Date.now();
     let runId = null;
     let attempts = 0;
+    const selectedModel = model || config.hermesModel;
+    if (!/^[A-Za-z0-9._:/-]{1,200}$/.test(selectedModel)) {
+      throw new HermesError('HERMES_MODEL_INVALID', 'The requested Hermes model is invalid', { status: 400 });
+    }
+    if (provider != null && !/^[A-Za-z0-9._-]{1,80}$/.test(provider)) {
+      throw new HermesError('HERMES_PROVIDER_INVALID', 'The requested Hermes provider is invalid', { status: 400 });
+    }
     try {
       const capabilitySnapshot = await handshake({ signal });
       const submit = await request('/runs', {
         method: 'POST',
         body: {
-          model: config.hermesModel,
+          model: selectedModel,
+          ...(provider ? { provider } : {}),
           input,
           instructions,
           session_id: sessionId,
@@ -306,7 +317,7 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
             total_tokens: state.usage?.total_tokens || 0,
           };
           return {
-            runId, output: state.output, model: state.model || config.hermesModel,
+            runId, output: state.output, model: state.model || selectedModel,
             usage, attempts, latencyMs: Date.now() - startedAt, capabilities: capabilitySnapshot,
           };
         }

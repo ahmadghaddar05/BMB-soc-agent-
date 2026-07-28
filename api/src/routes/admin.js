@@ -5,6 +5,15 @@ const db = require('../db');
 const { runtimeConfig } = require('../config');
 const { requireRoles } = require('../middleware/auth');
 const {
+  SETTING_KEY,
+  listAiModelProfiles,
+  profileDefinition,
+  resolveAiModelProfile,
+  routingOptions,
+} = require('../services/ai-model-profiles');
+const { defaultHermesClient } = require('../services/hermes/client');
+const { publicHermesError } = require('../services/hermes/errors');
+const {
   displayNameError,
   hashPassword,
   passwordError,
@@ -35,6 +44,8 @@ function boundedText(value, name, max = 120) {
 router.get('/runtime', async (req, res) => {
   try {
     const config = runtimeConfig();
+    const settings = await db.getAllSettings();
+    const selectedModel = resolveAiModelProfile(settings, config);
     const directory = config.authDisabled
       ? { rows:[{ total:0, active:0, executives:0, analysts:0, administrators:0 }] }
       : await db.query(
@@ -70,7 +81,9 @@ router.get('/runtime', async (req, res) => {
       },
       ai_provider:{
         provider:'Hermes',
-        model:config.hermesModel,
+        model:selectedModel.hermesModel,
+        profile_id:selectedModel.id,
+        route:selectedModel.providerLabel,
         required:config.hermesRequired,
         credential_configured:Boolean(config.hermesApiKey),
         strict_capabilities:config.hermesStrictCapabilities,
@@ -82,6 +95,107 @@ router.get('/runtime', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error:error.message });
+  }
+});
+
+router.get('/ai-models', async (_req, res) => {
+  try {
+    const settings = await db.getAllSettings();
+    res.json({
+      generated_at:new Date().toISOString(),
+      gateway:'Hermes',
+      switching_scope:'new_runs_only',
+      fallback_policy:'disabled',
+      credentials_storage:'Hermes host environment only',
+      ...listAiModelProfiles(settings, runtimeConfig()),
+    });
+  } catch (error) {
+    res.status(500).json({ error:error.message });
+  }
+});
+
+router.put('/ai-model', async (req, res) => {
+  const profileId = typeof req.body?.profile_id === 'string' ? req.body.profile_id : '';
+  if (!profileDefinition(profileId)) {
+    return res.status(400).json({ error:'Unsupported AI model profile' });
+  }
+  try {
+    await db.setSettingsAtomic([[SETTING_KEY, profileId]], {
+      actor:req.user?.username || 'unknown',
+      requestId:req.id || null,
+    });
+    const settings = await db.getAllSettings();
+    res.json({
+      ok:true,
+      message:'The selected model will be used for new chat, triage, and correlation runs.',
+      ...listAiModelProfiles(settings, runtimeConfig()),
+    });
+  } catch (error) {
+    res.status(500).json({ error:error.message });
+  }
+});
+
+router.post('/ai-models/test', async (req, res) => {
+  const profileId = typeof req.body?.profile_id === 'string' ? req.body.profile_id : '';
+  if (!profileDefinition(profileId)) {
+    return res.status(400).json({ error:'Unsupported AI model profile' });
+  }
+  const config = runtimeConfig();
+  const profile = resolveAiModelProfile({ [SETTING_KEY]:profileId }, config);
+  const started = Date.now();
+  try {
+    const result = await defaultHermesClient().runAgent({
+      ...routingOptions(profile),
+      input:'Reply with the single word READY.',
+      instructions:'This is a bounded connectivity test. Do not call tools. Do not include secrets or additional text.',
+      sessionKey:`bmb-model-test:${req.user?.username || 'administrator'}`,
+      idempotencyKey:`${req.id || 'model-test'}:${profileId}`,
+    });
+    await db.query(
+      `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+       VALUES($1,'ai.model_route.tested','ai_model_profile',$2,'success',$3,$4)`,
+      [
+        req.user?.username || 'unknown', profileId, req.id || null,
+        {
+          requested_model:profile.hermesModel,
+          requested_provider:profile.hermesProvider || 'gateway_default',
+          returned_model:result.model,
+          latency_ms:result.latencyMs,
+          total_tokens:result.usage?.total_tokens || 0,
+        },
+      ]
+    );
+    res.json({
+      ok:true,
+      profile_id:profile.id,
+      label:profile.label,
+      provider:profile.providerLabel,
+      requested_model:profile.hermesModel,
+      returned_model:result.model,
+      latency_ms:result.latencyMs,
+      total_tokens:result.usage?.total_tokens || 0,
+      tested_at:new Date().toISOString(),
+    });
+  } catch (error) {
+    try {
+      await db.query(
+        `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+         VALUES($1,'ai.model_route.tested','ai_model_profile',$2,'failure',$3,$4)`,
+        [
+          req.user?.username || 'unknown', profileId, req.id || null,
+          {
+            requested_model:profile.hermesModel,
+            requested_provider:profile.hermesProvider || 'gateway_default',
+            error_code:error?.code || 'HERMES_UNAVAILABLE',
+            latency_ms:Date.now() - started,
+          },
+        ]
+      );
+    } catch {
+      // The route error remains authoritative if audit persistence also fails.
+    }
+    const response = publicHermesError(error, req.id);
+    res.status(response.status).json(response.body);
   }
 });
 

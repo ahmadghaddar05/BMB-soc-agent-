@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { runtimeConfig } = require('../../config');
+const { resolveAiModelProfile, routingOptions } = require('../ai-model-profiles');
 const { defaultHermesClient } = require('./client');
 const { HermesError } = require('./errors');
 const { parseTriageTurn, validateCitations } = require('./schemas');
@@ -145,6 +146,7 @@ async function triageHermes(alert, settings = {}, {
   let preliminary = null;
   let phase = mode === 'agentic' ? 'investigate' : 'screen';
   const orchestrationStarted = Date.now();
+  const modelProfile = resolveAiModelProfile(settings, config);
 
   try {
     for (let step = 1; step <= maxToolCalls + (mode === 'hybrid' ? 2 : 1); step += 1) {
@@ -153,6 +155,7 @@ async function triageHermes(alert, settings = {}, {
       let hermes;
       try {
         hermes = await client.runAgent({
+          ...routingOptions(modelProfile),
           input: triageInput(alert, transcript, preliminary),
           instructions: instructionsFor(toolkit.specs, allowTools),
           // Isolate retriage runs while sharing context across this run's steps.

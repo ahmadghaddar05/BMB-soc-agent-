@@ -142,6 +142,14 @@ test('database RBAC migration creates role-bound users without storing plaintext
   assert.doesNotMatch(sql, /password\s+TEXT/i);
 });
 
+test('AI model profile migration selects the existing Hermes route by default', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/013_ai_model_profiles.sql'), 'utf8');
+  assert.match(sql, /ai_model_profile/);
+  assert.match(sql, /gpt_5_6_sol/);
+  assert.match(sql, /ON CONFLICT\(key\) DO NOTHING/);
+  assert.doesNotMatch(sql, /API_KEY\s*=/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

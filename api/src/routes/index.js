@@ -1264,9 +1264,11 @@ r.post('/chat/stream', async (req, res) => {
     if (!controller.signal.aborted && !res.writableEnded) res.write(`${JSON.stringify(event)}\n`);
   };
   try {
+    const settings = await db.getAllSettings();
     const result = await chatHermes(message.trim(), {
       conversationId: conversationId || null,
       actor: req.user?.username || 'unknown', requestId: req.id,
+      settings,
       authorization: {
         canReadSoc: ['executive', 'soc_analyst', 'administrator'].includes(req.user?.role),
         canRequestActions: ['soc_analyst', 'administrator'].includes(req.user?.role), role: req.user?.role,
@@ -1307,9 +1309,11 @@ r.post('/chat', async (req, res) => {
     if (!runtimeConfig().hermesApiKey) {
       throw new HermesError('HERMES_NOT_CONFIGURED', 'Hermes is not configured', { status: 503 });
     }
+    const settings = await db.getAllSettings();
     const result = await chatHermes(message.trim(), {
       conversationId: conversationId || null,
       actor: req.user?.username || 'unknown',
+      settings,
       authorization: {
         canReadSoc: ['executive', 'soc_analyst', 'administrator'].includes(req.user?.role),
         canRequestActions: ['soc_analyst', 'administrator'].includes(req.user?.role), role: req.user?.role,

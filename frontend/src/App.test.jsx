@@ -216,6 +216,67 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Maya Georges was created as SOC Analyst');
   });
 
+  it('lets an administrator select an allowlisted model route without exposing a key field', async () => {
+    const requests = [];
+    const profiles = [
+      {
+        id:'gpt_5_6_sol', label:'GPT-5.6 Sol', provider:'Hermes default route',
+        model:'hermes-agent', credential:'Existing Hermes/Codex authentication',
+        description:'Existing route', active:true,
+      },
+      {
+        id:'llama_3_3_70b', label:'Meta Llama 3.3 70B', provider:'OpenRouter through Hermes',
+        model:'meta-llama/llama-3.3-70b-instruct',
+        credential:'OPENROUTER_API_KEY in the Hermes host environment',
+        description:'OpenRouter route', active:false,
+      },
+    ];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({
+        user:{ id:'3', username:'admin', display_name:'Security Administrator', role:'administrator' },
+        csrf:'csrf-token',
+      });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({
+        status:'ok', source:'elastic', services:{ hermes:{ status:'online', safe:true } },
+      });
+      if (url.endsWith('/admin/runtime')) return jsonResponse({
+        ai_provider:{ provider:'Hermes', model:'hermes-agent', route:'Hermes default route', credential_configured:true },
+      });
+      if (url.endsWith('/settings')) return jsonResponse({ settings:{} });
+      if (url.endsWith('/agent/status')) return jsonResponse({ enabled:false, recent_operations:[] });
+      if (url.endsWith('/admin/ai-model') && options.method === 'PUT') {
+        return jsonResponse({
+          gateway:'Hermes', active_profile_id:'llama_3_3_70b',
+          profiles:profiles.map(profile => ({ ...profile, active:profile.id === 'llama_3_3_70b' })),
+        });
+      }
+      if (url.endsWith('/admin/ai-models')) {
+        return jsonResponse({ gateway:'Hermes', active_profile_id:'gpt_5_6_sol', profiles });
+      }
+      return jsonResponse({});
+    });
+
+    await renderAt('/ai-configuration');
+    expect(document.body.textContent).toContain('AI model routing');
+    expect(document.body.textContent).toContain('Meta Llama 3.3 70B');
+    expect(document.querySelector('input[name*="key"]')).toBeNull();
+
+    const llama = [...document.querySelectorAll('[role="radio"]')]
+      .find(button => button.textContent.includes('Meta Llama 3.3 70B'));
+    await act(async () => llama.click());
+    const activate = [...document.querySelectorAll('button')]
+      .find(button => button.textContent.includes('Activate for new runs'));
+    await act(async () => activate.click());
+    await settle();
+
+    const update = requests.find(item => item.url.endsWith('/admin/ai-model') && item.options.method === 'PUT');
+    expect(JSON.parse(update.options.body)).toEqual({ profile_id:'llama_3_3_70b' });
+    expect(update.options.headers['X-CSRF-Token']).toBe('csrf-token');
+    expect(document.body.textContent).toContain('active for new runs');
+  });
+
   it('routes to alert search and loads the selected alert detail', async () => {
     const calls = [];
     globalThis.fetch = vi.fn(async input => {
