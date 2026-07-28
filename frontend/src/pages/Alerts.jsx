@@ -9,6 +9,7 @@ import { api, fmtTs, sevClass, verdictLabel } from '../lib/api';
 import { createInitialAlertView, normalizeCitations, normalizeTextList, writeBrowserAlertView } from '../lib/analyst';
 import { activityTitle, alertReference, severityOf } from '../lib/executive';
 import InfoTip from '../components/InfoTip';
+import { TriageDecisionSummary, TriageWorkflow } from '../components/TriageDecisionTrace';
 
 function json(value) {
   if (!value) return null;
@@ -85,7 +86,7 @@ function StructuredEvent({ alert }) {
   </div>;
 }
 
-function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, onPin, onExpand, busy, pinned, escalated, expanded }) {
+function AlertDetail({ alert, journey, journeyLoading, journeyError, onClose, onRetriage, onInvestigate, onEscalate, onPin, onExpand, busy, pinned, escalated, expanded }) {
   const [tab, setTab] = useState('overview');
   const [completedActions, setCompletedActions] = useState([]);
   if (!alert) return <aside className="alert-detail empty"><ShieldCheck /><strong>Select an alert</strong><span>Choose an activity to open the investigation workspace.</span></aside>;
@@ -132,7 +133,10 @@ function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, on
         <button className="detail-action" onClick={onRetriage} disabled={busy}><Sparkles />{busy ? 'Queuing…' : 'Re-run AI'}</button>
         <button className={`detail-action ${escalated ? 'is-complete' : ''}`} onClick={onEscalate} title="Add a browser-only reminder for analyst review"><ShieldCheck />{escalated ? 'Review flagged' : 'Flag for review'}</button>
       </div>
-      <div className="detail-tabs">{['overview','evidence','entities','response'].map(item => <button key={item} className={tab === item ? 'active' : ''} onClick={() => setTab(item)}>{item}</button>)}</div>
+      <div className="detail-tabs">{[
+        ['overview','Overview'], ['workflow','Workflow'], ['evidence','Evidence'],
+        ['entities','Entities'], ['response','Response'],
+      ].map(([key,label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}</div>
 
       <div className="detail-scroll">
         {tab === 'overview' && <>
@@ -145,11 +149,13 @@ function AlertDetail({ alert, onClose, onRetriage, onInvestigate, onEscalate, on
             <section className="detail-card"><span className="detail-card-label">Observed enrichment</span><dl><div><dt>Threat-intel match</dt><dd>{threatIntelLabel}</dd></div><div><dt>CMDB match</dt><dd>{cmdbLabel}</dd></div><div><dt>EDR context</dt><dd>{edrLabel}</dd></div></dl></section>
             <section className="detail-card"><span className="detail-card-label">Stored MITRE mappings</span><div className="mitre-list">{(alert.mitre_techniques || []).map(item => <span key={item}>{item}</span>)}{!(alert.mitre_techniques || []).length && <em>No technique mapped in the alert</em>}</div></section>
           </div>
+          <TriageDecisionSummary journey={journey} loading={journeyLoading} error={journeyError} verdict={verdict} onOpenWorkflow={() => setTab('workflow')} />
           <section className="detail-section"><div className="detail-section-title"><h3>Evidence &amp; Analysis Timeline</h3><span>{evidence.length} displayed items</span></div><div className="evidence-timeline">{evidence.map((item, index) => <article key={`${item.label}-${index}`}><i className={index === evidence.length - 1 ? 'danger' : ''} /><time>{timeOnly(alert.timestamp || alert.last_seen)}</time><div><strong>{item.label}</strong><p>{item.detail}</p></div><span>{item.type}</span></article>)}</div></section>
           <div className="detail-bottom-grid"><section className="detail-section"><div className="detail-section-title"><h3>{aiFindings.length ? 'AI key findings' : 'Observed indicators'}</h3><span>{aiFindings.length ? 'Model-derived' : 'Stored fields only'}</span></div><ul className="finding-list">{findings.length ? findings.map((item, index) => <li key={index}>{item}</li>) : <li>No observed indicators or AI findings are available.</li>}</ul></section><section className="detail-section"><div className="detail-section-title"><h3>{aiActions.length ? 'AI recommended actions' : 'Standard analyst checks'}</h3><span>{aiActions.length ? 'Model-derived' : 'Interface defaults'}</span></div><ul className="action-list">{actions.map((item, index) => <li key={index}><Check />{item}</li>)}</ul></section></div>
           <div className="detail-bottom-grid"><section className="detail-section"><div className="detail-section-title"><h3>AI evidence citations</h3><span>{citations.length} supplied</span></div><ul className="finding-list">{citations.length ? citations.map(item => <li key={`${item.type}:${item.id}`}><code>{item.type}:{item.id}</code></li>) : <li>{verdict ? 'No evidence citations were supplied with this AI result.' : 'No AI result is stored, so no citations are available.'}</li>}</ul></section><section className="detail-section"><div className="detail-section-title"><h3>AI limitations</h3><span>{limitations.length} supplied</span></div><ul className="finding-list">{limitations.length ? limitations.map((item, index) => <li key={`${item}-${index}`}>{item}</li>) : <li>{verdict ? 'No explicit limitations were supplied with this AI result.' : 'No AI result is stored, so limitations are unavailable.'}</li>}</ul></section></div>
         </>}
 
+        {tab === 'workflow' && <TriageWorkflow journey={journey} loading={journeyLoading} error={journeyError} />}
         {tab === 'evidence' && <StructuredEvent alert={alert} />}
         {tab === 'entities' && <section className="entity-grid tab-section"><article><User /><span>Affected identity</span><strong>{alert.username || 'Unknown'}</strong></article><article><Monitor /><span>Affected host</span><strong>{alert.hostname || alert.agent_name || 'Unknown'}</strong></article><article><Network /><span>Source address</span><strong>{alert.src_ip || 'Unknown'}</strong></article><article><Network /><span>Destination address</span><strong>{alert.dst_ip || 'Unknown'}</strong></article></section>}
         {tab === 'response' && <section className="detail-section tab-section"><div className="detail-section-title"><h3>Response Review Checklist</h3><span>{completedActions.length}/{actions.length} acknowledged</span></div><div className="module-notice"><ShieldAlert />Session-only review notes. No response action is executed by this checklist.</div><ul className="response-list">{actions.map((item,index)=><li key={index} className={completedActions.includes(index) ? 'complete' : ''}><button aria-label="Toggle local review acknowledgement" onClick={() => setCompletedActions(current => current.includes(index) ? current.filter(value => value !== index) : [...current,index])}><Check /></button><span>{item}</span></li>)}</ul></section>}
@@ -172,6 +178,9 @@ export default function Alerts({ workspace = 'alerts' }) {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [journey, setJourney] = useState(null);
+  const [journeyLoading, setJourneyLoading] = useState(false);
+  const [journeyError, setJourneyError] = useState(false);
   const [viewMode, setViewMode] = useState(initialView.viewMode);
   const [retriaging, setRetriaging] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -220,9 +229,20 @@ export default function Alerts({ workspace = 'alerts' }) {
     return () => window.clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    if (!selected?.id) { setDetail(null); return; }
+    if (!selected?.id) { setDetail(null); setJourney(null); setJourneyError(false); return; }
     let live = true;
-    api(`/alerts/${encodeURIComponent(selected.id)}`).then(data => { if (live) setDetail(data); }).catch(() => { if (live) setDetail(selected); });
+    setJourneyLoading(true);
+    setJourneyError(false);
+    Promise.allSettled([
+      api(`/alerts/${encodeURIComponent(selected.id)}`),
+      api(`/alerts/${encodeURIComponent(selected.id)}/journey`),
+    ]).then(([detailResult, journeyResult]) => {
+      if (!live) return;
+      setDetail(detailResult.status === 'fulfilled' ? detailResult.value : selected);
+      if (journeyResult.status === 'fulfilled') setJourney(journeyResult.value);
+      else { setJourney(null); setJourneyError(true); }
+      setJourneyLoading(false);
+    });
     return () => { live = false; };
   }, [selected]);
 
@@ -294,7 +314,7 @@ export default function Alerts({ workspace = 'alerts' }) {
           </div>
           <div className="workspace-pagination"><span>{total ? `${(page - 1) * 20 + 1}–${Math.min(page * 20, total)} of ${total.toLocaleString()}` : '0 alerts'}</span><div><button disabled={page <= 1} onClick={() => setPage(value => value - 1)}>‹</button><b>{page}</b><button disabled={page >= pages} onClick={() => setPage(value => value + 1)}>›</button></div></div>
         </section>
-        <AlertDetail alert={detail || selected} onClose={() => { setSelected(null); setDetail(null); setExpanded(false); }} onRetriage={retriage} busy={retriaging} expanded={expanded} onExpand={() => setExpanded(value => !value)} pinned={pinnedIds.includes((detail || selected)?.id)} onPin={() => persistList('bmb-pinned-alerts',setPinnedIds,pinnedIds,(detail || selected)?.id)} escalated={escalatedIds.includes((detail || selected)?.id)} onEscalate={() => { const id=(detail || selected)?.id; persistList('bmb-escalated-alerts',setEscalatedIds,escalatedIds,id); setNotice(escalatedIds.includes(id) ? 'Analyst-review flag removed.' : 'Flagged for analyst review in this browser. This does not execute a response action.'); }} onInvestigate={() => navigate(`/investigations?search=${encodeURIComponent((detail || selected)?.id || entity(detail || selected))}`)} />
+        <AlertDetail alert={detail || selected} journey={journey} journeyLoading={journeyLoading} journeyError={journeyError} onClose={() => { setSelected(null); setDetail(null); setJourney(null); setExpanded(false); }} onRetriage={retriage} busy={retriaging} expanded={expanded} onExpand={() => setExpanded(value => !value)} pinned={pinnedIds.includes((detail || selected)?.id)} onPin={() => persistList('bmb-pinned-alerts',setPinnedIds,pinnedIds,(detail || selected)?.id)} escalated={escalatedIds.includes((detail || selected)?.id)} onEscalate={() => { const id=(detail || selected)?.id; persistList('bmb-escalated-alerts',setEscalatedIds,escalatedIds,id); setNotice(escalatedIds.includes(id) ? 'Analyst-review flag removed.' : 'Flagged for analyst review in this browser. This does not execute a response action.'); }} onInvestigate={() => navigate(`/investigations?search=${encodeURIComponent((detail || selected)?.id || entity(detail || selected))}`)} />
       </div>
     </div>
   );

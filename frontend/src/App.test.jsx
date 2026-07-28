@@ -410,6 +410,75 @@ describe('authenticated application flows', () => {
     expect(requests.some(url => /\/incidents(?:\/|\?)/.test(url))).toBe(false);
   });
 
+  it('explains the recorded AI triage decision without inferring missing workflow stages', async () => {
+    const alert = {
+      id:'elastic:explain-1',
+      representative_alert_id:'elastic:explain-1',
+      group_key:'explain-group',
+      occurrence_count:1,
+      rule_desc:'Suspicious PowerShell execution',
+      source_severity:'critical',
+      event_dataset:'edr.endpoint',
+      hostname:'DEV-WS002',
+      username:'maya.georges',
+      timestamp:'2026-07-28T08:00:00.000Z',
+      triage_status:'triaged',
+      verdict:{
+        verdict:'needs_investigation',
+        confidence:0.84,
+        narrative:'PowerShell behavior and identity context require analyst validation.',
+        citations:[{ type:'alert', id:'elastic:explain-1' }],
+        limitations:['The command line was not supplied.'],
+      },
+    };
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.includes('/alert-groups?')) return jsonResponse({ total:1, groups:[alert] });
+      if (url.endsWith('/alerts/elastic%3Aexplain-1')) return jsonResponse(alert);
+      if (url.endsWith('/alerts/elastic%3Aexplain-1/journey')) return jsonResponse({
+        entity:{ type:'alert', id:alert.id },
+        stages:[
+          {
+            id:1, stage:'collected', status:'completed', executor_type:'system',
+            actor:'collector', reason:'Alert accepted from Elastic.',
+            input_summary:{ source:'elastic' }, output_summary:{ stored:true },
+            limitations:[], created_at:'2026-07-28T08:00:01.000Z', finished_at:'2026-07-28T08:00:01.000Z',
+          },
+          {
+            id:2, stage:'triaged', status:'completed', executor_type:'ai',
+            actor:'scheduler', provider:'hermes', model:'meta-llama/llama-3.3-70b-instruct',
+            confidence_kind:'triage', confidence:0.84,
+            reason:'PowerShell behavior and identity context require analyst validation.',
+            input_summary:{ triage_source:'hermes', cache_used:false },
+            output_summary:{ verdict:'needs_investigation', severity:'critical', citation_count:1 },
+            limitations:['The command line was not supplied.'],
+            created_at:'2026-07-28T08:00:05.000Z', finished_at:'2026-07-28T08:00:07.000Z',
+          },
+        ],
+        provenance:{ append_only:true, observed_events:2 },
+      });
+      return jsonResponse({});
+    });
+
+    await renderAt('/alerts?time_range=all');
+
+    expect(document.body.textContent).toContain('Why this assessment?');
+    expect(document.body.textContent).toContain('PowerShell behavior and identity context require analyst validation.');
+    expect(document.body.textContent).toContain('meta-llama/llama-3.3-70b-instruct');
+    expect(document.body.textContent).toContain('84%');
+    expect(document.body.textContent).toContain('This explains the recorded workflow; it does not independently prove the verdict is correct.');
+
+    const workflowTab = [...document.querySelectorAll('.detail-tabs button')].find(button => button.textContent === 'Workflow');
+    await act(async () => workflowTab.click());
+
+    expect(document.body.textContent).toContain('How this alert was processed');
+    expect(document.body.textContent).toContain('2 append-only events');
+    expect(document.body.textContent).toContain('Missing stages are not inferred');
+    expect(document.body.textContent).toContain('Not recorded');
+  });
+
   it('uses one URL-backed executive drawer and closes it with Escape', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     globalThis.fetch = vi.fn(async input => {
