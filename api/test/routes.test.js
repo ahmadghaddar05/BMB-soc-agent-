@@ -567,6 +567,34 @@ test('Elastic collector controls accept only bounded values consumed by the pipe
   assert.equal(rejected.status, 400);
 });
 
+test('live collection settings are independent from optional AI processing', async () => {
+  let written = null;
+  db.setSettingsAtomic = async entries => { written = entries; };
+  db.getAllSettings = async () => Object.fromEntries(written || []);
+  const accepted = await request(routeApp()).put('/api/settings').send({
+    live_collection_enabled:'true',
+    live_collection_interval_seconds:'15',
+    scheduler_enabled:'false',
+    triage_enabled:'false',
+    correlation_enabled:'false',
+    autonomous_agent_enabled:'false',
+  });
+  assert.equal(accepted.status, 200);
+  assert.deepEqual(Object.fromEntries(written), {
+    live_collection_enabled:'true',
+    live_collection_interval_seconds:'15',
+    scheduler_enabled:'false',
+    triage_enabled:'false',
+    correlation_enabled:'false',
+    autonomous_agent_enabled:'false',
+  });
+
+  const tooFast = await request(routeApp()).put('/api/settings').send({
+    live_collection_interval_seconds:'4',
+  });
+  assert.equal(tooFast.status, 400);
+});
+
 test('Phase 9 autonomous and simulated-response policy settings remain explicitly opt-in', async () => {
   db.setSettingsAtomic = async () => {};
   db.getAllSettings = async () => ({ autonomous_agent_enabled:'true' });

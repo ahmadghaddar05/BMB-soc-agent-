@@ -340,7 +340,13 @@ async function retriageAlert(id, settings, { actor = 'system:retriage' } = {}) {
 }
 
 // ── Full run cycle ────────────────────────────────────────────────────────
-async function runCycle(trigger = 'scheduler') {
+async function runCycle(trigger = 'scheduler', options = {}) {
+  const collect = options.collect ?? true;
+  const processStored = options.process ?? true;
+
+  if (!collect && !processStored) {
+    throw new Error('A pipeline cycle must collect alerts, process stored alerts, or both');
+  }
   const settings = await db.getAllSettings();
   const source   = process.env.ALERT_SOURCE || settings.alert_source || 'mock';
 
@@ -358,8 +364,11 @@ async function runCycle(trigger = 'scheduler') {
     ? parseInt(settings.elastic_limit || 20)
     : parseInt(settings.limit || 200);
 
-  const mode =
-    settings.triage_mode || 'pipeline';
+  const configuredMode = settings.triage_mode || 'pipeline';
+  const mode = collect && processStored
+    ? configuredMode
+    : collect ? 'collection'
+      : 'processing';
 
   const runId = await db.startFetchRun(trigger, mode);
   console.log(`[cycle] run #${runId} started (trigger=${trigger})`);
@@ -377,28 +386,31 @@ async function runCycle(trigger = 'scheduler') {
   };
 
   try {
-    // 1. Fetch from the selected source
-    let alerts;
-    let elasticCursorResult = null;
+    // 1. Fetch and persist source alerts. The automatic live collector calls
+    // this stage independently from AI processing so monitoring stays current
+    // even while triage/correlation is disabled or still running.
+    if (collect) {
+      let alerts;
+      let elasticCursorResult = null;
 
-    if (source === 'elastic') {
-      const statuses = (
-        settings.elastic_alert_statuses ||
-        'open,acknowledged'
-      )
-        .split(',')
-        .map(value => value.trim())
-        .filter(Boolean);
+      if (source === 'elastic') {
+        const statuses = (
+          settings.elastic_alert_statuses ||
+          'open,acknowledged'
+        )
+          .split(',')
+          .map(value => value.trim())
+          .filter(Boolean);
 
-      const excludeRules = (
-        settings.elastic_exclude_rules || ''
-      )
-        .split(',')
-        .map(value => value.trim())
-        .filter(Boolean);
+        const excludeRules = (
+          settings.elastic_exclude_rules || ''
+        )
+          .split(',')
+          .map(value => value.trim())
+          .filter(Boolean);
 
-      const cursorEnabled =
-        (settings.elastic_cursor_enabled || 'false') === 'true';
+        const cursorEnabled =
+          (settings.elastic_cursor_enabled || 'false') === 'true';
 
       /*
        * Automatic Elastic collection must always use the persistent
@@ -407,148 +419,150 @@ async function runCycle(trigger = 'scheduler') {
        *
        * Manual runs may still use the non-cursor mode for testing.
        */
-      if (
-        trigger === 'scheduler' &&
-        !cursorEnabled
-      ) {
-        throw new Error(
-          'Automatic Elastic collection requires ' +
-          'elastic_cursor_enabled=true; refusing unsafe fallback'
-        );
-      }
-
-      const commonElasticOptions = {
-        minRiskScore,
-        statuses,
-        severities: ['high', 'critical'],
-        excludeRules,
-        groupWindowMinutes: parseInt(
-          settings.elastic_group_window_minutes || 5,
-          10
-        ),
-      };
-
-      if (cursorEnabled) {
-        let cursor;
-
-        try {
-          cursor = JSON.parse(
-            settings.elastic_cursor_json || ''
-          );
-        } catch {
+        if (
+          ['scheduler', 'live-collector'].includes(trigger) &&
+          !cursorEnabled
+        ) {
           throw new Error(
-            'elastic_cursor_json is not valid JSON'
+            'Automatic Elastic collection requires ' +
+            'elastic_cursor_enabled=true; refusing unsafe fallback'
           );
         }
 
-        elasticCursorResult =
-          await searchAlertsCursor({
+        const commonElasticOptions = {
+          minRiskScore,
+          statuses,
+          severities: ['high', 'critical'],
+          excludeRules,
+          groupWindowMinutes: parseInt(
+            settings.elastic_group_window_minutes || 5,
+            10
+          ),
+        };
+
+        if (cursorEnabled) {
+          let cursor;
+
+          try {
+            cursor = JSON.parse(
+              settings.elastic_cursor_json || ''
+            );
+          } catch {
+            throw new Error(
+              'elastic_cursor_json is not valid JSON'
+            );
+          }
+
+          elasticCursorResult =
+            await searchAlertsCursor({
+              ...commonElasticOptions,
+              cursor,
+
+              pageSize: parseInt(
+                settings.elastic_cursor_page_size || 20,
+                10
+              ),
+
+              maxPages: parseInt(
+                settings.elastic_cursor_max_pages || 5,
+                10
+              ),
+
+              delaySeconds: parseInt(
+                settings.elastic_cursor_delay_seconds || 15,
+                10
+              ),
+            });
+
+          alerts = elasticCursorResult.alerts;
+
+          console.log(
+            `[cycle] cursor pages=${elasticCursorResult.pages} ` +
+            `window_matches=${elasticCursorResult.total} ` +
+            `upper_bound=${elasticCursorResult.upperBound}`
+          );
+        } else {
+          alerts = await fetchElasticAlerts({
             ...commonElasticOptions,
-            cursor,
-
-            pageSize: parseInt(
-              settings.elastic_cursor_page_size || 20,
-              10
-            ),
-
-            maxPages: parseInt(
-              settings.elastic_cursor_max_pages || 5,
-              10
-            ),
-
-            delaySeconds: parseInt(
-              settings.elastic_cursor_delay_seconds || 15,
-              10
-            ),
+            minutes,
+            limit,
           });
-
-        alerts = elasticCursorResult.alerts;
-
-        console.log(
-          `[cycle] cursor pages=${elasticCursorResult.pages} ` +
-          `window_matches=${elasticCursorResult.total} ` +
-          `upper_bound=${elasticCursorResult.upperBound}`
-        );
+        }
       } else {
-        alerts = await fetchElasticAlerts({
-          ...commonElasticOptions,
+        alerts = await fetchWazuhAlerts({
           minutes,
+          minLevel,
           limit,
         });
       }
-    } else {
-      alerts = await fetchWazuhAlerts({
-        minutes,
-        minLevel,
-        limit,
-      });
-    }
 
-    stats.fetched = alerts.length;
-
-    console.log(
-      `[cycle] source=${source} fetched=${alerts.length}`
-    );
-
-    // 2. Ingest (dedup)
-    if (alerts.length) {
-      const r = await ingestAlerts(
-        alerts,
-        runId
-      );
-
-      stats.stored = r.stored;
-      stats.duplicates = r.duplicates;
-
-      if (r.failed) {
-        throw new Error(`Failed to persist ${r.failed} of ${alerts.length} fetched alerts`);
-      }
+      stats.fetched = alerts.length;
 
       console.log(
-        `[cycle] stored=${r.stored} ` +
-        `duplicates=${r.duplicates}`
+        `[cycle] source=${source} fetched=${alerts.length}`
       );
+
+      // 2. Ingest (dedup)
+      if (alerts.length) {
+        const r = await ingestAlerts(
+          alerts,
+          runId
+      );
+
+        stats.stored = r.stored;
+        stats.duplicates = r.duplicates;
+
+        if (r.failed) {
+          throw new Error(`Failed to persist ${r.failed} of ${alerts.length} fetched alerts`);
+        }
+
+        console.log(
+          `[cycle] stored=${r.stored} ` +
+          `duplicates=${r.duplicates}`
+        );
 
       /*
        * Cursor safety:
        * advance only if every fetched alert was either inserted
        * successfully or already existed as a duplicate.
        */
-      if (elasticCursorResult) {
-        const processed =
-          r.stored + r.duplicates;
+        if (elasticCursorResult) {
+          const processed =
+            r.stored + r.duplicates;
 
-        if (processed !== alerts.length) {
-          throw new Error(
-            `Cursor not advanced: fetched=${alerts.length}, ` +
-            `processed=${processed}`
-          );
-        }
+          if (processed !== alerts.length) {
+            throw new Error(
+              `Cursor not advanced: fetched=${alerts.length}, ` +
+              `processed=${processed}`
+            );
+          }
 
-        const previousCursor =
-          elasticCursorResult.previousCursor;
+          const previousCursor =
+            elasticCursorResult.previousCursor;
 
-        const nextCursor =
-          elasticCursorResult.nextCursor;
+          const nextCursor =
+            elasticCursorResult.nextCursor;
 
-        if (
-          JSON.stringify(nextCursor) !==
-          JSON.stringify(previousCursor)
-        ) {
-          await db.setSetting(
-            'elastic_cursor_json',
-            JSON.stringify(nextCursor)
-          );
+          if (
+            JSON.stringify(nextCursor) !==
+            JSON.stringify(previousCursor)
+          ) {
+            await db.setSetting(
+              'elastic_cursor_json',
+              JSON.stringify(nextCursor)
+            );
 
-          console.log(
-            '[cycle] Elastic cursor advanced to ' +
-            JSON.stringify(nextCursor)
-          );
+            console.log(
+              '[cycle] Elastic cursor advanced to ' +
+              JSON.stringify(nextCursor)
+            );
+          }
         }
       }
     }
 
-    // 3. Enrich pending alerts, including any previous backlog.
+    if (processStored) {
+      // 3. Enrich pending alerts, including any previous backlog.
     const enrichmentBatchSize = Math.min(
       Math.max(
         parseInt(
@@ -625,7 +639,7 @@ async function runCycle(trigger = 'scheduler') {
     // already-validated triage/correlation records and reuses Phase 7's
     // allowlisted, audited, idempotent actions. No external response action is
     // available to this worker.
-    if ((settings.autonomous_agent_enabled || 'false') === 'true') {
+      if ((settings.autonomous_agent_enabled || 'false') === 'true') {
       const autonomous = await runAutonomousAgent(settings, runId, {
         trigger, actor: `system:autonomous-agent`,
       });
@@ -640,8 +654,9 @@ async function runCycle(trigger = 'scheduler') {
         `investigations=${stats.investigations_created} notes=${stats.case_notes_added} ` +
         `approvals=${stats.approvals_requested} failures=${stats.autonomous_failures}`
       );
-    } else {
-      console.log('[cycle] Autonomous SOC agent disabled');
+      } else {
+        console.log('[cycle] Autonomous SOC agent disabled');
+      }
     }
 
     await db.finishFetchRun(runId, stats, 'ok');

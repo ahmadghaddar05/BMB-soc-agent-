@@ -150,6 +150,13 @@ test('AI model profile migration selects the existing Hermes route by default', 
   assert.doesNotMatch(sql, /API_KEY\s*=/);
 });
 
+test('live collection migration enables AI-independent alert ingestion by default', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/014_live_elastic_collection.sql'), 'utf8');
+  assert.match(sql, /live_collection_enabled','true/);
+  assert.match(sql, /live_collection_interval_seconds','15/);
+  assert.match(sql, /ON CONFLICT\(key\) DO NOTHING/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

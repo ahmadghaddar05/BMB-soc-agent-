@@ -362,6 +362,62 @@ test('grounded chat persists every Hermes step, tool trace, evidence, and final 
   assert.match(inputs[1].input, /\\u003c\/untrusted_soc_data\\u003e/);
 });
 
+test('model identity answers are grounded in Hermes run metadata, not generated self-identification', async () => {
+  let completed = null;
+  let submittedInstructions = '';
+  const store = {
+    async beginChat() {
+      return { conversationId:'conversation', runId:'local-run', idempotencyKey:'key', history:[] };
+    },
+    async attachHermesRun() {},
+    async recordHermesStep() {},
+    async completeChat(value) { completed = value; },
+    async failChat() {},
+  };
+  const client = {
+    async runAgent(options) {
+      submittedInstructions = options.instructions;
+      await options.onSubmitted('hermes-run-llama');
+      return {
+        runId:'hermes-run-llama',
+        model:'meta-llama/llama-3.3-70b-instruct',
+        attempts:1,
+        latencyMs:2,
+        capabilities:{ safe:true },
+        usage:{ prompt_tokens:3, completion_tokens:4, total_tokens:7 },
+        output:'I am GPT-5.6 Sol through openai-codex.',
+      };
+    },
+  };
+
+  const result = await chatHermes('Which model are you using?', {
+    actor:'administrator',
+    requestId:'request-model-identity',
+    client,
+    store,
+    toolkit:{ specs:[] },
+    settings:{ ai_model_profile:'llama_3_3_70b' },
+    authorization:{ canReadSoc:true, role:'administrator' },
+    config:{
+      hermesModel:'hermes-agent',
+      hermesAnalystMaxToolCalls:1,
+      hermesAnalystTimeoutMs:1000,
+    },
+  });
+
+  assert.equal(
+    result.answer,
+    'This request ran through the Hermes gateway using meta-llama/llama-3.3-70b-instruct.'
+  );
+  assert.equal(result.model, 'meta-llama/llama-3.3-70b-instruct');
+  assert.equal(result.confidence, 'high');
+  assert.deepEqual(result.citations, []);
+  assert.match(result.limitations[0], /Hermes run metadata/i);
+  assert.equal(completed.output.answer, result.answer);
+  assert.match(submittedInstructions, /server selected the requested runtime route/i);
+  assert.doesNotMatch(result.answer, /GPT-5\.6/i);
+});
+
 test('invalid grounded output records the submitted Hermes sub-run as failed', async () => {
   const calls = [];
   const store = {

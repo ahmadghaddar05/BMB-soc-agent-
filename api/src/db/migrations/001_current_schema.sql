@@ -179,6 +179,8 @@ CREATE TRIGGER incidents_updated_at BEFORE UPDATE ON incidents
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 INSERT INTO settings(key, value) VALUES
+  ('live_collection_enabled','true'),
+  ('live_collection_interval_seconds','15'),
   ('scheduler_enabled','false'),
   ('interval_minutes','5'),
   ('lookback_minutes','15'),

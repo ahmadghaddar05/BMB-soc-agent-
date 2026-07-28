@@ -350,7 +350,10 @@ describe('authenticated application flows', () => {
         source_severity:'high', rule_level:12, hostname:'DEV-WS002', event_dataset:'edr.endpoint',
         timestamp:new Date().toISOString(), triage_status:'pending',
       }] });
-      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:true } });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{
+        live_collection_enabled:true, live_collection_running:true,
+        scheduler_enabled:false, scheduler_running:false,
+      } });
       return jsonResponse({});
     });
 
@@ -360,6 +363,7 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Credential dumping attempt');
     expect(document.body.textContent).not.toContain('Critical Security Event Detected');
     expect(document.body.textContent).toContain('high');
+    expect(document.body.textContent).toContain('Elastic live ingest active');
   });
 
   it('keeps live alerts visible when collector health is temporarily unavailable', async () => {

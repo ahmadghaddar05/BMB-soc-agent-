@@ -176,11 +176,15 @@ export default function LiveMonitoring() {
 
   const collectorState = useMemo(() => {
     const status = collector?.collector || {};
-    if (status.cycle_active) return { label: 'Collection cycle active', tone: 'text-cyan-300', dot: 'bg-cyan-300' };
-    if (status.scheduler_enabled && status.scheduler_running) {
-      return { label: 'Collector scheduled', tone: 'text-emerald-300', dot: 'bg-emerald-300' };
+    if (status.collection_active) return { label: 'Receiving Elastic alerts', tone: 'text-cyan-300', dot: 'bg-cyan-300' };
+    if (status.live_collection_enabled && status.live_collection_running) {
+      return { label: 'Elastic live ingest active', tone: 'text-emerald-300', dot: 'bg-emerald-300' };
     }
-    if (collector) return { label: 'Collector paused', tone: 'text-amber-200', dot: 'bg-amber-300' };
+    if (status.cycle_active) return { label: 'Processing stored alerts', tone: 'text-cyan-300', dot: 'bg-cyan-300' };
+    if (status.scheduler_enabled && status.scheduler_running) {
+      return { label: 'AI processing scheduled', tone: 'text-amber-200', dot: 'bg-amber-300' };
+    }
+    if (collector) return { label: 'Live ingest stopped', tone: 'text-amber-200', dot: 'bg-amber-300' };
     return { label: 'Checking collector', tone: 'text-slate-400', dot: 'bg-slate-500' };
   }, [collector]);
 

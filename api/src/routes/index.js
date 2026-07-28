@@ -251,6 +251,7 @@ function executiveAssetViews(records = []) {
 }
 
 const SETTING_KEYS = new Set([
+  'live_collection_enabled','live_collection_interval_seconds',
   'scheduler_enabled','interval_minutes','lookback_minutes','min_level','limit',
   'elastic_cursor_enabled','elastic_lookback_minutes','elastic_min_risk_score','elastic_limit',
   'elastic_cursor_page_size','elastic_cursor_max_pages','elastic_cursor_delay_seconds',
@@ -269,13 +270,14 @@ const SETTING_KEYS = new Set([
 ]);
 
 const BOOLEAN_SETTINGS = new Set([
-  'scheduler_enabled','triage_enabled','autoclose_enabled','correlation_enabled',
+  'live_collection_enabled','scheduler_enabled','triage_enabled','autoclose_enabled','correlation_enabled',
   'elastic_cursor_enabled',
   'caching_enabled','incident_promote_enabled',
   'autonomous_agent_enabled','autonomous_assignment_enabled','simulated_response_proposals_enabled',
 ]);
 
 const INTEGER_SETTING_LIMITS = {
+  live_collection_interval_seconds:[5,300],
   interval_minutes:[1,1440], lookback_minutes:[1,10080], min_level:[0,20], limit:[1,5000],
   elastic_lookback_minutes:[1,525600], elastic_min_risk_score:[0,100], elastic_limit:[1,5000],
   elastic_cursor_page_size:[1,1000], elastic_cursor_max_pages:[1,100], elastic_cursor_delay_seconds:[0,3600],
@@ -356,7 +358,10 @@ r.put('/settings', requireRoles('administrator'), async (req, res) => {
     });
 
     // If scheduler settings changed, restart the cron
-    const schedulerKeys = ['scheduler_enabled','interval_minutes'];
+    const schedulerKeys = [
+      'live_collection_enabled','live_collection_interval_seconds',
+      'scheduler_enabled','interval_minutes',
+    ];
     if (updates.some(([k]) => schedulerKeys.includes(k))) await scheduler.restart();
 
     res.json({ ok: true, settings: await db.getAllSettings() });
@@ -469,6 +474,18 @@ r.get('/collector/status', async (_, res) => {
         scheduler_running:
           runtime.running,
 
+        live_collection_enabled:
+          settings.live_collection_enabled === 'true',
+
+        live_collection_running:
+          runtime.live_collection_running,
+
+        collection_active:
+          runtime.collection_running,
+
+        processing_active:
+          runtime.processing_running,
+
         cycle_active:
           runtime.cycle_active,
 
@@ -488,6 +505,12 @@ r.get('/collector/status', async (_, res) => {
         interval_minutes:
           parseInt(
             settings.interval_minutes || 5,
+            10
+          ),
+
+        live_collection_interval_seconds:
+          parseInt(
+            settings.live_collection_interval_seconds || 15,
             10
           ),
 
@@ -515,6 +538,10 @@ r.get('/collector/status', async (_, res) => {
       runtime: {
         last_run: runtime.last_run,
         last_error: runtime.last_error,
+        last_collection_run: runtime.last_collection_run,
+        last_collection_error: runtime.last_collection_error,
+        last_processing_run: runtime.last_processing_run,
+        last_processing_error: runtime.last_processing_error,
       },
 
       latest_run:
