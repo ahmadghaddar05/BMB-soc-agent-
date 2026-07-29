@@ -9,6 +9,7 @@ import { api, fmtTs, sevClass } from '../lib/api';
 import { activityTitle, humanize, severityOf } from '../lib/executive';
 import { relativeTime } from '../lib/soc';
 import InfoTip from '../components/InfoTip';
+import IncidentCorrelationTrace from '../components/IncidentCorrelationTrace';
 
 const TACTIC_LABELS = {
   reconnaissance: 'Reconnaissance', resource_development: 'Resource Development', initial_access: 'Initial Access',
@@ -179,6 +180,9 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
   const [status, setStatus] = useState('open');
   const [selectedId, setSelectedId] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [journey, setJourney] = useState(null);
+  const [journeyLoading, setJourneyLoading] = useState(false);
+  const [journeyError, setJourneyError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [graphExpanded, setGraphExpanded] = useState(false);
@@ -210,17 +214,27 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    if (!selectedId) { setDetail(null); return; }
+    if (!selectedId) { setDetail(null); setJourney(null); return; }
     let live = true;
     setDetail(null);
+    setJourney(null);
+    setJourneyLoading(true);
+    setJourneyError(false);
     setLoadError('');
-    api(`/incidents/${selectedId}`)
-      .then(data => { if (live) setDetail(data); })
-      .catch(error => {
-        if (!live) return;
+    Promise.allSettled([
+      api(`/incidents/${selectedId}`),
+      api(`/incidents/${selectedId}/journey`),
+    ]).then(([detailResult, journeyResult]) => {
+      if (!live) return;
+      if (detailResult.status === 'fulfilled') setDetail(detailResult.value);
+      else {
         setDetail(null);
-        setLoadError(error.message || 'The selected incident details could not be loaded.');
-      });
+        setLoadError(detailResult.reason?.message || 'The selected incident details could not be loaded.');
+      }
+      if (journeyResult.status === 'fulfilled') setJourney(journeyResult.value);
+      else setJourneyError(true);
+      setJourneyLoading(false);
+    });
     return () => { live = false; };
   }, [selectedId]);
 
@@ -268,6 +282,8 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
     next.delete('incident');
     setSelectedId(null);
     setDetail(null);
+    setJourney(null);
+    setJourneyError(false);
     setLoadError('');
     setGraphExpanded(false);
     setShowAllEvidence(false);
@@ -346,6 +362,14 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
         <article><Link2 /><div><span>Attack path</span><strong>{model.stages.length || 1} stages</strong><small>{model.stages.map(stage => TACTIC_LABELS[stage] || stage).slice(0,3).join(' → ')}</small></div></article>
         <article><Sparkles /><div><span>AI impact assessment</span><strong className={`impact-${detail.severity}`}>{detail.severity || 'Unknown'}</strong><small>{detail.narrative ? 'AI correlation narrative available' : 'Awaiting narrative'}</small></div></article>
       </section>
+
+      <IncidentCorrelationTrace
+        incident={detail}
+        alerts={model.alerts}
+        journey={journey}
+        loading={journeyLoading}
+        error={journeyError}
+      />
 
       <div className="incident-body-grid">
         <main className="incident-main-column">

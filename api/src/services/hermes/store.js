@@ -406,7 +406,7 @@ function createAgentStore(database = db) {
             String(incidentId), actor, runId, hermes.model, confidence,
             json({ alert_ids: incident.alert_ids }),
             json({
-              persistence_status: 'persisted',
+              persistence_status: persistenceStatus,
               run_created: persistence.created || 0,
               run_updated: persistence.updated || 0,
               run_unchanged: persistence.unchanged || 0,

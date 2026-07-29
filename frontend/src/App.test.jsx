@@ -544,6 +544,24 @@ describe('authenticated application flows', () => {
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'mock' });
       if (url.includes('/incidents?status=')) return jsonResponse({ total:1, incidents:[{ id:7, title:'Credential attack', severity:'critical', status:'open', alert_ids:[] }] });
       if (url.endsWith('/incidents/7') && (options.method || 'GET') === 'PATCH') return jsonResponse({ id:7, status:'closed' });
+      if (url.endsWith('/incidents/7/journey')) return jsonResponse({
+        entity:{ id:7, alert_ids:['A','B'], confidence:0.88 },
+        stages:[{
+          id:9, stage:'incident_decision', status:'completed', executor_type:'ai',
+          model:'meta-llama/llama-3.3-70b-instruct', confidence:0.88,
+          output_summary:{ persistence_status:'created' },
+          reason:'The validated alert group created this incident.',
+        }],
+        correlation:{
+          coverage:{ total_alerts:2, correlation_recorded:2, incident_decision_recorded:2 },
+          alert_outcomes:[
+            { alert_id:'A', stage:'correlated', status:'completed', reason:'Shared identity and host.' },
+            { alert_id:'A', stage:'incident_decision', status:'completed' },
+            { alert_id:'B', stage:'correlated', status:'completed', reason:'Shared identity and host.' },
+            { alert_id:'B', stage:'incident_decision', status:'completed' },
+          ],
+        },
+      });
       if (url.endsWith('/incidents/7')) return jsonResponse({ id:7, title:'Credential attack', severity:'critical', status:'open', alert_ids:[], alerts:[] });
       return jsonResponse({});
     });
@@ -559,6 +577,10 @@ describe('authenticated application flows', () => {
     expect(openButton).toBeTruthy();
     await act(async () => openButton.click());
     await settle();
+
+    expect(document.body.textContent).toContain('Why were these alerts grouped?');
+    expect(document.body.textContent).toContain('Created this incident');
+    expect(document.body.textContent).toContain('2/2 alerts');
 
     const closeButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Close incident record'));
     expect(closeButton).toBeTruthy();

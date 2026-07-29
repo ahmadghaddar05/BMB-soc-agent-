@@ -169,15 +169,32 @@ test('alert journey exposes recorded provenance without inferring missing stages
   assert.match(response.body.provenance.description, /Missing stages are not inferred/);
 });
 
-test('incident journey exposes incident decisions without embedding raw alert evidence', async () => {
+test('incident journey exposes bounded incident and per-alert correlation decisions', async () => {
   db.query = async (sql, params = []) => {
-    assert.deepEqual(params, ['17']);
     const text = String(sql);
-    if (text.includes('FROM workflow_stage_events')) {
+    if (text.includes("entity_type='alert'")) {
+      assert.deepEqual(params, [['A','B']]);
+      return {
+        rows:[
+          {
+            alert_id:'A', id:10, stage:'correlated', status:'completed',
+            executor_type:'ai', model:'meta-llama/llama-3.3-70b-instruct',
+            confidence:0.84, reason:'Shared identity and host were validated.',
+          },
+          {
+            alert_id:'A', id:11, stage:'incident_decision', status:'completed',
+            executor_type:'ai', output_summary:{ decision:'created', incident_id:17 },
+          },
+        ],
+      };
+    }
+    assert.deepEqual(params, ['17']);
+    if (text.includes("entity_type='incident'")) {
       return {
         rows:[{
           id:9, stage:'incident_decision', status:'completed',
           executor_type:'ai', confidence_kind:'incident', confidence:0.84,
+          output_summary:{ persistence_status:'created' },
         }],
       };
     }
@@ -197,6 +214,10 @@ test('incident journey exposes incident decisions without embedding raw alert ev
   assert.equal(response.body.entity.type, 'incident');
   assert.equal(response.body.entity.alert_count, 2);
   assert.equal(response.body.stages[0].confidence_kind, 'incident');
+  assert.equal(response.body.correlation.alert_outcomes.length, 2);
+  assert.equal(response.body.correlation.coverage.correlation_recorded, 1);
+  assert.equal(response.body.correlation.coverage.incident_decision_recorded, 1);
+  assert.match(response.body.provenance.description, /Missing decisions are not inferred/);
   assert.equal(Object.hasOwn(response.body, 'alerts'), false);
 });
 

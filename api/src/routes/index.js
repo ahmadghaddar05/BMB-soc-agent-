@@ -1165,13 +1165,16 @@ r.get('/incidents/:id/journey', async (req, res) => {
   try {
     const idError = positiveRecordId(req.params.id, 'incident id');
     if (idError) return res.status(400).json({ error: idError });
-    const [incident, events] = await Promise.all([
-      db.query(
-        `SELECT id,title,severity,confidence,status,alert_ids,correlation_run_id,
-                created_at,updated_at
-         FROM incidents WHERE id=$1`,
-        [req.params.id]
-      ),
+    const incident = await db.query(
+      `SELECT id,title,severity,confidence,status,alert_ids,correlation_run_id,
+              common_entities,first_seen,last_seen,created_at,updated_at
+       FROM incidents WHERE id=$1`,
+      [req.params.id]
+    );
+    if (!incident.rows.length) return res.status(404).json({ error: 'Incident not found' });
+    const record = incident.rows[0];
+    const alertIds = Array.isArray(record.alert_ids) ? record.alert_ids.map(String) : [];
+    const [events, alertEvents] = await Promise.all([
       db.query(
         `SELECT id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
                 provider,model,confidence_kind,confidence,input_summary,
@@ -1187,22 +1190,49 @@ r.get('/incidents/:id/journey', async (req, res) => {
                     ELSE 99
                   END ASC,
                   id ASC`,
-        [req.params.id]
+         [req.params.id]
       ),
+      alertIds.length
+        ? db.query(
+          `SELECT DISTINCT ON (entity_id,stage)
+                  entity_id AS alert_id,id,stage,status,executor_type,actor,
+                  fetch_run_id,agent_run_id,provider,model,confidence_kind,
+                  confidence,input_summary,output_summary,reason,limitations,
+                  error_code,error_message,started_at,finished_at,created_at
+           FROM workflow_stage_events
+           WHERE entity_type='alert'
+             AND entity_id=ANY($1::text[])
+             AND stage IN ('correlated','incident_decision')
+           ORDER BY entity_id,stage,created_at DESC,id DESC`,
+          [alertIds]
+        )
+        : Promise.resolve({ rows:[] }),
     ]);
-    if (!incident.rows.length) return res.status(404).json({ error: 'Incident not found' });
-    const record = incident.rows[0];
+    const coverage = alertEvents.rows.reduce((result, event) => {
+      if (event.stage === 'correlated') result.correlation_recorded += 1;
+      if (event.stage === 'incident_decision') result.incident_decision_recorded += 1;
+      return result;
+    }, {
+      total_alerts:alertIds.length,
+      correlation_recorded:0,
+      incident_decision_recorded:0,
+    });
     res.json({
       entity: {
         type:'incident',
         ...record,
-        alert_count: Array.isArray(record.alert_ids) ? record.alert_ids.length : 0,
+        alert_count: alertIds.length,
       },
       stages: events.rows,
+      correlation: {
+        run_id: record.correlation_run_id || null,
+        alert_outcomes: alertEvents.rows,
+        coverage,
+      },
       provenance: {
         append_only: true,
-        observed_events: events.rows.length,
-        description: 'Recorded incident decisions only. Technical alert evidence remains available in the analyst incident view.',
+        observed_events: events.rows.length + alertEvents.rows.length,
+        description: 'Recorded incident and alert correlation decisions only. Missing decisions are not inferred.',
       },
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
