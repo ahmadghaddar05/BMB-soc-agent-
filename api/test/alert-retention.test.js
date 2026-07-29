@@ -62,6 +62,9 @@ test('retention preview is severity-aware and protects durable workflow evidence
   assert.match(sql, /investigation_alerts/);
   assert.match(sql, /incidents/);
   assert.match(sql, /simulated_response_states/);
+  assert.match(sql, /\$1::integer/);
+  assert.match(sql, /\$2::integer/);
+  assert.match(sql, /\$3::integer/);
   assert.match(sql, /INTERVAL '1 day'/);
   assert.equal(result.candidates.total, 15);
   assert.equal(result.protected.total, 2);

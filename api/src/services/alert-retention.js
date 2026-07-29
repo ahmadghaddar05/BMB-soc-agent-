@@ -36,9 +36,9 @@ function eligibilitySql(mode) {
     COALESCE(a.last_seen,a.timestamp,a.fetched_at) <
       NOW() - (
         CASE
-          WHEN a.effective_severity = 'critical' THEN $1
-          WHEN a.effective_severity = 'high' THEN $2
-          ELSE $3
+          WHEN a.effective_severity = 'critical' THEN $1::integer
+          WHEN a.effective_severity = 'high' THEN $2::integer
+          ELSE $3::integer
         END * INTERVAL '1 day'
       )`;
 }
