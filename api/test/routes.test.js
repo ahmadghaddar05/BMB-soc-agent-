@@ -151,6 +151,14 @@ test('alert journey exposes recorded provenance without inferring missing stages
       };
     }
     if (text.includes('FROM analyst_decision_reviews')) return { rows:[] };
+    if (text.includes('FROM incidents')) {
+      return {
+        rows:[{
+          id:17, title:'Stored incident membership', severity:'critical',
+          status:'open', correlation_run_id:null,
+        }],
+      };
+    }
     if (text.includes('FROM alerts WHERE id=$1')) {
       return {
         rows:[{
@@ -166,6 +174,8 @@ test('alert journey exposes recorded provenance without inferring missing stages
   assert.equal(response.status, 200);
   assert.equal(response.body.entity.type, 'alert');
   assert.equal(response.body.stages[0].stage, 'collected');
+  assert.equal(response.body.current_state.incident.id, 17);
+  assert.match(response.body.current_state.description, /currently stored as incident evidence/);
   assert.equal(response.body.provenance.append_only, true);
   assert.match(response.body.provenance.description, /Missing stages are not inferred/);
 });

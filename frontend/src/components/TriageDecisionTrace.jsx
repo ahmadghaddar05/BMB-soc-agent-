@@ -1,6 +1,6 @@
 import {
   AlertTriangle, Bot, Check, CircleDashed, Clock3, Database,
-  GitMerge, Layers3, ShieldCheck, Sparkles, X,
+  GitMerge, Layers3, Link2, ShieldCheck, Sparkles, X,
 } from 'lucide-react';
 import { fmtTs, verdictLabel } from '../lib/api';
 
@@ -19,6 +19,7 @@ const STATUS_ICON = {
   skipped: CircleDashed,
   running: Clock3,
   pending: Clock3,
+  current: Link2,
 };
 
 function object(value) {
@@ -93,6 +94,12 @@ export function TriageDecisionSummary({ journey, loading, error, verdict, onOpen
             <div><dt>Evidence citations</dt><dd>{Number(output.citation_count || 0)} recorded</dd></div>
             <div><dt>Limitations</dt><dd>{limitations.length ? `${limitations.length} recorded` : 'None supplied'}</dd></div>
           </dl>
+          <div className={`decision-limitations ${limitations.length ? '' : 'is-clear'}`}>
+            <strong>{limitations.length ? 'Known evidence limitations' : 'No explicit limitation supplied'}</strong>
+            {limitations.length
+              ? <ul>{limitations.slice(0, 3).map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>
+              : <p>The model did not record a limitation. Analysts should still verify the cited evidence before acting.</p>}
+          </div>
           <p className="decision-trust-note">This explains the recorded workflow; it does not independently prove the verdict is correct.</p>
         </>
       )}
@@ -135,6 +142,7 @@ function StageDetails({ event }) {
 export function TriageWorkflow({ journey, loading, error }) {
   const events = journey?.stages || [];
   const recorded = latestByStage(events);
+  const linkedIncident = journey?.current_state?.incident || null;
 
   if (loading) return <section className="workflow-empty"><i className="trace-spinner" /><strong>Loading recorded workflow</strong><span>Reading append-only provenance for this alert.</span></section>;
   if (error) return <section className="workflow-empty is-error"><AlertTriangle /><strong>Workflow unavailable</strong><span>The provenance endpoint could not be read. No workflow state has been inferred.</span></section>;
@@ -146,10 +154,22 @@ export function TriageWorkflow({ journey, loading, error }) {
         <div><span>Recorded provenance</span><h3 id="workflow-title">How this alert was processed</h3></div>
         <p>{events.length} append-only event{events.length === 1 ? '' : 's'}</p>
       </header>
-      <div className="workflow-trust-banner"><ShieldCheck /><p><strong>Observed workflow only</strong><span>Missing stages are not inferred. Stages without a ledger event are shown as not recorded.</span></p></div>
+      <div className="workflow-trust-banner"><ShieldCheck /><p><strong>Recorded workflow and current state</strong><span>Ledger events remain append-only. A current incident link may be shown separately when older provenance is unavailable.</span></p></div>
       <ol className="workflow-stage-list">
         {STAGES.map(stage => {
-          const event = recorded.get(stage.key);
+          const recordedEvent = recorded.get(stage.key);
+          const currentStateEvent = !recordedEvent && linkedIncident && stage.key === 'correlated'
+            ? {
+              status:'current',
+              reason:`Currently linked to incident INC-${String(linkedIncident.id).padStart(5, '0')}. The original correlation ledger event is unavailable.`,
+            }
+            : !recordedEvent && linkedIncident && stage.key === 'incident_decision'
+              ? {
+                status:'current',
+                reason:`The linked incident is currently ${String(linkedIncident.status || 'recorded').replaceAll('_', ' ')}. This is database state, not reconstructed AI provenance.`,
+              }
+              : null;
+          const event = recordedEvent || currentStateEvent;
           const Icon = stage.icon;
           const StatusIcon = STATUS_ICON[event?.status] || CircleDashed;
           return (
@@ -158,9 +178,9 @@ export function TriageWorkflow({ journey, loading, error }) {
               <div className="workflow-stage-body">
                 <div className="workflow-stage-title">
                   <div><h4>{stage.label}</h4><p>{event?.reason || stage.description}</p></div>
-                  <span><StatusIcon />{event?.status || 'Not recorded'}</span>
+                  <span><StatusIcon />{event?.status === 'current' ? 'Current state' : event?.status || 'Not recorded'}</span>
                 </div>
-                {event && <StageDetails event={event} />}
+                {recordedEvent && <StageDetails event={recordedEvent} />}
               </div>
             </li>
           );

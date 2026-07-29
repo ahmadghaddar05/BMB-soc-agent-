@@ -1234,7 +1234,7 @@ r.get('/alerts/:id', async (req, res) => {
 
 r.get('/alerts/:id/journey', async (req, res) => {
   try {
-    const [alert, events, reviews] = await Promise.all([
+    const [alert, events, reviews, incidentMembership] = await Promise.all([
       db.query(
         `SELECT id,timestamp,source_system,enrichment_status,triage_status,
                 triage_run_id,fetch_run_id
@@ -1266,12 +1266,26 @@ r.get('/alerts/:id/journey', async (req, res) => {
          LIMIT 25`,
         [req.params.id]
       ),
+      db.query(
+        `SELECT id,title,severity,status,correlation_run_id,created_at,updated_at
+         FROM incidents
+         WHERE $1::text=ANY(alert_ids)
+         ORDER BY updated_at DESC,id DESC
+         LIMIT 1`,
+        [req.params.id]
+      ),
     ]);
     if (!alert.rows.length) return res.status(404).json({ error: 'Alert not found' });
     res.json({
       entity: { type:'alert', ...alert.rows[0] },
       stages: events.rows,
       analyst_reviews: reviews.rows,
+      current_state: {
+        incident: incidentMembership.rows[0] || null,
+        description: incidentMembership.rows.length
+          ? 'The alert is currently stored as incident evidence. This state is shown separately from append-only workflow provenance.'
+          : 'The alert is not currently linked to a stored incident.',
+      },
       provenance: {
         append_only: true,
         observed_events: events.rows.length,

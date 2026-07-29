@@ -30,7 +30,7 @@ export default function LoginPage({ onAuthenticated }) {
       <section className="login-layout" aria-labelledby="login-heading">
         <div className="login-story">
           <div className="login-bmb-lockup" role="img" aria-label="BMB Security Operations">
-            <span className="bmb-logo-original" aria-hidden="true" />
+            <img src="/bmb-logo.png?v=6" alt="" aria-hidden="true" />
           </div>
         </div>
 

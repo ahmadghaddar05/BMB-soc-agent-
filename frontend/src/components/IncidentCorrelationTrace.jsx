@@ -74,6 +74,8 @@ export default function IncidentCorrelationTrace({ incident, alerts, journey, lo
   const total = Number(coverage.total_alerts ?? alerts.length ?? 0);
   const recorded = Number(coverage.correlation_recorded ?? correlated.length);
   const decisionRecorded = Number(coverage.incident_decision_recorded ?? alertDecisions.length);
+  const hasMembership = total > 0;
+  const hasDecisionProvenance = Boolean(decision || outcomes.length);
 
   return (
     <section className="incident-correlation-trace" aria-labelledby="incident-correlation-title">
@@ -83,9 +85,9 @@ export default function IncidentCorrelationTrace({ incident, alerts, journey, lo
           <h2 id="incident-correlation-title">Why were these alerts grouped?</h2>
           <p>Recorded correlation evidence and server validation—not a reconstructed explanation.</p>
         </div>
-        <span className={`correlation-trace-state ${decision ? 'recorded' : 'missing'}`}>
-          {decision ? <Check /> : <CircleDashed />}
-          {decision ? 'Decision recorded' : 'Decision not recorded'}
+        <span className={`correlation-trace-state ${decision ? 'recorded' : hasMembership ? 'current' : 'missing'}`}>
+          {decision ? <Check /> : hasMembership ? <Link2 /> : <CircleDashed />}
+          {decision ? 'Decision recorded' : hasMembership ? 'Membership recorded' : 'Decision not recorded'}
         </span>
       </header>
 
@@ -93,15 +95,18 @@ export default function IncidentCorrelationTrace({ incident, alerts, journey, lo
         <div className="correlation-trace-message" role="status"><i className="trace-spinner" />Loading correlation provenance…</div>
       ) : error ? (
         <div className="correlation-trace-message error" role="alert"><AlertTriangle />Correlation provenance could not be loaded. Incident evidence remains available below.</div>
-      ) : !decision && !outcomes.length ? (
+      ) : !hasDecisionProvenance && !hasMembership ? (
         <div className="correlation-trace-message"><CircleDashed />This incident has no append-only correlation decision. It may predate workflow provenance; missing history is not inferred.</div>
       ) : (
         <>
+          {!hasDecisionProvenance && (
+            <div className="correlation-trace-message is-current"><Link2 />The incident and its alert membership are stored, but the original correlation ledger events are unavailable. Current state is shown without reconstructing an AI decision.</div>
+          )}
           <div className="correlation-trace-facts">
             <article>
               <span>Incident outcome</span>
-              <strong>{outcomeLabel(output.persistence_status)}</strong>
-              <small>{decision?.reason || 'The stored correlation produced an incident record.'}</small>
+              <strong>{decision ? outcomeLabel(output.persistence_status) : 'Current membership stored'}</strong>
+              <small>{decision?.reason || 'The incident record links the alerts shown below.'}</small>
             </article>
             <article>
               <span>Model confidence</span>
@@ -110,13 +115,13 @@ export default function IncidentCorrelationTrace({ incident, alerts, journey, lo
             </article>
             <article>
               <span>Evidence coverage</span>
-              <strong>{recorded}/{total || '—'} alerts</strong>
-              <small>{decisionRecorded}/{total || '—'} final alert decisions recorded</small>
+              <strong>{recorded}/{total || '—'} ledger records</strong>
+              <small>{decisionRecorded}/{total || '—'} incident-decision records available</small>
             </article>
             <article>
               <span>Decision source</span>
-              <strong>{sourceEvent?.executor_type === 'ai' ? 'AI-assisted' : sourceEvent ? 'System recorded' : 'Not recorded'}</strong>
-              <small>{sourceEvent?.model || sourceEvent?.provider || 'No model identity stored'}</small>
+              <strong>{sourceEvent?.executor_type === 'ai' ? 'AI-assisted' : sourceEvent ? 'System recorded' : 'Current database state'}</strong>
+              <small>{sourceEvent?.model || sourceEvent?.provider || 'Original model identity unavailable'}</small>
             </article>
           </div>
 

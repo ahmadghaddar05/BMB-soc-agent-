@@ -488,6 +488,12 @@ describe('authenticated application flows', () => {
             created_at:'2026-07-28T08:00:05.000Z', finished_at:'2026-07-28T08:00:07.000Z',
           },
         ],
+        current_state:{
+          incident:{
+            id:17, title:'Linked PowerShell activity', severity:'critical', status:'open',
+          },
+          description:'The alert is currently stored as incident evidence.',
+        },
         provenance:{ append_only:true, observed_events:2 },
       });
       return jsonResponse({});
@@ -499,6 +505,8 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('PowerShell behavior and identity context require analyst validation.');
     expect(document.body.textContent).toContain('meta-llama/llama-3.3-70b-instruct');
     expect(document.body.textContent).toContain('84%');
+    expect(document.body.textContent).toContain('Known evidence limitations');
+    expect(document.body.textContent).toContain('The command line was not supplied.');
     expect(document.body.textContent).toContain('This explains the recorded workflow; it does not independently prove the verdict is correct.');
 
     const workflowTab = [...document.querySelectorAll('.detail-tabs button')].find(button => button.textContent === 'Workflow');
@@ -506,7 +514,9 @@ describe('authenticated application flows', () => {
 
     expect(document.body.textContent).toContain('How this alert was processed');
     expect(document.body.textContent).toContain('2 append-only events');
-    expect(document.body.textContent).toContain('Missing stages are not inferred');
+    expect(document.body.textContent).toContain('Recorded workflow and current state');
+    expect(document.body.textContent).toContain('Currently linked to incident INC-00017');
+    expect(document.body.textContent).toContain('Current state');
     expect(document.body.textContent).toContain('Not recorded');
   });
 
@@ -619,7 +629,7 @@ describe('authenticated application flows', () => {
 
     expect(document.body.textContent).toContain('Why were these alerts grouped?');
     expect(document.body.textContent).toContain('Created this incident');
-    expect(document.body.textContent).toContain('2/2 alerts');
+    expect(document.body.textContent).toContain('2/2 ledger records');
     expect(document.body.textContent).toContain('No analyst decision recorded');
 
     const reviewButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Record review'));
