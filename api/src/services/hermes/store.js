@@ -340,6 +340,11 @@ function createAgentStore(database = db) {
       for (let index = 0; index < output.incidents.length; index += 1) {
         const incident = output.incidents[index];
         const incidentId = incidentIds[index];
+        const persistenceResult = persistence.results?.[index];
+        const persistenceStatus = persistenceResult?.status
+          || (persistence.created ? 'created'
+            : persistence.updated ? 'updated'
+              : 'unchanged');
         const confidence = Number.isFinite(Number(incident.confidence))
           ? Math.min(1, Math.max(0, Number(incident.confidence))) : null;
         const limitations = Array.isArray(incident.limitations) ? incident.limitations : [];
@@ -361,6 +366,29 @@ function createAgentStore(database = db) {
               incident.narrative || 'The alert was included in an evidence-grounded correlation group.',
               json(limitations),
               `correlation:${runId}:alert:${alertId}`,
+              fetchRunId,
+            ]
+          );
+          await client.query(
+            `INSERT INTO workflow_stage_events(
+               entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+               provider,model,confidence_kind,confidence,input_summary,output_summary,
+               reason,limitations,idempotency_key,finished_at
+             ) VALUES(
+               'alert',$1::text,'incident_decision','completed','ai',$2::text,$11::integer,$3::uuid,'hermes',$4::text,
+               'incident',$5::double precision,$6::jsonb,$7::jsonb,$8::text,$9::jsonb,$10::text,NOW()
+             ) ON CONFLICT(idempotency_key) DO NOTHING`,
+            [
+              String(alertId), actor, runId, hermes.model, confidence,
+              json({ correlation_run_id:runId, incident_id:incidentId }),
+              json({
+                decision:persistenceStatus,
+                incident_id:incidentId,
+                severity:incident.severity,
+              }),
+              `Alert evidence ${persistenceStatus === 'created' ? 'created' : 'contributed to'} incident ${incidentId}.`,
+              json(limitations),
+              `incident-decision:${runId}:alert:${alertId}`,
               fetchRunId,
             ]
           );
@@ -417,6 +445,23 @@ function createAgentStore(database = db) {
             fetchRunId,
           ]
         );
+        await client.query(
+          `INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+             provider,model,input_summary,output_summary,reason,idempotency_key,finished_at
+           ) VALUES(
+             'alert',$1::text,'incident_decision','skipped','ai',$2::text,$7::integer,$3::uuid,'hermes',$4::text,
+             $5::jsonb,jsonb_build_object('decision','not_promoted'),
+             'No incident was created or updated because the alert was not included in a validated correlation group.',
+             $6::text,NOW()
+           ) ON CONFLICT(idempotency_key) DO NOTHING`,
+          [
+            alertId, actor, runId, hermes.model,
+            json({ correlation_run_id:runId }),
+            `incident-decision:${runId}:alert:${alertId}`,
+            fetchRunId,
+          ]
+        );
       }
       await client.query(
         `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
@@ -469,6 +514,28 @@ function createAgentStore(database = db) {
               '{}'::jsonb,
               'The correlation run did not produce a valid completed decision.',
               $3::text,$4::text,CONCAT('correlation:',$1::uuid,':alert:',links.evidence_id),NOW()
+       FROM agent_evidence_links links
+       WHERE links.run_id=$1
+         AND links.evidence_type='alert'
+         AND links.relation='input'
+       ON CONFLICT(idempotency_key) DO NOTHING`,
+      [
+        runId, actor, error?.code || 'HERMES_CORRELATION_FAILED',
+        String(error?.message || 'Hermes correlation failed').slice(0, 500),
+        fetchRunId,
+      ]
+    );
+    await database.query(
+      `INSERT INTO workflow_stage_events(
+         entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+         provider,input_summary,output_summary,reason,error_code,error_message,
+         idempotency_key,finished_at
+       )
+       SELECT 'alert',links.evidence_id,'incident_decision','skipped','ai',$2::text,$5::integer,$1::uuid,
+              'hermes',jsonb_build_object('correlation_run_id',$1),
+              jsonb_build_object('decision','blocked'),
+              'No incident decision was possible because correlation did not complete successfully.',
+              $3::text,$4::text,CONCAT('incident-decision:',$1::uuid,':alert:',links.evidence_id),NOW()
        FROM agent_evidence_links links
        WHERE links.run_id=$1
          AND links.evidence_type='alert'

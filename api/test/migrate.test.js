@@ -186,6 +186,16 @@ test('alert retention migration defines severity policy and a durable run ledger
   assert.match(sql, /COALESCE\(last_seen,timestamp,fetched_at\)/);
 });
 
+test('correlation workflow completion migration activates correlation and replays recent triage', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/017_correlation_workflow_completion.sql'),
+    'utf8'
+  );
+  assert.match(sql, /VALUES \('correlation_enabled','true',NOW\(\)\)/);
+  assert.match(sql, /VALUES \('correlation_cursor_json','',NOW\(\)\)/);
+  assert.match(sql, /ON CONFLICT\(key\) DO UPDATE/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

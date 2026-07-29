@@ -221,6 +221,20 @@ async function correlatePending(settings = {}, fetchRunId = null, {
         entityWindowHours, candidates.length, requestId,
       ]
     );
+    await db.query(
+      `INSERT INTO workflow_stage_events(
+         entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+         input_summary,output_summary,reason,idempotency_key,finished_at
+       )
+       SELECT 'alert',candidate_id,'incident_decision','skipped','system',$2::text,$3::integer,
+              jsonb_build_object('correlation_status','skipped'),
+              jsonb_build_object('decision','not_promoted'),
+              'No incident was created because no plausible shared entity was found in the configured time window.',
+              CONCAT('incident-screen:',$4::text,':alert:',candidate_id),NOW()
+       FROM UNNEST($1::text[]) AS candidate_id
+       ON CONFLICT(idempotency_key) DO NOTHING`,
+      [candidates.map(row => String(row.id)), actor, fetchRunId, requestId]
+    );
     await db.setSetting('correlation_cursor_json', JSON.stringify(nextCursor));
     return {
       incidents_created: 0, incidents_updated: 0, incidents_unchanged: 0,
@@ -238,6 +252,7 @@ async function correlatePending(settings = {}, fetchRunId = null, {
       let updated = 0;
       let unchanged = 0;
       const incidentIds = [];
+      const persistenceResults = [];
       const targetIds = new Set();
       // Resolve every existing target before writing. This prevents two model
       // groups from silently rewriting the same open incident in one run.
@@ -265,11 +280,16 @@ async function correlatePending(settings = {}, fetchRunId = null, {
           incident, firstSeen, lastSeen, fetchRunId, correlationRunId, identityAlertIds
         );
         incidentIds.push(persisted.id);
+        persistenceResults.push({
+          incident_id:persisted.id,
+          status:persisted.status,
+          alert_ids:incident.alert_ids.map(String),
+        });
         if (persisted.status === 'created') created += 1;
         else if (persisted.status === 'updated') updated += 1;
         else unchanged += 1;
       }
-      return { created, updated, unchanged, incidentIds };
+      return { created, updated, unchanged, incidentIds, results:persistenceResults };
     },
   });
 

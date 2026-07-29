@@ -91,3 +91,40 @@ test('cursor advances only after Hermes output and incident persistence succeed'
   }), /Hermes failed/);
   assert.equal(settingsWritten.length, 0);
 });
+
+test('alerts screened out before Hermes receive correlation and incident decisions', async () => {
+  const fresh = [
+    {
+      id:'A', timestamp:'2026-07-29T08:00:00Z', triaged_at:'2026-07-29T08:01:00Z',
+      username:'maya', hostname:'HR-WS001', rule_level:12,
+    },
+    {
+      id:'B', timestamp:'2026-07-29T08:02:00Z', triaged_at:'2026-07-29T08:03:00Z',
+      username:'david', hostname:'DB01', rule_level:12,
+    },
+  ];
+  const workflowWrites = [];
+  const settingsWritten = [];
+  db.query = async (sql, params) => {
+    const text = String(sql);
+    if (text.includes('FROM alerts') && text.includes('COALESCE(triaged_at')) return { rows:fresh };
+    if (text.includes('FROM alerts')) return { rows:[] };
+    if (text.includes('INSERT INTO workflow_stage_events')) {
+      workflowWrites.push({ sql:text, params });
+      return { rows:[], rowCount:2 };
+    }
+    throw new Error(`Unexpected query: ${text}`);
+  };
+  db.setSetting = async (key, value) => settingsWritten.push([key, value]);
+
+  const result = await correlatePending({}, 7, {
+    requestId:'screening-run',
+    correlate:async () => { throw new Error('Hermes must not run without plausible links'); },
+  });
+
+  assert.equal(result.skipped_reason, 'no_plausible_entity_links');
+  assert.equal(workflowWrites.length, 2);
+  assert.ok(workflowWrites.some(call => call.sql.includes("'correlated','skipped'")));
+  assert.ok(workflowWrites.some(call => call.sql.includes("'incident_decision','skipped'")));
+  assert.equal(settingsWritten.length, 1);
+});
