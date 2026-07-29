@@ -63,8 +63,9 @@ describe('authenticated application flows', () => {
     });
 
     await renderAt('/login');
-    expect(document.body.textContent).toContain('One secure entry point');
-    expect(document.body.textContent).toContain('Roles cannot be selected');
+    expect(document.querySelector('.login-bmb-lockup')).not.toBeNull();
+    expect(document.body.textContent).not.toContain('One secure entry point');
+    expect(document.body.textContent).toContain('role and landing page are determined');
     expect(document.querySelectorAll('.login-portal-card')).toHaveLength(0);
 
     const [username, password] = document.querySelectorAll('.login-card input');
@@ -107,7 +108,7 @@ describe('authenticated application flows', () => {
     await act(async () => signOut.click());
     await settle();
     expect(calls.some(item => item.url.endsWith('/auth/logout'))).toBe(true);
-    expect(document.body.textContent).toContain('One secure entry point');
+    expect(document.querySelector('.login-bmb-lockup')).not.toBeNull();
   });
 
   it('uses the authenticated role for navigation and redirects unauthorized executive routes', async () => {
@@ -544,8 +545,16 @@ describe('authenticated application flows', () => {
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'mock' });
       if (url.includes('/incidents?status=')) return jsonResponse({ total:1, incidents:[{ id:7, title:'Credential attack', severity:'critical', status:'open', alert_ids:[] }] });
       if (url.endsWith('/incidents/7') && (options.method || 'GET') === 'PATCH') return jsonResponse({ id:7, status:'closed' });
+      if (url.endsWith('/workflow-reviews') && options.method === 'POST') return jsonResponse({
+        review:{
+          id:4, entity_type:'incident', entity_id:'7', decision:'confirmed',
+          reason:'Stored correlation evidence supports this incident.', actor:'analyst',
+          created_at:'2026-07-29T08:00:00Z',
+        },
+      }, 201);
       if (url.endsWith('/incidents/7/journey')) return jsonResponse({
         entity:{ id:7, alert_ids:['A','B'], confidence:0.88 },
+        analyst_reviews:[],
         stages:[{
           id:9, stage:'incident_decision', status:'completed', executor_type:'ai',
           model:'meta-llama/llama-3.3-70b-instruct', confidence:0.88,
@@ -581,6 +590,26 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Why were these alerts grouped?');
     expect(document.body.textContent).toContain('Created this incident');
     expect(document.body.textContent).toContain('2/2 alerts');
+    expect(document.body.textContent).toContain('No analyst decision recorded');
+
+    const reviewButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Record review'));
+    await act(async () => reviewButton.click());
+    const reviewReason = document.querySelector('.analyst-review-reason textarea');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(globalThis.HTMLTextAreaElement.prototype, 'value').set.call(
+        reviewReason, 'Stored correlation evidence supports this incident.'
+      );
+      reviewReason.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    const recordButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Record analyst review'));
+    await act(async () => recordButton.click());
+    await settle();
+    expect(document.body.textContent).toContain('Confirm by analyst');
+    const reviewRequest = requests.find(item => item.url.endsWith('/workflow-reviews') && item.options.method === 'POST');
+    expect(JSON.parse(reviewRequest.options.body)).toMatchObject({
+      entity_type:'incident', entity_id:'7', decision:'confirmed',
+    });
+    expect(reviewRequest.options.headers['X-CSRF-Token']).toBe('csrf-token');
 
     const closeButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Close incident record'));
     expect(closeButton).toBeTruthy();

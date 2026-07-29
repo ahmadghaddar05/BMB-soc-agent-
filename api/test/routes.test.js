@@ -150,6 +150,7 @@ test('alert journey exposes recorded provenance without inferring missing stages
         }],
       };
     }
+    if (text.includes('FROM analyst_decision_reviews')) return { rows:[] };
     if (text.includes('FROM alerts WHERE id=$1')) {
       return {
         rows:[{
@@ -189,12 +190,20 @@ test('incident journey exposes bounded incident and per-alert correlation decisi
       };
     }
     assert.deepEqual(params, ['17']);
-    if (text.includes("entity_type='incident'")) {
+    if (text.includes('FROM workflow_stage_events') && text.includes("entity_type='incident'")) {
       return {
         rows:[{
           id:9, stage:'incident_decision', status:'completed',
           executor_type:'ai', confidence_kind:'incident', confidence:0.84,
           output_summary:{ persistence_status:'created' },
+        }],
+      };
+    }
+    if (text.includes('FROM analyst_decision_reviews')) {
+      return {
+        rows:[{
+          id:4, decision:'confirmed', reason:'The correlated evidence is sufficient.',
+          actor:'analyst', created_at:'2026-07-29T08:00:00Z',
         }],
       };
     }
@@ -217,8 +226,55 @@ test('incident journey exposes bounded incident and per-alert correlation decisi
   assert.equal(response.body.correlation.alert_outcomes.length, 2);
   assert.equal(response.body.correlation.coverage.correlation_recorded, 1);
   assert.equal(response.body.correlation.coverage.incident_decision_recorded, 1);
+  assert.equal(response.body.analyst_reviews[0].decision, 'confirmed');
   assert.match(response.body.provenance.description, /Missing decisions are not inferred/);
   assert.equal(Object.hasOwn(response.body, 'alerts'), false);
+});
+
+test('analyst decision reviews are validated, durable, and audited atomically', async () => {
+  const calls = [];
+  db.query = async (sql, params = []) => {
+    const text = String(sql);
+    calls.push({ text, params });
+    if (text.includes('SELECT 1 FROM alerts')) return { rows:[{ '?column?':1 }] };
+    if (text.includes('INSERT INTO analyst_decision_reviews')) {
+      return {
+        rows:[{
+          id:12, entity_type:'alert', entity_id:'A', decision:'challenged',
+          reason:'The command-line evidence is missing.', actor:'admin',
+        }],
+      };
+    }
+    throw new Error(`Unexpected analyst review query: ${text.slice(0, 80)}`);
+  };
+
+  const response = await request(routeApp())
+    .post('/api/workflow-reviews')
+    .send({
+      entity_type:'alert',
+      entity_id:'A',
+      decision:'challenged',
+      reason:'The command-line evidence is missing.',
+    });
+
+  assert.equal(response.status, 201);
+  assert.equal(response.body.review.decision, 'challenged');
+  const write = calls.find(call => call.text.includes('INSERT INTO analyst_decision_reviews'));
+  assert.ok(write);
+  assert.match(write.text, /INSERT INTO audit_events/);
+  assert.equal(write.params[4], 'development');
+});
+
+test('analyst decision reviews reject unsupported or unexplained decisions', async () => {
+  const unsupported = await request(routeApp())
+    .post('/api/workflow-reviews')
+    .send({ entity_type:'alert', entity_id:'A', decision:'approve', reason:'Enough explanation here.' });
+  assert.equal(unsupported.status, 400);
+
+  const unexplained = await request(routeApp())
+    .post('/api/workflow-reviews')
+    .send({ entity_type:'incident', entity_id:'7', decision:'confirmed', reason:'yes' });
+  assert.equal(unexplained.status, 400);
 });
 
 test('grouped alerts expose specific titles and search technical and asset identifiers', async () => {

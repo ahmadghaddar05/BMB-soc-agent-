@@ -196,6 +196,17 @@ test('correlation workflow completion migration activates correlation and replay
   assert.match(sql, /ON CONFLICT\(key\) DO UPDATE/);
 });
 
+test('analyst review migration creates an append-only correction ledger', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/018_analyst_decision_reviews.sql'),
+    'utf8'
+  );
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS analyst_decision_reviews/);
+  assert.match(sql, /'confirmed','challenged','needs_more_evidence'/);
+  assert.match(sql, /char_length\(reason\) BETWEEN 10 AND 1000/);
+  assert.match(sql, /idx_analyst_decision_reviews_entity/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

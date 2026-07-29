@@ -61,6 +61,7 @@ const SEVERITIES = new Set(['critical','high','medium','low','informational']);
 const VERDICTS = new Set(['true_positive','false_positive','needs_investigation','benign_anomaly']);
 const TRIAGE_STATUSES = new Set(['pending','triaged','triage_failed','skipped']);
 const ENRICHMENT_STATUSES = new Set(['pending','enriched','enrichment_failed','skipped']);
+const ANALYST_REVIEW_DECISIONS = new Set(['confirmed','challenged','needs_more_evidence']);
 const EXECUTIVE_WINDOWS = new Set([7,30,90]);
 const EXECUTIVE_TIME_ASSUMPTIONS = Object.freeze({
   triage_per_activity: 8,
@@ -145,6 +146,50 @@ function healthBand(score) {
   if (score >= 60) return 'elevated';
   return 'at_risk';
 }
+
+r.post('/workflow-reviews', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
+  try {
+    const entityType = String(req.body?.entity_type || '');
+    const entityId = String(req.body?.entity_id || '').trim();
+    const decision = String(req.body?.decision || '');
+    const reason = String(req.body?.reason || '').trim();
+    if (!['alert','incident'].includes(entityType)) {
+      return res.status(400).json({ error: 'entity_type must be alert or incident' });
+    }
+    if (!entityId || entityId.length > 300) {
+      return res.status(400).json({ error: 'entity_id is required and must be at most 300 characters' });
+    }
+    if (!ANALYST_REVIEW_DECISIONS.has(decision)) {
+      return res.status(400).json({ error: 'decision has an unsupported value' });
+    }
+    if (reason.length < 10 || reason.length > 1000) {
+      return res.status(400).json({ error: 'reason must be between 10 and 1000 characters' });
+    }
+    const exists = entityType === 'alert'
+      ? await db.query('SELECT 1 FROM alerts WHERE id=$1', [entityId])
+      : await db.query('SELECT 1 FROM incidents WHERE id=$1', [entityId]);
+    if (!exists.rows.length) return res.status(404).json({ error: `${entityType} not found` });
+
+    const actor = req.user?.username || 'unknown-analyst';
+    const result = await db.query(
+      `WITH recorded AS (
+         INSERT INTO analyst_decision_reviews(entity_type,entity_id,decision,reason,actor)
+         VALUES($1,$2,$3,$4,$5)
+         RETURNING *
+       ), audited AS (
+         INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+         SELECT $5,'analyst.decision_reviewed',$1,$2,'success',$6,
+                jsonb_build_object('decision',$3,'review_id',recorded.id)
+         FROM recorded
+       )
+       SELECT * FROM recorded`,
+      [entityType, entityId, decision, reason, actor, req.id]
+    );
+    res.status(201).json({ review:result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error:error.message });
+  }
+});
 
 function executiveImpact(severity) {
   const normalized = String(severity || '').toLowerCase();
@@ -1058,7 +1103,7 @@ r.get('/alerts/:id', async (req, res) => {
 
 r.get('/alerts/:id/journey', async (req, res) => {
   try {
-    const [alert, events] = await Promise.all([
+    const [alert, events, reviews] = await Promise.all([
       db.query(
         `SELECT id,timestamp,source_system,enrichment_status,triage_status,
                 triage_run_id,fetch_run_id
@@ -1082,11 +1127,20 @@ r.get('/alerts/:id/journey', async (req, res) => {
                   id ASC`,
         [req.params.id]
       ),
+      db.query(
+        `SELECT id,decision,reason,actor,created_at
+         FROM analyst_decision_reviews
+         WHERE entity_type='alert' AND entity_id=$1
+         ORDER BY created_at DESC,id DESC
+         LIMIT 25`,
+        [req.params.id]
+      ),
     ]);
     if (!alert.rows.length) return res.status(404).json({ error: 'Alert not found' });
     res.json({
       entity: { type:'alert', ...alert.rows[0] },
       stages: events.rows,
+      analyst_reviews: reviews.rows,
       provenance: {
         append_only: true,
         observed_events: events.rows.length,
@@ -1174,7 +1228,7 @@ r.get('/incidents/:id/journey', async (req, res) => {
     if (!incident.rows.length) return res.status(404).json({ error: 'Incident not found' });
     const record = incident.rows[0];
     const alertIds = Array.isArray(record.alert_ids) ? record.alert_ids.map(String) : [];
-    const [events, alertEvents] = await Promise.all([
+    const [events, alertEvents, reviews] = await Promise.all([
       db.query(
         `SELECT id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
                 provider,model,confidence_kind,confidence,input_summary,
@@ -1207,6 +1261,14 @@ r.get('/incidents/:id/journey', async (req, res) => {
           [alertIds]
         )
         : Promise.resolve({ rows:[] }),
+      db.query(
+        `SELECT id,decision,reason,actor,created_at
+         FROM analyst_decision_reviews
+         WHERE entity_type='incident' AND entity_id=$1
+         ORDER BY created_at DESC,id DESC
+         LIMIT 25`,
+        [req.params.id]
+      ),
     ]);
     const coverage = alertEvents.rows.reduce((result, event) => {
       if (event.stage === 'correlated') result.correlation_recorded += 1;
@@ -1224,6 +1286,7 @@ r.get('/incidents/:id/journey', async (req, res) => {
         alert_count: alertIds.length,
       },
       stages: events.rows,
+      analyst_reviews: reviews.rows,
       correlation: {
         run_id: record.correlation_run_id || null,
         alert_outcomes: alertEvents.rows,

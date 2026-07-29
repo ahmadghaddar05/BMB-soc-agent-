@@ -10,6 +10,7 @@ import { activityTitle, humanize, severityOf } from '../lib/executive';
 import { relativeTime } from '../lib/soc';
 import InfoTip from '../components/InfoTip';
 import IncidentCorrelationTrace from '../components/IncidentCorrelationTrace';
+import AnalystDecisionReview from '../components/AnalystDecisionReview';
 
 const TACTIC_LABELS = {
   reconnaissance: 'Reconnaissance', resource_development: 'Resource Development', initial_access: 'Initial Access',
@@ -370,6 +371,17 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
         loading={journeyLoading}
         error={journeyError}
       />
+      {!readOnly && (
+        <AnalystDecisionReview
+          entityType="incident"
+          entityId={detail.id}
+          reviews={journey?.analyst_reviews || []}
+          onRecorded={review => setJourney(current => ({
+            ...(current || {}),
+            analyst_reviews:[review, ...(current?.analyst_reviews || [])],
+          }))}
+        />
+      )}
 
       <div className="incident-body-grid">
         <main className="incident-main-column">

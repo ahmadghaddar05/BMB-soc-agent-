@@ -1,4 +1,4 @@
-import { KeyRound, Loader2, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { KeyRound, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '../lib/api';
 
@@ -29,16 +29,8 @@ export default function LoginPage({ onAuthenticated }) {
     <main className="login-page">
       <section className="login-layout" aria-labelledby="login-heading">
         <div className="login-story">
-          <div className="login-brand">
-            <span className="login-brand-mark" aria-hidden="true"><ShieldCheck /></span>
-            <span><small>BMB Security Operations</small><strong>Secure operations platform</strong></span>
-          </div>
-          <span className="login-eyebrow">Identity-protected access</span>
-          <h1 id="login-heading">One secure entry point.<br />The right workspace automatically.</h1>
-          <p>Your account role is assigned by a security administrator. After authentication, BMB opens only the executive, SOC analyst, or administration experience authorized for your account.</p>
-          <div className="login-assurance">
-            <LockKeyhole />
-            <span><strong>Server-enforced RBAC</strong><small>Roles cannot be selected or changed from this login page.</small></span>
+          <div className="login-bmb-lockup" role="img" aria-label="BMB Security Operations">
+            <span className="bmb-logo-original" aria-hidden="true" />
           </div>
         </div>
 
@@ -46,7 +38,7 @@ export default function LoginPage({ onAuthenticated }) {
           <div className="login-mark"><KeyRound /></div>
           <div className="login-card-heading">
             <small>Authorized users</small>
-            <h2>Sign in to BMB</h2>
+            <h2 id="login-heading">Sign in to BMB</h2>
             <p>Enter the credentials provisioned by your security administrator.</p>
           </div>
           {error && <div className="login-error" role="alert">{error}</div>}
