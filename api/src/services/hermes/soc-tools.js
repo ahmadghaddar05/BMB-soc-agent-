@@ -316,19 +316,128 @@ function sanitize(value, depth = 0) {
 }
 
 function publicAlert(row) {
+  const rawFields = row.raw?.fields || {};
+  const firstRaw = key => {
+    const value = rawFields[key];
+    return Array.isArray(value) ? value[0] : value;
+  };
+  const allRaw = key => {
+    const value = rawFields[key];
+    if (value == null) return [];
+    return Array.isArray(value) ? value : [value];
+  };
   return sanitize({
     id: String(row.id), timestamp: row.timestamp, source_system: row.source_system,
     source_index: row.source_index, elastic_alert_uuid: row.elastic_alert_uuid,
     rule_id: row.rule_id, rule_level: row.rule_level, description: row.rule_desc,
     severity: row.verdict?.severity || row.source_severity || 'unknown',
     risk_score: row.risk_score, workflow_status: row.workflow_status,
-    reason: row.alert_reason, triage_status: row.triage_status,
+    reason: row.alert_reason, observed_summary: row.full_log,
+    triage_status: row.triage_status,
     enrichment_status: row.enrichment_status, verdict: row.verdict,
     source_ip: row.src_ip, destination_ip: row.dst_ip, username: row.username,
     hostname: row.hostname, process: row.process, event_dataset: row.event_dataset,
     event_category: row.event_category, event_action: row.event_action,
     mitre_techniques: row.mitre_techniques, mitre_tactics: row.mitre_tactics,
     occurrence_count: row.occurrence_count, first_seen: row.first_seen, last_seen: row.last_seen,
+    technical_context: {
+      process: {
+        name: firstRaw('process.name'),
+        executable: firstRaw('process.executable'),
+        command_line: firstRaw('process.command_line'),
+        entity_id: firstRaw('process.entity_id'),
+        pid: firstRaw('process.pid'),
+        sha256: firstRaw('process.hash.sha256'),
+        signed: firstRaw('process.code_signature.trusted'),
+      },
+      parent_process: {
+        name: firstRaw('process.parent.name'),
+        executable: firstRaw('process.parent.executable'),
+        command_line: firstRaw('process.parent.command_line'),
+        entity_id: firstRaw('process.parent.entity_id'),
+        pid: firstRaw('process.parent.pid'),
+        sha256: firstRaw('process.parent.hash.sha256'),
+      },
+      file: {
+        name: firstRaw('file.name'),
+        path: firstRaw('file.path'),
+        size: firstRaw('file.size'),
+        mime_type: firstRaw('file.mime_type'),
+        sha256: firstRaw('file.hash.sha256'),
+      },
+      authentication: {
+        type: firstRaw('authentication.type'),
+        result: firstRaw('authentication.result'),
+        logon_type: firstRaw('authentication.logon_type'),
+        mfa: firstRaw('authentication.mfa'),
+        session_id: firstRaw('authentication.session_id'),
+        failure_reason: firstRaw('authentication.failure_reason') ||
+          firstRaw('winlog.event_data.FailureReason'),
+        status: firstRaw('winlog.event_data.Status'),
+        sub_status: firstRaw('winlog.event_data.SubStatus'),
+      },
+      email: {
+        subject: firstRaw('email.subject'),
+        message_id: firstRaw('email.message_id'),
+        sender: allRaw('email.from.address'),
+        recipients: allRaw('email.to.address'),
+        delivery_action: firstRaw('email.delivery_action'),
+        spf: firstRaw('email.security.spf'),
+        dkim: firstRaw('email.security.dkim'),
+        dmarc: firstRaw('email.security.dmarc'),
+        reputation: firstRaw('email.security.reputation'),
+        sandbox_verdict: firstRaw('email.sandbox.verdict'),
+        sandbox_score: firstRaw('email.sandbox.score'),
+        sandbox_behaviors: allRaw('email.sandbox.observed_behaviors'),
+      },
+      web: {
+        method: firstRaw('http.request.method'),
+        request_bytes: firstRaw('http.request.bytes'),
+        status_code: firstRaw('http.response.status_code'),
+        response_bytes: firstRaw('http.response.bytes'),
+        url: firstRaw('url.original'),
+        user_agent: firstRaw('user_agent.original'),
+        session_id: firstRaw('session.id'),
+      },
+      database: {
+        name: firstRaw('database.name'),
+        operation: firstRaw('database.operation'),
+        query: firstRaw('database.query'),
+        query_id: firstRaw('database.query_id'),
+        transaction_id: firstRaw('database.transaction_id'),
+        duration_ms: firstRaw('database.duration_ms'),
+        rows_affected: firstRaw('database.rows_affected'),
+        schema: firstRaw('database.schema'),
+        table: firstRaw('database.table'),
+      },
+      evidence_quality: {
+        profile: firstRaw('evidence.profile'),
+        provenance: firstRaw('evidence.provenance'),
+        answer_key_included: firstRaw('evidence.answer_key_included'),
+        assessment_basis: firstRaw('evidence.assessment_basis'),
+        context_completeness: firstRaw('evidence.context_completeness'),
+        observed_context: allRaw('evidence.observed_context'),
+      },
+      correlation: {
+        campaign_id: firstRaw('attack.campaign_id'),
+        stage: firstRaw('attack.stage'),
+        tactic: firstRaw('attack.tactic'),
+        session_id: firstRaw('correlation.session_id'),
+        sequence: firstRaw('correlation.sequence'),
+        join_keys: allRaw('correlation.join_keys'),
+      },
+      authorization_context: {
+        policy_id: firstRaw('policy.id'),
+        category: firstRaw('policy.category'),
+        violation: firstRaw('policy.violation'),
+        authorized: firstRaw('policy.authorized'),
+        security_alert: firstRaw('policy.security_alert'),
+        disposition: firstRaw('policy.disposition'),
+        reason: firstRaw('policy.reason'),
+        change_id: firstRaw('change.id'),
+        change_approved: firstRaw('change.approved'),
+      },
+    },
   });
 }
 
@@ -348,7 +457,7 @@ function createSocToolkit({
     rule_id,rule_level,rule_desc,risk_score,source_severity,workflow_status,alert_reason,
     triage_status,enrichment_status,verdict,src_ip,dst_ip,username,hostname,process,
     event_dataset,event_category,event_action,mitre_techniques,mitre_tactics,
-    occurrence_count,first_seen,last_seen FROM alerts`;
+    occurrence_count,first_seen,last_seen,full_log,raw FROM alerts`;
 
   async function fetchEnrichment(path, { method = 'GET', body, signal } = {}) {
     const controller = new AbortController();

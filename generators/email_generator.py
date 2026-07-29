@@ -53,6 +53,7 @@ from common_inventory import (
 
 
 from behavior_engine import enrich_event
+from evidence_context import enrich_event_evidence
 
 
 
@@ -1381,7 +1382,7 @@ def main():
 
 
 
-            event=builder()
+            event=enrich_event_evidence(builder(), "email")
 
 
 

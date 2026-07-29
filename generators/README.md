@@ -28,6 +28,27 @@ python3 -m unittest -v test_generators.py
 
 The dry-run summary must report an `alert_ratio` between `0.13` and `0.15`.
 
+## Evidence-rich telemetry
+
+Every runtime generator and finite scenario passes its event through
+`evidence_context.py` before transmission. The shared layer preserves each
+source's existing ECS document and adds the evidence an analyst normally needs:
+
+- EDR and Linux process ancestry, command lines, executable paths, hashes,
+  signatures, sessions, and sensor/audit state.
+- AD logon type, authentication protocol, session, source workstation, failure
+  status, and directory-replication rights.
+- Email sender authentication, delivery action, message and attachment
+  identifiers, attachment hashes, and sandbox observations.
+- Web request/response sizes, status, full URL, session, TLS, and WAF action.
+- Database query, operation, transaction, duration, rows, client, and export
+  artifact context.
+
+The layer never emits `expected_verdict`, `ground_truth`, `true_positive`, or
+`false_positive` answer fields. Hermes must determine a verdict from the
+observed evidence. Policy activity remains non-alert telemetry, and the
+standalone and finite-run alert ratios remain between 13% and 15%.
+
 ## Send a coordinated exercise
 
 Point `--host` at the server receiving the existing UDP inputs:

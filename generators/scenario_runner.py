@@ -16,6 +16,7 @@ import email_generator as email
 import linux_generator as linux
 import webapp_generator as webapp
 from scenario_engine import NORMAL_BUILDERS, SOURCE_PORTS, build_scenario
+from evidence_context import enrich_event_evidence
 from simulation_engine import normal_events_required
 
 
@@ -45,7 +46,7 @@ def is_alert(record):
 
 def _background_alert():
     source = random.choice(sorted(ALERT_BUILDERS))
-    event = random.choice(ALERT_BUILDERS[source])()
+    event = enrich_event_evidence(random.choice(ALERT_BUILDERS[source])(), source)
     event.setdefault("labels", {})["scenario_background"] = "true"
     event.setdefault("tags", []).append("scenario-background")
     return source, event
@@ -54,7 +55,7 @@ def _background_alert():
 def _background_normal(index):
     sources = sorted(NORMAL_BUILDERS)
     source = sources[index % len(sources)]
-    event = random.choice(NORMAL_BUILDERS[source])()
+    event = enrich_event_evidence(random.choice(NORMAL_BUILDERS[source])(), source)
     event.setdefault("labels", {})["scenario_background"] = "true"
     event.setdefault("tags", []).append("scenario-background")
     return source, event

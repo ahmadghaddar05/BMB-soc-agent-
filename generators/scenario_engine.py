@@ -17,6 +17,7 @@ import email_generator as email
 import linux_generator as linux
 import webapp_generator as webapp
 from common_inventory import USERS, user_doc, workstation_host_doc
+from evidence_context import enrich_event_evidence
 
 
 SOURCE_PORTS = {
@@ -74,13 +75,25 @@ def _correlate(event, source, user, source_ip, campaign_id, stage, tactic, seque
         "stage": stage,
         "tactic": tactic,
     }
+    event["correlation"] = {
+        "session_id": str(uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"bmb-scenario:{campaign_id}:{user['name']}:{source_ip}",
+        )),
+        "sequence": sequence,
+        "join_keys": [
+            f"campaign:{campaign_id}",
+            f"user:{user['name']}",
+            f"source_ip:{source_ip}",
+        ],
+    }
     event.setdefault("labels", {}).update({
         "scenario_managed": "true",
         "scenario_campaign_id": campaign_id,
         "scenario_stage": stage,
     })
     event.setdefault("tags", []).extend(["coordinated-scenario", campaign_id])
-    return event
+    return enrich_event_evidence(event, source)
 
 
 def _record(source, builder, user, source_ip, campaign_id, stage, tactic, sequence, timestamp):
@@ -162,4 +175,3 @@ def build_scenario(name, user_name="maya.georges", source_ip="198.51.100.24",
     if name not in valid_names:
         raise ValueError(f"Unknown scenario {name!r}; choose one of {sorted(valid_names)}")
     return records
-
