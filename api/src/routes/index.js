@@ -20,7 +20,7 @@ const r = Router();
 const ANALYST_READ_PREFIXES = Object.freeze([
   '/health', '/collector/status', '/agent/status', '/alerts', '/alert-groups',
   '/incidents', '/pivot', '/stats', '/investigations', '/cases', '/actions',
-  '/action-policy', '/responses', '/reports', '/workflow-quality',
+  '/action-policy', '/responses', '/reports', '/workflow-quality', '/analytics',
 ]);
 
 const EXECUTIVE_READ_PREFIXES = Object.freeze([
@@ -63,6 +63,7 @@ const TRIAGE_STATUSES = new Set(['pending','triaged','triage_failed','skipped'])
 const ENRICHMENT_STATUSES = new Set(['pending','enriched','enrichment_failed','skipped']);
 const ANALYST_REVIEW_DECISIONS = new Set(['confirmed','challenged','needs_more_evidence']);
 const EXECUTIVE_WINDOWS = new Set([7,30,90]);
+const ANALYTICS_WINDOWS = new Set([24,168,720]);
 const EXECUTIVE_TIME_ASSUMPTIONS = Object.freeze({
   triage_per_activity: 8,
   correlation_per_incident: 20,
@@ -1505,7 +1506,9 @@ r.get('/pivot', async (req, res) => {
       db.query(
         `SELECT id, timestamp, rule_level, rule_desc, source_severity, risk_score,
                 src_ip, dst_ip, username, hostname, agent_name, process,
-                event_dataset, event_action, alert_reason, triage_status, verdict
+                target_db, event_dataset, event_action, alert_reason,
+                triage_status, verdict, mitre_techniques, mitre_tactics,
+                group_key, occurrence_count, first_seen, last_seen
          FROM alerts
          WHERE id ILIKE $1
             OR COALESCE(src_ip, '') ILIKE $1
@@ -1524,7 +1527,8 @@ r.get('/pivot', async (req, res) => {
         [searchTerm]
       ),
       db.query(
-        `SELECT id, title, severity, status, first_seen, last_seen
+        `SELECT id, title, severity, status, first_seen, last_seen,
+                alert_ids, common_entities, confidence
          FROM incidents i
          WHERE COALESCE(i.common_entities::text, '') ILIKE $1
             OR COALESCE(i.title, '') ILIKE $1
@@ -1803,6 +1807,140 @@ r.get('/executive/risks', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Analyst-facing, read-only security aggregations. Every value is derived from
+// stored BMB alert evidence inside one explicit time window.
+r.get('/analytics/security', async (req, res) => {
+  try {
+    const hours = Number(req.query.hours || 24);
+    if (!ANALYTICS_WINDOWS.has(hours)) {
+      return res.status(400).json({ error: 'hours must be 24, 168, or 720' });
+    }
+    const bucket = hours === 24 ? 'hour' : 'day';
+    const scoped = `a.timestamp >= NOW() - make_interval(hours => $1::int)`;
+    const severity = `LOWER(COALESCE(NULLIF(a.source_severity,''),CASE
+      WHEN a.rule_level>=15 THEN 'critical'
+      WHEN a.rule_level>=12 THEN 'high'
+      WHEN a.rule_level>=7 THEN 'medium'
+      ELSE 'low' END))`;
+
+    const [
+      summaryResult, trendResult, severityResult, sourceResult, destinationResult,
+      datasetResult, identityResult, tacticResult, detectionResult,
+    ] = await Promise.all([
+      db.query(
+        `/* analytics_summary */
+         SELECT COUNT(*)::int AS total_alerts,
+                COUNT(*) FILTER (WHERE ${severity}='critical')::int AS critical,
+                COUNT(*) FILTER (WHERE ${severity}='high')::int AS high,
+                COUNT(*) FILTER (WHERE a.triage_status='triaged')::int AS triaged,
+                COUNT(DISTINCT NULLIF(a.src_ip,''))::int AS unique_source_ips,
+                COUNT(DISTINCT COALESCE(NULLIF(a.dst_ip,''),NULLIF(a.hostname,''),NULLIF(a.target_db,''),NULLIF(a.agent_name,'')))::int AS unique_targets,
+                COUNT(*) FILTER (WHERE EXISTS (
+                  SELECT 1 FROM workflow_stage_events w
+                  WHERE w.entity_type='alert' AND w.entity_id=a.id AND w.stage='correlated'
+                ))::int AS correlation_decisions
+         FROM alerts a WHERE ${scoped}`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_trend */
+         SELECT date_trunc($2::text,a.timestamp) AS bucket,
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE ${severity}='critical')::int AS critical,
+                COUNT(*) FILTER (WHERE ${severity}='high')::int AS high,
+                COUNT(*) FILTER (WHERE ${severity} NOT IN ('critical','high'))::int AS other
+         FROM alerts a WHERE ${scoped}
+         GROUP BY 1 ORDER BY 1`,
+        [hours, bucket]
+      ),
+      db.query(
+        `/* analytics_severity */
+         SELECT ${severity} AS name,COUNT(*)::int AS count
+         FROM alerts a WHERE ${scoped}
+         GROUP BY 1 ORDER BY COUNT(*) DESC`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_sources */
+         SELECT a.src_ip AS name,COUNT(*)::int AS count,
+                COUNT(*) FILTER (WHERE ${severity} IN ('critical','high'))::int AS high_risk
+         FROM alerts a WHERE ${scoped} AND NULLIF(a.src_ip,'') IS NOT NULL
+         GROUP BY a.src_ip ORDER BY count DESC,name LIMIT 8`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_destinations */
+         SELECT COALESCE(NULLIF(a.hostname,''),NULLIF(a.target_db,''),NULLIF(a.dst_ip,''),NULLIF(a.agent_name,'')) AS name,
+                COUNT(*)::int AS count,
+                COUNT(*) FILTER (WHERE ${severity} IN ('critical','high'))::int AS high_risk
+         FROM alerts a WHERE ${scoped}
+           AND COALESCE(NULLIF(a.hostname,''),NULLIF(a.target_db,''),NULLIF(a.dst_ip,''),NULLIF(a.agent_name,'')) IS NOT NULL
+         GROUP BY 1 ORDER BY count DESC,name LIMIT 8`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_datasets */
+         SELECT COALESCE(NULLIF(a.event_dataset,''),'Unclassified source') AS name,COUNT(*)::int AS count
+         FROM alerts a WHERE ${scoped}
+         GROUP BY 1 ORDER BY count DESC,name LIMIT 8`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_identities */
+         SELECT a.username AS name,COUNT(*)::int AS count,
+                COUNT(*) FILTER (WHERE ${severity} IN ('critical','high'))::int AS high_risk
+         FROM alerts a WHERE ${scoped} AND NULLIF(a.username,'') IS NOT NULL
+         GROUP BY a.username ORDER BY high_risk DESC,count DESC,name LIMIT 8`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_tactics */
+         SELECT tactic AS name,COUNT(*)::int AS count
+         FROM alerts a CROSS JOIN LATERAL unnest(COALESCE(a.mitre_tactics,'{}'::text[])) tactic
+         WHERE ${scoped} AND NULLIF(tactic,'') IS NOT NULL
+         GROUP BY tactic ORDER BY count DESC,name LIMIT 8`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_detections */
+         SELECT COALESCE(NULLIF(a.alert_reason,''),NULLIF(a.rule_desc,''),NULLIF(a.event_action,''),'Unclassified detection') AS name,
+                COUNT(*)::int AS count
+         FROM alerts a WHERE ${scoped}
+         GROUP BY 1 ORDER BY count DESC,name LIMIT 8`,
+        [hours]
+      ),
+    ]);
+
+    const rows = result => result.rows.map(row => Object.fromEntries(
+      Object.entries(row).map(([key,value]) => [key, key === 'name' || key === 'bucket' ? value : Number(value || 0)])
+    ));
+    res.json({
+      generated_at: new Date().toISOString(),
+      window_hours: hours,
+      bucket,
+      source: 'stored_bmb_alerts',
+      summary: rows(summaryResult)[0] || {
+        total_alerts:0, critical:0, high:0, triaged:0,
+        unique_source_ips:0, unique_targets:0, correlation_decisions:0,
+      },
+      trend: rows(trendResult),
+      severity: rows(severityResult),
+      top_source_ips: rows(sourceResult),
+      top_destinations: rows(destinationResult),
+      top_datasets: rows(datasetResult),
+      top_identities: rows(identityResult),
+      mitre_tactics: rows(tacticResult),
+      top_detections: rows(detectionResult),
+      coverage: {
+        source_ip: sourceResult.rows.length > 0,
+        destination: destinationResult.rows.length > 0,
+        identity: identityResult.rows.length > 0,
+        mitre: tacticResult.rows.length > 0,
+      },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 r.get('/executive/incidents/:id', async (req, res) => {

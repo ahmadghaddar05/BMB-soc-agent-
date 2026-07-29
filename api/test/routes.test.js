@@ -395,10 +395,53 @@ test('identity pivots search alert evidence and incidents linked through matchin
   for (const field of ['src_ip','dst_ip','username','hostname','agent_name','process','event_dataset','event_action','alert_reason','enrichment']) {
     assert.match(alertSql, new RegExp(`\\b${field}\\b`));
   }
+  for (const field of ['target_db','mitre_techniques','mitre_tactics','group_key','occurrence_count']) {
+    assert.match(alertSql, new RegExp(`\\b${field}\\b`));
+  }
   assert.match(incidentSql, /EXISTS\s*\(/);
+  assert.match(incidentSql, /\balert_ids\b/);
+  assert.match(incidentSql, /\bcommon_entities\b/);
   assert.match(incidentSql, /a\.username/);
   assert.match(incidentSql, /a\.hostname/);
   assert.match(incidentSql, /a\.target_db/);
+});
+
+test('SOC analytics returns bounded evidence-backed security aggregations', async () => {
+  const observed = [];
+  db.query = async (sql, params = []) => {
+    const text = String(sql);
+    observed.push({ text, params });
+    assert.ok(highestPlaceholder(text) <= params.length);
+    if (text.includes('analytics_summary')) return { rows:[{
+      total_alerts:120, critical:12, high:28, triaged:90,
+      unique_source_ips:14, unique_targets:9, correlation_decisions:44,
+    }] };
+    if (text.includes('analytics_trend')) return { rows:[{
+      bucket:'2026-07-29T08:00:00.000Z', total:20, critical:2, high:5, other:13,
+    }] };
+    if (text.includes('analytics_severity')) return { rows:[{ name:'critical', count:12 }] };
+    if (text.includes('analytics_sources')) return { rows:[{ name:'198.51.100.24', count:18, high_risk:7 }] };
+    if (text.includes('analytics_destinations')) return { rows:[{ name:'WEBAPP01', count:22, high_risk:9 }] };
+    if (text.includes('analytics_datasets')) return { rows:[{ name:'web.application', count:30 }] };
+    if (text.includes('analytics_identities')) return { rows:[{ name:'maya.georges', count:16, high_risk:8 }] };
+    if (text.includes('analytics_tactics')) return { rows:[{ name:'initial_access', count:11 }] };
+    if (text.includes('analytics_detections')) return { rows:[{ name:'Suspicious PowerShell execution', count:14 }] };
+    throw new Error('Unexpected analytics query');
+  };
+
+  const response = await request(routeApp()).get('/api/analytics/security?hours=24');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.source, 'stored_bmb_alerts');
+  assert.equal(response.body.summary.total_alerts, 120);
+  assert.equal(response.body.top_source_ips[0].name, '198.51.100.24');
+  assert.equal(response.body.top_destinations[0].name, 'WEBAPP01');
+  assert.equal(response.body.mitre_tactics[0].name, 'initial_access');
+  assert.equal(observed.length, 9);
+  assert.ok(observed.every(item => item.params[0] === 24));
+
+  db.query = async () => { throw new Error('invalid windows must not query the database'); };
+  const invalid = await request(routeApp()).get('/api/analytics/security?hours=48');
+  assert.equal(invalid.status, 400);
 });
 
 test('executive overview returns an auditable aggregate contract with no fabricated containment', async () => {

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Ban, BellRing, Bot, Copy, Database, Globe2, Network, Plus, Radar, Search, ShieldAlert, Star, UserRound } from 'lucide-react';
+import { AlertTriangle, Ban, Bot, Copy, Globe2, Plus, Radar, Search, ShieldAlert, Star, UserRound } from 'lucide-react';
 import { api, fmtTs, sevClass } from '../lib/api';
 import { copyText, parseJson, readLocal, saveLocal, severityOf } from '../lib/soc';
 import { activityTitle, alertReference } from '../lib/executive';
+import EntityRelationshipGraph from '../components/EntityRelationshipGraph';
 
 const SAMPLE_IOC = '185.199.110.153';
 
@@ -16,10 +17,6 @@ function classifyObservable(value, alerts = []) {
   if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(observable)) return { kind: 'domain', label: 'Domain name' };
   if (/^[a-z0-9._-]+$/i.test(observable)) return { kind: 'identity', label: 'Identity / username' };
   return { kind: 'generic', label: 'Security observable' };
-}
-
-function GraphNode({ className, icon: Icon, label, value }) {
-  return <article className={`relation-node ${className}`}><Icon /><span>{label}</span><strong>{value}</strong></article>;
 }
 
 export default function ThreatIntelligence() {
@@ -80,15 +77,13 @@ export default function ThreatIntelligence() {
         <div className="intel-actions"><button className={isWatched ? 'active' : ''} onClick={() => toggleList('bmb-threat-watchlist', watchlist, setWatchlist)}><Star />{isWatched ? 'Saved locally' : 'Save locally'}</button><button className="danger" disabled title="A response integration and approval workflow are required before blocking"><Ban />Blocking unavailable</button><button onClick={() => copyText(indicator)}><Copy />Copy</button><button onClick={() => navigate(`/investigations?search=${encodeURIComponent(indicator)}`)}><Plus />Open investigation</button><button onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant', { detail:{ prompt:`Investigate ${indicator}. Summarize related alerts and incidents, explain the risk, and state any missing evidence.`, autoSend:true } }))}><Bot />Ask AI</button></div>
       </section>
 
-      <section className="module-panel relationship-panel"><div className="panel-heading"><div><Network /><span><strong>Entity relationship graph</strong><small>How stored evidence connects to this observable and its security outcomes</small></span></div><span className="legend"><i className="observed" />Evidence link <i className="triggered" />Alert match <i className="correlated" />Incident correlation</span></div>
-        <div className="relation-flow">
-          <div className="relation-group"><small>Observed evidence</small>{model.primary.username && <GraphNode icon={UserRound} label="User" value={model.primary.username} />}{model.primary.process && <GraphNode icon={Database} label="Process" value={model.primary.process} />}{model.primary.hostname && <GraphNode icon={Database} label="Host" value={model.primary.hostname} />}{!model.primary.username && !model.primary.process && !model.primary.hostname && <GraphNode icon={BellRing} label="Elastic evidence" value={`${result.alert_count} matching records`} />}</div>
-          <div className="relation-connector observed"><span>contains</span></div>
-          <div className="relation-focus"><small>Investigated observable</small><GraphNode icon={ObservableIcon} label={model.observableType.label} value={indicator} /></div>
-          <div className="relation-connector triggered"><span>matched by</span></div>
-          <div className="relation-group outcomes"><small>Security outcomes</small><GraphNode className="alert" icon={ShieldAlert} label="Related alerts" value={`${result.alert_count} matched`} /><GraphNode className="incident" icon={AlertTriangle} label="Correlated incidents" value={`${result.incident_count} found`} /></div>
-        </div>
-      </section>
+      <EntityRelationshipGraph
+        indicator={indicator}
+        observableType={model.observableType}
+        alerts={model.alerts}
+        incidents={result.incidents || []}
+        navigate={navigate}
+      />
 
       <div className="intel-card-grid">
         <section className="module-panel intel-card"><h3>Threat intelligence sources</h3><p className="intel-card-description">Where this observable was seen or enriched.</p>{(model.intel.sources || ['BMB enrichment', 'Elastic evidence']).map(source => <div className="intel-list-row" key={source}><span><i className={model.intel.found ? 'danger' : model.alerts.length ? 'good' : ''} />{source}</span><b>{model.intel.found ? 'Match' : model.alerts.length ? 'Observed internally' : 'No match'}</b></div>)}<footer>{model.intel.notes || 'No external threat match was returned. Absence of a match does not establish that the observable is safe.'}</footer></section>

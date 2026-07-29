@@ -13,6 +13,7 @@ import './index.css';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const LiveMonitoring = lazy(() => import('./pages/LiveMonitoring'));
+const SOCAnalytics = lazy(() => import('./pages/SOCAnalytics'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 const Incidents = lazy(() => import('./pages/Incidents'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
@@ -36,6 +37,7 @@ const DataRetention = lazy(() => import('./pages/DataRetention'));
 const PAGE_META = {
   '/dashboard': ['Security Overview', 'Business risk, response performance, and source trust'],
   '/live-monitoring': ['Live Monitoring', 'Newest-first Elastic security activity'],
+  '/security-analytics': ['Security Analytics', 'Evidence-backed attack and telemetry patterns'],
   '/alerts': ['Technical Triage', 'Prioritize and review security activity'],
   '/incidents': ['Incident Command', 'Correlated attack story and containment'],
   '/ai-triage': ['AI-assisted Triage', 'Evidence-grounded alert prioritization'],
@@ -199,6 +201,7 @@ function Shell({ session, onLogout }) {
               <Route path="/" element={<Navigate to={landing} replace />} />
               <Route path="/dashboard" element={protect(<Dashboard />)} />
               <Route path="/live-monitoring" element={protect(<LiveMonitoring />)} />
+              <Route path="/security-analytics" element={protect(<SOCAnalytics />)} />
               <Route path="/alerts" element={protect(<Alerts />)} />
               <Route path="/ai-triage" element={protect(<AITriage />)} />
               <Route path="/investigations" element={protect(<Investigations />)} />

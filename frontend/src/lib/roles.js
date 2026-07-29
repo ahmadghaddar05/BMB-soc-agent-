@@ -43,6 +43,7 @@ export const ROLE_NAVIGATION = Object.freeze({
       label: 'Security Operations',
       items: [
         { to: '/live-monitoring', icon: 'monitoring', label: 'Monitoring' },
+        { to: '/security-analytics', icon: 'analytics', label: 'Analytics' },
         { to: '/alerts', icon: 'triage', label: 'Triage' },
         { to: '/investigations', icon: 'investigations', label: 'Investigations' },
         { to: '/incidents', icon: 'incidents', label: 'Incidents' },
@@ -90,6 +91,7 @@ export const ROLE_NAVIGATION = Object.freeze({
 export const ROUTE_ACCESS = Object.freeze({
   '/dashboard': [ROLES.EXECUTIVE],
   '/live-monitoring': [ROLES.SOC_ANALYST],
+  '/security-analytics': [ROLES.SOC_ANALYST],
   '/alerts': [ROLES.SOC_ANALYST],
   '/ai-triage': [ROLES.SOC_ANALYST],
   '/investigations': [ROLES.SOC_ANALYST],

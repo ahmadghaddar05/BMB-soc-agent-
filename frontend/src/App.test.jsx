@@ -153,6 +153,71 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).not.toContain('SOC Analyst preview');
   });
 
+  it('shows evidence-backed SOC analytics only in the analyst workspace', async () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/analytics/security?hours=24')) return jsonResponse({
+        generated_at:new Date().toISOString(), window_hours:24, source:'stored_bmb_alerts',
+        summary:{ total_alerts:120, critical:12, high:28, triaged:90, unique_source_ips:14, unique_targets:9, correlation_decisions:44 },
+        trend:[{ bucket:'2026-07-29T08:00:00Z', total:20, critical:2, high:5, other:13 }],
+        severity:[{ name:'critical', count:12 },{ name:'high', count:28 }],
+        top_source_ips:[{ name:'198.51.100.24', count:18, high_risk:7 }],
+        top_destinations:[{ name:'WEBAPP01', count:22, high_risk:9 }],
+        top_datasets:[{ name:'web.application', count:30 }],
+        top_identities:[{ name:'maya.georges', count:16, high_risk:8 }],
+        mitre_tactics:[{ name:'initial_access', count:11 }],
+        top_detections:[{ name:'Suspicious PowerShell execution', count:14 }],
+        coverage:{ source_ip:true, destination:true, identity:true, mitre:true },
+      });
+      return jsonResponse({});
+    });
+
+    await renderAt('/security-analytics');
+    expect(document.body.textContent).toContain('Security Analytics');
+    expect(document.body.textContent).toContain('Top source IPs');
+    expect(document.body.textContent).toContain('198.51.100.24');
+    expect(document.body.textContent).toContain('Most targeted destinations');
+    expect(document.body.textContent).toContain('ATT&CK tactic coverage');
+    expect(document.body.textContent).toContain('Correlation decisions');
+    expect(document.body.textContent).toContain('Analytics');
+  });
+
+  it('maps observable matches through individual alerts into stored incident chains', async () => {
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.includes('/pivot?indicator=maya.georges')) return jsonResponse({
+        indicator:'maya.georges', alert_count:2, incident_count:1, threat_intel:null,
+        alerts:[
+          { id:'elastic:a', timestamp:'2026-07-29T08:00:00Z', username:'maya.georges', hostname:'HR-WS001', src_ip:'198.51.100.24', event_dataset:'edr.endpoint', source_severity:'critical', rule_desc:'Suspicious PowerShell execution' },
+          { id:'elastic:b', timestamp:'2026-07-29T08:05:00Z', username:'maya.georges', hostname:'HR-WS001', src_ip:'198.51.100.24', event_dataset:'ad.security', source_severity:'high', rule_desc:'Directory replication request' },
+        ],
+        incidents:[{ id:17, title:'Maya Georges identity compromise', severity:'critical', status:'open', alert_ids:['elastic:a','elastic:b'] }],
+      });
+      return jsonResponse({});
+    });
+
+    await renderAt('/threat-intelligence');
+    const input = document.querySelector('.intel-search input');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value').set.call(input, 'maya.georges');
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    await act(async () => document.querySelector('.intel-search').dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })));
+    await settle();
+
+    expect(document.body.textContent).toContain('Evidence relationship map');
+    expect(document.body.textContent).toContain('Alert evidence');
+    expect(document.body.textContent).toContain('Stored correlation chains');
+    expect(document.body.textContent).toContain('ALT-');
+    expect(document.body.textContent).toContain('INC-00017');
+    expect(document.body.textContent).toContain('identity: maya.georges');
+  });
+
   it('lets an administrator create a role-bound user from Users & Access', async () => {
     const requests = [];
     globalThis.fetch = vi.fn(async (input, options = {}) => {
