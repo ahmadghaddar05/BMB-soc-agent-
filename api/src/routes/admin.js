@@ -14,6 +14,13 @@ const {
 const { defaultHermesClient } = require('../services/hermes/client');
 const { publicHermesError } = require('../services/hermes/errors');
 const {
+  CONFIRMATION: RETENTION_CONFIRMATION,
+  policyFromSettings,
+  previewRetention,
+  recentRetentionRuns,
+  runRetention,
+} = require('../services/alert-retention');
+const {
   displayNameError,
   hashPassword,
   passwordError,
@@ -327,12 +334,15 @@ router.get('/audit-events', async (req, res) => {
 router.get('/data-governance', async (_, res) => {
   try {
     const settings = await db.getAllSettings();
-    const [alerts, audit, runs, cache] = await Promise.all([
+    const [alerts, audit, runs, cache, retentionPreview, retentionRuns] = await Promise.all([
       db.query('SELECT COUNT(*)::int AS total,MIN(timestamp) AS oldest,MAX(timestamp) AS newest FROM alerts'),
       db.query('SELECT COUNT(*)::int AS total,MIN(created_at) AS oldest,MAX(created_at) AS newest FROM audit_events'),
       db.query('SELECT COUNT(*)::int AS total,MIN(started_at) AS oldest,MAX(started_at) AS newest FROM fetch_runs'),
       db.query('SELECT COUNT(*)::int AS total,MIN(expires_at) AS next_expiry,MAX(expires_at) AS last_expiry FROM triage_cache'),
+      previewRetention({ mode:'policy' }),
+      recentRetentionRuns(10),
     ]);
+    const retentionPolicy = policyFromSettings(settings);
     res.json({
       generated_at:new Date().toISOString(),
       stores:{
@@ -342,14 +352,50 @@ router.get('/data-governance', async (_, res) => {
         triage_cache:cache.rows[0] || { total:0, next_expiry:null, last_expiry:null },
       },
       policies:{
-        postgres_automatic_retention_configured:false,
+        postgres_automatic_retention_configured:retentionPolicy.enabled,
         audit_retention_configured:false,
-        alert_retention_configured:false,
+        alert_retention_configured:true,
+        alert_retention_enabled:retentionPolicy.enabled,
+        alert_retention:retentionPolicy,
         elastic_source_lifecycle:'managed_outside_bmb',
         triage_cache_ttl_hours:Number(settings.triage_cache_ttl_hours || 168),
       },
+      retention_preview:retentionPreview,
+      recent_retention_runs:retentionRuns,
+      purge_confirmation:RETENTION_CONFIRMATION,
     });
   } catch (error) { res.status(500).json({ error:error.message }); }
+});
+
+router.post('/data-governance/retention/preview', async (req, res) => {
+  try {
+    const mode = req.body?.mode || 'policy';
+    res.json(await runRetention({
+      mode,
+      dryRun:true,
+      actor:req.user?.username || 'administrator',
+      requestId:req.id || null,
+    }));
+  } catch (error) {
+    res.status(error.message.includes('Unsupported') ? 400 : 500).json({ error:error.message });
+  }
+});
+
+router.post('/data-governance/retention/run', async (req, res) => {
+  try {
+    const result = await runRetention({
+      mode:req.body?.mode || 'policy',
+      dryRun:false,
+      confirmation:req.body?.confirmation,
+      actor:req.user?.username || 'administrator',
+      requestId:req.id || null,
+    });
+    res.json(result);
+  } catch (error) {
+    const status = error.code === 'RETENTION_CONFIRMATION_REQUIRED'
+      || error.message.includes('Unsupported') ? 400 : 500;
+    res.status(status).json({ error:error.message, code:error.code || 'RETENTION_FAILED' });
+  }
 });
 
 module.exports = router;

@@ -3,8 +3,10 @@
 const cron = require('node-cron');
 const db = require('../db');
 const { runCycle } = require('./pipeline');
+const { runRetention } = require('../services/alert-retention');
 
 let _processingTask = null;
+let _retentionTask = null;
 let _collectorTimer = null;
 let _collectionRunning = false;
 let _processingRunning = false;
@@ -17,6 +19,10 @@ let _lastCollectionError = null;
 let _lastProcessingRun = null;
 let _lastProcessingResult = null;
 let _lastProcessingError = null;
+let _retentionRunning = false;
+let _lastRetentionRun = null;
+let _lastRetentionResult = null;
+let _lastRetentionError = null;
 
 function cronExpr(minutes) {
   const value = Math.max(1, parseInt(minutes, 10) || 5);
@@ -91,6 +97,31 @@ async function executeProcessing(trigger = 'scheduler') {
   }
 }
 
+async function executeRetention(trigger = 'scheduler') {
+  if (_retentionRunning) return { skipped:true, reason:'retention_cycle_in_progress' };
+  _retentionRunning = true;
+  _lastRetentionRun = new Date().toISOString();
+  _lastRetentionError = null;
+  try {
+    const result = await runRetention({
+      mode:'policy',
+      confirmation:'PURGE DASHBOARD ALERTS',
+      actor:`system:${trigger}`,
+    });
+    _lastRetentionResult = result;
+    console.log('[retention] cycle complete:', JSON.stringify(result.deleted || result));
+    return result;
+  } catch (error) {
+    const message = publicError(error);
+    _lastRetentionError = message;
+    _lastRetentionResult = { error:message };
+    console.error('[retention] cycle failed:', message);
+    return { error:message };
+  } finally {
+    _retentionRunning = false;
+  }
+}
+
 async function start() {
   const settings = await db.getAllSettings();
   const liveCollectionEnabled = settings.live_collection_enabled === 'true';
@@ -109,6 +140,17 @@ async function start() {
     }
   } else {
     console.log('[collector] live ingestion disabled');
+  }
+
+  if (settings.alert_retention_enabled === 'true') {
+    console.log('[retention] starting daily severity-aware retention at 02:17 UTC');
+    _retentionTask = cron.schedule('17 2 * * *', () => {
+      executeRetention('scheduler').catch(error =>
+        console.error('[retention] unhandled cycle error:', error)
+      );
+    }, { timezone:'UTC' });
+  } else {
+    console.log('[retention] automatic alert retention disabled');
   }
 
   if (settings.scheduler_enabled !== 'true') {
@@ -132,6 +174,10 @@ async function restart() {
   if (_collectorTimer) {
     clearInterval(_collectorTimer);
     _collectorTimer = null;
+  }
+  if (_retentionTask) {
+    _retentionTask.stop();
+    _retentionTask = null;
   }
   await start();
 }
@@ -166,6 +212,8 @@ function status() {
     collection_running: _collectionRunning,
     processing_running: _processingRunning,
     live_collection_running: Boolean(_collectorTimer),
+    retention_scheduled: Boolean(_retentionTask),
+    retention_running:_retentionRunning,
     last_run: _lastRun,
     last_result: _lastResult,
     last_error: _lastError,
@@ -175,6 +223,9 @@ function status() {
     last_processing_run: _lastProcessingRun,
     last_processing_result: _lastProcessingResult,
     last_processing_error: _lastProcessingError,
+    last_retention_run:_lastRetentionRun,
+    last_retention_result:_lastRetentionResult,
+    last_retention_error:_lastRetentionError,
   };
 }
 
@@ -182,6 +233,7 @@ module.exports = {
   collectionIntervalMs,
   executeCollection,
   executeProcessing,
+  executeRetention,
   start,
   restart,
   triggerNow,

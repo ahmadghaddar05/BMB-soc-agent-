@@ -267,6 +267,8 @@ const SETTING_KEYS = new Set([
   'autonomous_agent_enabled','autonomous_lookback_hours','autonomous_max_items',
   'autonomous_min_confidence','autonomous_assignment_enabled','autonomous_default_owner',
   'simulated_response_proposals_enabled',
+  'alert_retention_enabled','alert_retention_critical_days','alert_retention_high_days',
+  'alert_retention_default_days','alert_retention_batch_size',
 ]);
 
 const BOOLEAN_SETTINGS = new Set([
@@ -274,6 +276,7 @@ const BOOLEAN_SETTINGS = new Set([
   'elastic_cursor_enabled',
   'caching_enabled','incident_promote_enabled',
   'autonomous_agent_enabled','autonomous_assignment_enabled','simulated_response_proposals_enabled',
+  'alert_retention_enabled',
 ]);
 
 const INTEGER_SETTING_LIMITS = {
@@ -288,6 +291,8 @@ const INTEGER_SETTING_LIMITS = {
   triage_token_budget:[10000,500000], agentic_max_iterations:[2,4],
   hybrid_agentic_min_rule_level:[1,20],
   autonomous_lookback_hours:[1,168], autonomous_max_items:[1,100],
+  alert_retention_critical_days:[1,3650], alert_retention_high_days:[1,3650],
+  alert_retention_default_days:[1,3650], alert_retention_batch_size:[100,20000],
 };
 
 function validateSetting(key, value) {
@@ -361,6 +366,8 @@ r.put('/settings', requireRoles('administrator'), async (req, res) => {
     const schedulerKeys = [
       'live_collection_enabled','live_collection_interval_seconds',
       'scheduler_enabled','interval_minutes',
+      'alert_retention_enabled','alert_retention_critical_days','alert_retention_high_days',
+      'alert_retention_default_days','alert_retention_batch_size',
     ];
     if (updates.some(([k]) => schedulerKeys.includes(k))) await scheduler.restart();
 

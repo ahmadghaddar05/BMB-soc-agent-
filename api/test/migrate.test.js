@@ -175,6 +175,17 @@ test('workflow provenance migration creates an append-only explainability ledger
   assert.match(sql, /REFERENCES fetch_runs\(id\) ON DELETE SET NULL/);
 });
 
+test('alert retention migration defines severity policy and a durable run ledger', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/016_alert_retention.sql'), 'utf8');
+  assert.match(sql, /alert_retention_critical_days','14'/);
+  assert.match(sql, /alert_retention_high_days','10'/);
+  assert.match(sql, /alert_retention_default_days','7'/);
+  assert.match(sql, /alert_retention_enabled','false'/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS alert_retention_runs/);
+  assert.match(sql, /initial_7_day_purge/);
+  assert.match(sql, /COALESCE\(last_seen,timestamp,fetched_at\)/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;
