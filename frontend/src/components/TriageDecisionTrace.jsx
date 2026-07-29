@@ -143,6 +143,7 @@ export function TriageWorkflow({ journey, loading, error }) {
   const events = journey?.stages || [];
   const recorded = latestByStage(events);
   const linkedIncident = journey?.current_state?.incident || null;
+  const hasCorrelationDecision = recorded.has('correlated');
 
   if (loading) return <section className="workflow-empty"><i className="trace-spinner" /><strong>Loading recorded workflow</strong><span>Reading append-only provenance for this alert.</span></section>;
   if (error) return <section className="workflow-empty is-error"><AlertTriangle /><strong>Workflow unavailable</strong><span>The provenance endpoint could not be read. No workflow state has been inferred.</span></section>;
@@ -155,6 +156,12 @@ export function TriageWorkflow({ journey, loading, error }) {
         <p>{events.length} append-only event{events.length === 1 ? '' : 's'}</p>
       </header>
       <div className="workflow-trust-banner"><ShieldCheck /><p><strong>Recorded workflow and current state</strong><span>Ledger events remain append-only. A current incident link may be shown separately when older provenance is unavailable.</span></p></div>
+      {!hasCorrelationDecision && !linkedIncident && (
+        <div className="module-notice">
+          <GitMerge />
+          <span><strong>Awaiting BMB correlation processing.</strong> A source rule name such as “Multiple Alerts for Same User” describes the Elastic detection; it is not a BMB correlation result. This stage is complete only when a recorded outcome appears below.</span>
+        </div>
+      )}
       <ol className="workflow-stage-list">
         {STAGES.map(stage => {
           const recordedEvent = recorded.get(stage.key);

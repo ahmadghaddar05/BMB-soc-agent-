@@ -618,6 +618,8 @@ describe('authenticated application flows', () => {
     await renderAt('/incidents');
     expect(document.body.textContent).toContain('Select an incident to enter its command workspace');
     expect(document.body.textContent).toContain('Credential attack');
+    expect(document.body.textContent).toContain('Correlated alert membership');
+    expect(document.body.textContent).toContain('Auto-refreshes every 30 seconds');
     expect(document.querySelector('.incident-queue-severity')?.textContent).toContain('Critical');
     expect(document.querySelector('.incident-queue-severity')?.textContent).not.toContain('Low');
     expect(document.body.textContent).not.toContain('Close incident record');

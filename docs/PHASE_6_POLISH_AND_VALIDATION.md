@@ -40,3 +40,16 @@ No existing endpoint was removed or renamed. The alert journey response gained o
 ```
 
 Existing clients can ignore this field. New clients use it only to explain current incident membership.
+
+## Correlation backlog repair
+
+The triage worker can complete up to 50 alerts in one cycle, so correlation now accepts up to 50 newly triaged alerts per cycle as well. A migration repositions the BMB correlation cursor at the earliest triaged alert from the last seven days that has no recorded correlation outcome. This safely replays recent BMB workflow decisions without changing or deleting Elastic data.
+
+The Incident Command queue now separates two measurements:
+
+- **Incident records**: independent security stories currently stored as incidents.
+- **Correlated alert membership**: alerts attached to the loaded incident records.
+
+The first number does not increase when new activity is merged into an existing incident. The second does. The queue refreshes every 30 seconds while the browser tab is visible so analysts can observe both changes without reloading the page.
+
+Source detection titles are also explicitly distinguished from BMB correlation. A title such as “Multiple Alerts for Same User” describes the Elastic rule that created the alert; it does not mean the BMB correlation worker has recorded a result.

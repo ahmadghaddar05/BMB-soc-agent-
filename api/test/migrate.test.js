@@ -207,6 +207,20 @@ test('analyst review migration creates an append-only correction ledger', () => 
   assert.match(sql, /idx_analyst_decision_reviews_entity/);
 });
 
+test('correlation capacity migration matches triage throughput and replays unprocessed alerts', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/019_correlation_backlog_capacity.sql'),
+    'utf8'
+  );
+  assert.match(sql, /correlation_enabled','true'/);
+  assert.match(sql, /correlation_new_alerts_per_cycle','50'/);
+  assert.match(sql, /correlation_initial_alerts','40'/);
+  assert.match(sql, /NOT EXISTS/);
+  assert.match(sql, /w\.stage='correlated'/);
+  assert.match(sql, /INTERVAL '7 days'/);
+  assert.match(sql, /correlation_cursor_json/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

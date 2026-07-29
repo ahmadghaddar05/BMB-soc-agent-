@@ -63,7 +63,7 @@ function incidentSeverity(incident = {}) {
 }
 
 function IncidentSelection({
-  incidents, total, status, setStatus, loading, error, reload, openIncident, workspace,
+  incidents, total, status, setStatus, loading, error, reload, openIncident, workspace, lastRefreshed,
 }) {
   const [query, setQuery] = useState('');
   const [severity, setSeverity] = useState('all');
@@ -79,8 +79,8 @@ function IncidentSelection({
     });
   }, [incidents, query, severity]);
   const critical = incidents.filter(item => incidentSeverity(item) === 'critical').length;
-  const high = incidents.filter(item => incidentSeverity(item) === 'high').length;
   const unassigned = incidents.filter(item => !item.owner).length;
+  const correlatedAlerts = incidents.reduce((sum, item) => sum + correlatedCount(item), 0);
 
   return (
     <div className="incident-command incident-selection">
@@ -90,13 +90,16 @@ function IncidentSelection({
           <h2>{workspace === 'cases' ? 'Case-linked Incidents' : 'Incident Command'}</h2>
           <p>Select an incident to enter its command workspace. Nothing is opened automatically, so analysts retain control of their investigation context.</p>
         </div>
-        <button type="button" onClick={reload} disabled={loading}><RefreshCw className={loading ? 'animate-spin' : ''} />Refresh incidents</button>
+        <div className="incident-selection-refresh">
+          <small>Auto-refreshes every 30 seconds{lastRefreshed ? ` · Updated ${lastRefreshed.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' })}` : ''}</small>
+          <button type="button" onClick={reload} disabled={loading}><RefreshCw className={loading ? 'animate-spin' : ''} />Refresh incidents</button>
+        </div>
       </header>
 
       <section className="incident-selection-metrics" aria-label="Incident queue summary">
-        <article><span>Incidents in view</span><strong>{total}</strong><small>{status === 'open' ? 'Requiring review or ownership' : humanize(status)}</small></article>
+        <article><span>Incident records</span><strong>{total}</strong><small>{status === 'open' ? 'Open correlated security stories' : humanize(status)}</small></article>
+        <article><span>Correlated alert membership</span><strong>{correlatedAlerts}</strong><small>Across the {incidents.length} incident records loaded here</small></article>
         <article className="critical"><span>Critical</span><strong>{critical}</strong><small>Confirmed critical severity only</small></article>
-        <article className="high"><span>High</span><strong>{high}</strong><small>Elevated analyst priority</small></article>
         <article className="attention"><span>Without owner</span><strong>{unassigned}</strong><small>Assignment is the next decision</small></article>
       </section>
 
@@ -190,6 +193,7 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
   const [showAllEvidence, setShowAllEvidence] = useState(false);
   const [completedActions, setCompletedActions] = useState({});
   const [loadError, setLoadError] = useState('');
+  const [lastRefreshed, setLastRefreshed] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -207,6 +211,7 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
       setSelectedId(requestedIncident && rows.some(item => String(item.id) === String(requestedIncident))
         ? requestedIncident
         : null);
+      setLastRefreshed(new Date());
     } catch (error) {
       setLoadError(error.message || 'The incident queue could not be loaded.');
       setIncidents([]); setTotal(0); setSelectedId(null);
@@ -214,6 +219,17 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
   }, [requestedIncident, status]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    const interval = window.setInterval(refreshWhenVisible, 30_000);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [load]);
   useEffect(() => {
     if (!selectedId) { setDetail(null); setJourney(null); return; }
     let live = true;
@@ -303,6 +319,7 @@ export default function Incidents({ workspace = 'incidents', readOnly = false })
         reload={load}
         openIncident={openIncident}
         workspace={workspace}
+        lastRefreshed={lastRefreshed}
       />
     );
   }
