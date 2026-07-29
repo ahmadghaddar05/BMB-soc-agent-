@@ -293,6 +293,28 @@ describe('authenticated application flows', () => {
         id:'alert-1', rule_desc:'Suspicious login', source_severity:'high',
         timestamp:'2026-07-15T10:00:00Z', triage_status:'pending',
       });
+      if (url.endsWith('/workflow-quality?days=30')) return jsonResponse({
+        generated_at:'2026-07-29T08:00:00Z', window_days:30,
+        summary:{
+          machine_decisions:12, reviewed:5, awaiting_review:7,
+          review_coverage_percent:41.7, analyst_agreement_percent:60,
+          confirmed:3, challenged:1, needs_more_evidence:1,
+        },
+        scopes:{
+          alerts:{ machine_decisions:10, reviewed:4, confirmed:3, challenged:1, needs_more_evidence:0, review_coverage_percent:40 },
+          incidents:{ machine_decisions:2, reviewed:1, confirmed:0, challenged:0, needs_more_evidence:1, review_coverage_percent:50 },
+        },
+        review_activity:[{ day:'2026-07-29', reviews:5, confirmed:3, challenged:1, needs_evidence:1 }],
+        recent_reviews:[{
+          id:8, entity_type:'alert', entity_id:'alert-1', decision:'challenged',
+          reason:'The process evidence is incomplete.', actor:'analyst',
+          title:'Suspicious login', severity:'high', created_at:'2026-07-29T08:00:00Z',
+        }],
+        methodology:{
+          accuracy_claim:false,
+          description:'Agreement is not independently verified ground truth or model accuracy.',
+        },
+      });
       return jsonResponse({});
     });
 
@@ -302,6 +324,14 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Suspicious login');
     expect(calls.some(url => url.includes('/alert-groups?') && url.includes('search=needle'))).toBe(true);
     expect(calls.some(url => url.endsWith('/alerts/alert-1'))).toBe(true);
+    expect(document.body.textContent).toContain('41.7% reviewed');
+
+    const assurance = document.querySelector('[aria-label="Open decision assurance"]');
+    await act(async () => assurance.click());
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.body.textContent).toContain('Agreement is not accuracy');
+    expect(document.body.textContent).toContain('60%');
+    expect(document.body.textContent).toContain('The process evidence is incomplete.');
   });
 
   it('loads the auditable executive contract without sampling a page of raw alerts', async () => {

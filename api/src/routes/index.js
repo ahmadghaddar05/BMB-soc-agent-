@@ -20,7 +20,7 @@ const r = Router();
 const ANALYST_READ_PREFIXES = Object.freeze([
   '/health', '/collector/status', '/agent/status', '/alerts', '/alert-groups',
   '/incidents', '/pivot', '/stats', '/investigations', '/cases', '/actions',
-  '/action-policy', '/responses', '/reports',
+  '/action-policy', '/responses', '/reports', '/workflow-quality',
 ]);
 
 const EXECUTIVE_READ_PREFIXES = Object.freeze([
@@ -186,6 +186,137 @@ r.post('/workflow-reviews', requireRoles('soc_analyst', 'administrator'), async 
       [entityType, entityId, decision, reason, actor, req.id]
     );
     res.status(201).json({ review:result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error:error.message });
+  }
+});
+
+r.get('/workflow-quality', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
+  try {
+    const days = Number(req.query.days ?? 30);
+    if (!EXECUTIVE_WINDOWS.has(days)) {
+      return res.status(400).json({ error: 'days must be one of 7, 30, or 90' });
+    }
+    const cutoff = new Date(Date.now() - (days * 86400000)).toISOString();
+    const [summary, trend, recent] = await Promise.all([
+      db.query(
+        `WITH machine_scope AS (
+           SELECT DISTINCT entity_type,entity_id
+           FROM workflow_stage_events
+           WHERE status='completed'
+             AND executor_type IN ('ai','cache')
+             AND created_at >= $1::timestamptz
+             AND (
+               (entity_type='alert' AND stage='triaged')
+               OR (entity_type='incident' AND stage='incident_decision')
+             )
+         ), latest_reviews AS (
+           SELECT DISTINCT ON (entity_type,entity_id)
+                  entity_type,entity_id,decision,actor,created_at
+           FROM analyst_decision_reviews
+           WHERE created_at >= $1::timestamptz
+           ORDER BY entity_type,entity_id,created_at DESC,id DESC
+         ), reviewed_scope AS (
+           SELECT scope.entity_type,scope.entity_id,reviews.decision
+           FROM machine_scope scope
+           LEFT JOIN latest_reviews reviews
+             ON reviews.entity_type=scope.entity_type
+            AND reviews.entity_id=scope.entity_id
+         )
+         SELECT
+           (COUNT(*) FILTER (WHERE entity_type='alert'))::int AS alert_decisions,
+           (COUNT(decision) FILTER (WHERE entity_type='alert'))::int AS alert_reviewed,
+           (COUNT(*) FILTER (WHERE entity_type='alert' AND decision='confirmed'))::int AS alert_confirmed,
+           (COUNT(*) FILTER (WHERE entity_type='alert' AND decision='challenged'))::int AS alert_challenged,
+           (COUNT(*) FILTER (WHERE entity_type='alert' AND decision='needs_more_evidence'))::int AS alert_needs_evidence,
+           (COUNT(*) FILTER (WHERE entity_type='incident'))::int AS incident_decisions,
+           (COUNT(decision) FILTER (WHERE entity_type='incident'))::int AS incident_reviewed,
+           (COUNT(*) FILTER (WHERE entity_type='incident' AND decision='confirmed'))::int AS incident_confirmed,
+           (COUNT(*) FILTER (WHERE entity_type='incident' AND decision='challenged'))::int AS incident_challenged,
+           (COUNT(*) FILTER (WHERE entity_type='incident' AND decision='needs_more_evidence'))::int AS incident_needs_evidence
+         FROM reviewed_scope`,
+        [cutoff]
+      ),
+      db.query(
+        `SELECT created_at::date::text AS day,
+                COUNT(*)::int AS reviews,
+                (COUNT(*) FILTER (WHERE decision='confirmed'))::int AS confirmed,
+                (COUNT(*) FILTER (WHERE decision='challenged'))::int AS challenged,
+                (COUNT(*) FILTER (WHERE decision='needs_more_evidence'))::int AS needs_evidence
+         FROM analyst_decision_reviews
+         WHERE created_at >= $1::timestamptz
+         GROUP BY created_at::date
+         ORDER BY created_at::date ASC`,
+        [cutoff]
+      ),
+      db.query(
+        `SELECT reviews.id,reviews.entity_type,reviews.entity_id,reviews.decision,
+                reviews.reason,reviews.actor,reviews.created_at,
+                COALESCE(NULLIF(incidents.title,''),NULLIF(alerts.rule_desc,''),
+                         NULLIF(alerts.alert_reason,''),'Security decision') AS title,
+                COALESCE(incidents.severity,alerts.source_severity,'unknown') AS severity
+         FROM analyst_decision_reviews reviews
+         LEFT JOIN alerts
+           ON reviews.entity_type='alert' AND alerts.id=reviews.entity_id
+         LEFT JOIN incidents
+           ON reviews.entity_type='incident' AND incidents.id::text=reviews.entity_id
+         WHERE reviews.created_at >= $1::timestamptz
+         ORDER BY reviews.created_at DESC,reviews.id DESC
+         LIMIT 12`,
+        [cutoff]
+      ),
+    ]);
+    const row = summary.rows[0] || {};
+    const alertDecisions = numericCount(row.alert_decisions);
+    const alertReviewed = numericCount(row.alert_reviewed);
+    const incidentDecisions = numericCount(row.incident_decisions);
+    const incidentReviewed = numericCount(row.incident_reviewed);
+    const totalDecisions = alertDecisions + incidentDecisions;
+    const totalReviewed = alertReviewed + incidentReviewed;
+    const totalConfirmed = numericCount(row.alert_confirmed) + numericCount(row.incident_confirmed);
+    const percentage = (value, denominator) => denominator > 0
+      ? Math.round((value / denominator) * 1000) / 10
+      : null;
+    res.json({
+      generated_at:new Date().toISOString(),
+      window_days:days,
+      summary:{
+        machine_decisions:totalDecisions,
+        reviewed:totalReviewed,
+        awaiting_review:Math.max(0, totalDecisions - totalReviewed),
+        review_coverage_percent:percentage(totalReviewed, totalDecisions),
+        analyst_agreement_percent:percentage(totalConfirmed, totalReviewed),
+        confirmed:totalConfirmed,
+        challenged:numericCount(row.alert_challenged) + numericCount(row.incident_challenged),
+        needs_more_evidence:numericCount(row.alert_needs_evidence) + numericCount(row.incident_needs_evidence),
+      },
+      scopes:{
+        alerts:{
+          machine_decisions:alertDecisions,
+          reviewed:alertReviewed,
+          confirmed:numericCount(row.alert_confirmed),
+          challenged:numericCount(row.alert_challenged),
+          needs_more_evidence:numericCount(row.alert_needs_evidence),
+          review_coverage_percent:percentage(alertReviewed, alertDecisions),
+        },
+        incidents:{
+          machine_decisions:incidentDecisions,
+          reviewed:incidentReviewed,
+          confirmed:numericCount(row.incident_confirmed),
+          challenged:numericCount(row.incident_challenged),
+          needs_more_evidence:numericCount(row.incident_needs_evidence),
+          review_coverage_percent:percentage(incidentReviewed, incidentDecisions),
+        },
+      },
+      review_activity:trend.rows,
+      recent_reviews:recent.rows,
+      methodology:{
+        accuracy_claim:false,
+        description:'Agreement is the latest recorded analyst review of each AI-assisted decision completed in the selected window. It is not independently verified ground truth or model accuracy.',
+        machine_scope:"Completed AI or cache triage decisions and AI incident decisions.",
+        review_scope:'Latest analyst review per entity recorded inside the selected window.',
+      },
+    });
   } catch (error) {
     res.status(500).json({ error:error.message });
   }

@@ -277,6 +277,51 @@ test('analyst decision reviews reject unsupported or unexplained decisions', asy
   assert.equal(unexplained.status, 400);
 });
 
+test('workflow quality reports review coverage and agreement without claiming accuracy', async () => {
+  db.query = async (sql, params = []) => {
+    const text = String(sql);
+    assert.equal(params.length, 1);
+    assert.match(params[0], /^\d{4}-\d{2}-\d{2}T/);
+    if (text.includes('WITH machine_scope AS')) {
+      return { rows:[{
+        alert_decisions:10, alert_reviewed:4, alert_confirmed:3,
+        alert_challenged:1, alert_needs_evidence:0,
+        incident_decisions:2, incident_reviewed:1, incident_confirmed:0,
+        incident_challenged:0, incident_needs_evidence:1,
+      }] };
+    }
+    if (text.includes('GROUP BY created_at::date')) {
+      return { rows:[{
+        day:'2026-07-29', reviews:5, confirmed:3, challenged:1, needs_evidence:1,
+      }] };
+    }
+    if (text.includes('FROM analyst_decision_reviews reviews')) {
+      return { rows:[{
+        id:8, entity_type:'alert', entity_id:'A', decision:'challenged',
+        reason:'The process evidence is incomplete.', actor:'analyst',
+        title:'Suspicious process execution', severity:'critical',
+        created_at:'2026-07-29T08:00:00Z',
+      }] };
+    }
+    throw new Error(`Unexpected workflow quality query: ${text.slice(0, 80)}`);
+  };
+
+  const response = await request(routeApp()).get('/api/workflow-quality?days=30');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.summary.machine_decisions, 12);
+  assert.equal(response.body.summary.reviewed, 5);
+  assert.equal(response.body.summary.review_coverage_percent, 41.7);
+  assert.equal(response.body.summary.analyst_agreement_percent, 60);
+  assert.equal(response.body.summary.challenged, 1);
+  assert.equal(response.body.summary.needs_more_evidence, 1);
+  assert.equal(response.body.methodology.accuracy_claim, false);
+  assert.match(response.body.methodology.description, /not independently verified ground truth/);
+  assert.equal(response.body.recent_reviews[0].decision, 'challenged');
+
+  const invalid = await request(routeApp()).get('/api/workflow-quality?days=14');
+  assert.equal(invalid.status, 400);
+});
+
 test('grouped alerts expose specific titles and search technical and asset identifiers', async () => {
   let groupsSql = '';
   const group = {

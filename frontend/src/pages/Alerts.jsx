@@ -11,6 +11,7 @@ import { activityTitle, alertReference, severityOf } from '../lib/executive';
 import InfoTip from '../components/InfoTip';
 import { TriageDecisionSummary, TriageWorkflow } from '../components/TriageDecisionTrace';
 import AnalystDecisionReview from '../components/AnalystDecisionReview';
+import DecisionQualityPanel from '../components/DecisionQualityPanel';
 
 function json(value) {
   if (!value) return null;
@@ -293,7 +294,7 @@ export default function Alerts({ workspace = 'alerts' }) {
       <div className="workspace-toolbar">
         <div className="workspace-heading"><div><h2>{title}</h2><span className="workspace-chip">AI-SOC</span></div><p>{total.toLocaleString()} activities available for review</p></div>
         <div className="toolbar-search"><Search /><input value={filters.search} onChange={event => updateFilter('search', event.target.value)} placeholder="Search IP, user, device, hash, alert ID..." /></div>
-        <div className="toolbar-status"><span><i />Workspace active</span><small>API-backed alerts</small></div>
+        <div className="toolbar-status"><div><span><i />Workspace active</span><small>API-backed alerts</small></div><DecisionQualityPanel /></div>
       </div>
 
       {notice && <div className="workspace-notice">{notice}</div>}
