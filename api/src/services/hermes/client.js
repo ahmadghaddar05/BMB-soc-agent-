@@ -97,6 +97,61 @@ function failureSummary(value, depth = 0) {
   return failureSummary(value.error, depth + 1);
 }
 
+function normalizeRouteValue(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function verifyRequestedRoute(state, { model, provider } = {}) {
+  // The gateway default is intentionally allowed to resolve its own model.
+  // An explicit provider selection is different: accepting absent or mismatched
+  // runtime metadata could silently bill the gateway's default provider.
+  if (!provider) {
+    return {
+      verified: Boolean(normalizeRouteValue(state?.model)),
+      requested_model: model || null,
+      requested_provider: null,
+      returned_model: state?.model || null,
+    };
+  }
+
+  const requestedModel = normalizeRouteValue(model);
+  const returnedModel = normalizeRouteValue(state?.model);
+  if (!returnedModel) {
+    throw new HermesError(
+      'HERMES_ROUTE_UNVERIFIED',
+      'Hermes did not report the model that executed the explicitly selected provider route',
+      {
+        status: 503,
+        details: {
+          requested_provider: provider,
+          requested_model: model,
+          returned_model: null,
+        },
+      }
+    );
+  }
+  if (returnedModel !== requestedModel) {
+    throw new HermesError(
+      'HERMES_ROUTE_MISMATCH',
+      'Hermes executed a different model than the explicitly selected provider route',
+      {
+        status: 503,
+        details: {
+          requested_provider: provider,
+          requested_model: model,
+          returned_model: state.model,
+        },
+      }
+    );
+  }
+  return {
+    verified: true,
+    requested_model: model,
+    requested_provider: provider,
+    returned_model: state.model,
+  };
+}
+
 function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch, sleepImpl = null } = {}) {
   if (typeof fetchImpl !== 'function') throw new Error('A fetch implementation is required');
   const baseUrl = normalizedBaseUrl(config.hermesUrl);
@@ -286,6 +341,7 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
         headers: {
           ...(sessionId ? { 'X-Hermes-Session-Id': sessionId } : {}),
           ...(sessionKey ? { 'X-Hermes-Session-Key': sessionKey } : {}),
+          ...(provider ? { 'X-Hermes-Model': selectedModel } : {}),
         },
         signal,
         idempotencyKey: idempotencyKey || crypto.randomUUID(),
@@ -311,6 +367,7 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
           if (typeof state.output !== 'string' || !state.output.trim()) {
             throw new HermesError('HERMES_INVALID_OUTPUT', 'Hermes returned an empty response', { status: 502 });
           }
+          const route = verifyRequestedRoute(state, { model: selectedModel, provider });
           const usage = {
             prompt_tokens: state.usage?.input_tokens || 0,
             completion_tokens: state.usage?.output_tokens || 0,
@@ -318,6 +375,7 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
           };
           return {
             runId, output: state.output, model: state.model || selectedModel,
+            provider: provider || null, route,
             usage, attempts, latencyMs: Date.now() - startedAt, capabilities: capabilitySnapshot,
           };
         }
@@ -370,4 +428,5 @@ function defaultHermesClient() {
 
 module.exports = {
   createHermesClient, defaultHermesClient, failureSummary, isForbiddenTool, normalizedBaseUrl,
+  verifyRequestedRoute,
 };

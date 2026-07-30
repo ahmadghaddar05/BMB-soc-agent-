@@ -205,6 +205,74 @@ test('Hermes submits an explicit allowlisted provider and model override per run
   assert.equal(submittedBody.provider, 'openrouter');
   assert.equal(submittedBody.model, 'meta-llama/llama-3.3-70b-instruct');
   assert.equal(result.model, 'meta-llama/llama-3.3-70b-instruct');
+  assert.equal(result.route.verified, true);
+});
+
+test('Hermes fails closed when an explicit provider route does not report its executed model', async () => {
+  const client = createHermesClient({
+    config, sleepImpl: async () => {},
+    fetchImpl: async (url, options) => {
+      const capability = handshakeResponse(url);
+      if (capability) return capability;
+      if (url.endsWith('/runs') && options.method === 'POST') {
+        return jsonResponse({ run_id:'run-unverified', status:'started' }, 202);
+      }
+      if (url.endsWith('/runs/run-unverified')) {
+        return jsonResponse({
+          object:'hermes.run',
+          run_id:'run-unverified',
+          status:'completed',
+          output:'READY',
+          usage:{ input_tokens:3, output_tokens:1, total_tokens:4 },
+        });
+      }
+      if (url.endsWith('/runs/run-unverified/stop')) return jsonResponse({ status:'stopping' });
+      throw new Error(`Unexpected URL ${url}`);
+    },
+  });
+  await assert.rejects(
+    client.runAgent({
+      input:'test',
+      instructions:'test',
+      provider:'openrouter',
+      model:'meta-llama/llama-3.3-70b-instruct',
+    }),
+    error => error.code === 'HERMES_ROUTE_UNVERIFIED'
+  );
+});
+
+test('Hermes fails closed when an explicit provider route reports another model', async () => {
+  const client = createHermesClient({
+    config, sleepImpl: async () => {},
+    fetchImpl: async (url, options) => {
+      const capability = handshakeResponse(url);
+      if (capability) return capability;
+      if (url.endsWith('/runs') && options.method === 'POST') {
+        return jsonResponse({ run_id:'run-mismatch', status:'started' }, 202);
+      }
+      if (url.endsWith('/runs/run-mismatch')) {
+        return jsonResponse({
+          object:'hermes.run',
+          run_id:'run-mismatch',
+          status:'completed',
+          model:'gpt-5.6-sol',
+          output:'READY',
+          usage:{ input_tokens:3, output_tokens:1, total_tokens:4 },
+        });
+      }
+      if (url.endsWith('/runs/run-mismatch/stop')) return jsonResponse({ status:'stopping' });
+      throw new Error(`Unexpected URL ${url}`);
+    },
+  });
+  await assert.rejects(
+    client.runAgent({
+      input:'test',
+      instructions:'test',
+      provider:'openrouter',
+      model:'meta-llama/llama-3.3-70b-instruct',
+    }),
+    error => error.code === 'HERMES_ROUTE_MISMATCH'
+  );
 });
 
 test('Hermes failed runs retain a safe provider reason without leaking credentials', async () => {
