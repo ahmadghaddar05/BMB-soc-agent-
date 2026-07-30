@@ -2,7 +2,9 @@
 
 const crypto = require('crypto');
 const db = require('../db');
-const { correlateHermes } = require('../services/hermes/correlation');
+const {
+  correlateHermes, hasStrongRelation, relationScore,
+} = require('../services/hermes/correlation');
 const { HermesError } = require('../services/hermes/errors');
 
 const SEV_ORDER = { informational: 0, low: 1, medium: 2, high: 3, critical: 4 };
@@ -98,18 +100,6 @@ function meaningful(value) {
     ? normalized : null;
 }
 
-function relationScore(a, b) {
-  let score = 0;
-  for (const key of ['username', 'hostname', 'process', 'target_db']) {
-    const left = meaningful(a[key]);
-    const right = meaningful(b[key]);
-    if (left && left === right) score += key === 'process' ? 1 : 2;
-  }
-  const leftIps = new Set([meaningful(a.src_ip), meaningful(a.dst_ip)].filter(Boolean));
-  if ([meaningful(b.src_ip), meaningful(b.dst_ip)].filter(Boolean).some(ip => leftIps.has(ip))) score += 2;
-  return score;
-}
-
 function withinHours(a, b, hours) {
   const left = new Date(a.timestamp).getTime();
   const right = new Date(b.timestamp).getTime();
@@ -144,7 +134,10 @@ async function correlatePending(settings = {}, fetchRunId = null, {
 
   const columns = `
     id,timestamp,triaged_at,rule_id,rule_level,rule_desc,source_severity,
-    src_ip,dst_ip,username,hostname,target_db,process,mitre_tactics,verdict
+    src_ip,dst_ip,username,hostname,target_db,process,mitre_tactics,verdict,
+    source_system,source_index,elastic_alert_uuid,risk_score,workflow_status,
+    alert_reason,full_log,event_dataset,event_category,event_action,
+    mitre_techniques,occurrence_count,first_seen,last_seen,raw
   `;
   const fresh = cursor
     ? await db.query(
@@ -181,7 +174,8 @@ async function correlatePending(settings = {}, fetchRunId = null, {
     [String(hours), newIds, contextPoolCap]
   );
   const relatedContext = pool.rows.filter(candidate => newRows.some(freshAlert =>
-    relationScore(freshAlert, candidate) > 0 && withinHours(freshAlert, candidate, entityWindowHours)
+    hasStrongRelation(freshAlert, candidate) &&
+      withinHours(freshAlert, candidate, entityWindowHours)
   ));
   const candidates = [...newRows, ...relatedContext]
     .filter((row, index, all) => all.findIndex(item => item.id === row.id) === index)
@@ -198,7 +192,8 @@ async function correlatePending(settings = {}, fetchRunId = null, {
   const includedFreshIds = includedFresh.map(row => String(row.id));
 
   const hasPlausiblePair = candidates.some((left, leftIndex) => candidates.some((right, rightIndex) =>
-    rightIndex > leftIndex && relationScore(left, right) > 0 && withinHours(left, right, entityWindowHours)
+    rightIndex > leftIndex && hasStrongRelation(left, right) &&
+      withinHours(left, right, entityWindowHours)
   ));
   if (!hasPlausiblePair) {
     await db.query(

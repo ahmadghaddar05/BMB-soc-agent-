@@ -4,8 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { parseCorrelationOutput } = require('../src/services/hermes/schemas');
 const {
-  OUTPUT_SCHEMA_VERSION, PROMPT_VERSION, correlateHermes,
-  validateCorrelationGroups,
+  OUTPUT_SCHEMA_VERSION, PROMPT_VERSION, connectedGroup, correlateHermes,
+  correlationInput, relationScore, validateCorrelationGroups,
 } = require('../src/services/hermes/correlation');
 
 function alert(id, overrides = {}) {
@@ -89,10 +89,40 @@ test('deterministic guards reject unknown IDs, overlapping groups, and disconnec
   );
 });
 
+test('correlation requires a strong shared entity and includes technical evidence', () => {
+  const processOnly = [
+    alert('A', {
+      username: null, hostname: null, src_ip: null, dst_ip: null,
+      process: 'powershell.exe',
+    }),
+    alert('B', {
+      username: null, hostname: null, src_ip: null, dst_ip: null,
+      process: 'powershell.exe',
+    }),
+  ];
+  assert.equal(relationScore(processOnly[0], processOnly[1]), 1);
+  assert.equal(connectedGroup(processOnly, 6), false);
+
+  const sharedHash = processOnly.map(item => ({
+    ...item,
+    raw: { fields: { 'process.hash.sha256': ['a'.repeat(64)] } },
+  }));
+  assert.ok(relationScore(sharedHash[0], sharedHash[1]) >= 3);
+  assert.equal(connectedGroup(sharedHash, 6), true);
+
+  const input = JSON.parse(correlationInput(sharedHash, ['A'], 6));
+  assert.equal(
+    input.untrusted_alert_candidates[0].technical_context.process.sha256,
+    'a'.repeat(64)
+  );
+  assert.equal(input.entity_window_hours, 6);
+});
+
 test('Hermes correlation is tool-less, grounded, persisted, and fully audited', async () => {
   const calls = [];
   const client = { async runAgent(options) {
     assert.match(options.instructions, /never request tools/i);
+    assert.match(options.instructions, /process name alone is weak/i);
     assert.match(options.input, /untrusted_alert_candidates/);
     assert.equal(options.sessionKey, 'bmb-correlation:local-correlation-run');
     await options.onSubmitted('hermes-correlation-1');

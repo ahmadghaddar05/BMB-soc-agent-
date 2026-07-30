@@ -354,6 +354,12 @@ test('cancelling a submitted Hermes run invokes the stop endpoint', async () => 
 
 test('structured chat output rejects invalid JSON and hallucinated evidence IDs', () => {
   assert.throws(() => parseChatOutput('not-json'), error => error.code === 'HERMES_INVALID_OUTPUT');
+  assert.equal(parseChatOutput(`Here is the requested JSON:
+{"answer":"No stored evidence was found.","citations":[],"confidence":"low"}`).confidence, 'low');
+  assert.throws(
+    () => parseChatOutput('{"answer":"one","citations":[],"confidence":"low"} {"answer":"two","citations":[],"confidence":"low"}'),
+    error => error.code === 'HERMES_INVALID_OUTPUT'
+  );
   const output = parseChatOutput(JSON.stringify({
     answer: 'Unsupported citation', citations: [{ type: 'alert', id: 'missing' }], confidence: 'low',
   }));

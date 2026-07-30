@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { parseTriageTurn, validateCitations } = require('../src/services/hermes/schemas');
 const {
   PROMPT_VERSION, OUTPUT_SCHEMA_VERSION,
-  triageCacheIdentity, triageHermes, validateTriageCitations,
+  triageCacheIdentity, triageHermes, triageInput, validateTriageCitations,
 } = require('../src/services/hermes/triage');
 
 function alert(overrides = {}) {
@@ -82,6 +82,7 @@ test('pipeline triage uses one Hermes run, no tools, and records strict provenan
   const client = { async runAgent(options) {
     await options.onSubmitted('hermes-1');
     assert.match(options.instructions, /Automatic closure is disabled/);
+    assert.match(options.instructions, /needs_investigation: use only when/i);
     assert.match(options.input, /untrusted_alert_evidence/);
     assert.equal(options.sessionKey, 'bmb-triage:local-run');
     return hermesResult('hermes-1', final());
@@ -97,6 +98,26 @@ test('pipeline triage uses one Hermes run, no tools, and records strict provenan
   assert.deepEqual(calls.map(item => item[0]), ['begin', 'attach', 'step', 'complete']);
   assert.equal(calls[0][1].promptVersion, PROMPT_VERSION);
   assert.equal(calls[0][1].schemaVersion, OUTPUT_SCHEMA_VERSION);
+});
+
+test('triage input carries process ancestry and hashes as untrusted evidence', () => {
+  const input = JSON.parse(triageInput(alert({
+    raw: {
+      fields: {
+        'process.name': ['powershell.exe'],
+        'process.command_line': ['powershell.exe -EncodedCommand SQBFAFgA'],
+        'process.hash.sha256': ['a'.repeat(64)],
+        'process.parent.name': ['WINWORD.EXE'],
+        'process.parent.command_line': ['WINWORD.EXE invoice.docm'],
+        'process.parent.hash.sha256': ['b'.repeat(64)],
+      },
+    },
+  }), []));
+  const context = input.untrusted_alert_evidence.normalized_alert.technical_context;
+  assert.equal(context.process.command_line, 'powershell.exe -EncodedCommand SQBFAFgA');
+  assert.equal(context.process.sha256, 'a'.repeat(64));
+  assert.equal(context.parent_process.name, 'WINWORD.EXE');
+  assert.equal(context.parent_process.sha256, 'b'.repeat(64));
 });
 
 test('agentic triage executes only a bounded BMB application tool before final output', async () => {
@@ -214,5 +235,8 @@ test('cache identity changes with alert, enrichment, prompt contract, and model 
   assert.equal(first.cacheKey, triageCacheIdentity(alert(), 'sig', 'hermes-agent').cacheKey);
   assert.notEqual(first.cacheKey, triageCacheIdentity(alert({ id: 'alert-B' }), 'sig', 'hermes-agent').cacheKey);
   assert.notEqual(first.cacheKey, triageCacheIdentity(alert({ enrichment: { changed: true } }), 'sig', 'hermes-agent').cacheKey);
+  assert.notEqual(first.cacheKey, triageCacheIdentity(alert({
+    raw: { fields: { 'process.parent.name': ['WINWORD.EXE'] } },
+  }), 'sig', 'hermes-agent').cacheKey);
   assert.notEqual(first.cacheKey, triageCacheIdentity(alert(), 'sig', 'different-model').cacheKey);
 });
