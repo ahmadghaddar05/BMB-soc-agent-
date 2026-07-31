@@ -55,6 +55,11 @@ function runtimeConfig(env = process.env) {
     elasticEventIndices: env.ELASTIC_EVENT_INDICES || 'logs-*',
     elasticVerifyTls: bool(env.ELASTIC_VERIFY_TLS, true),
     elasticCaCert: env.ELASTIC_CA_CERT || '',
+    splunkUrl: env.SPLUNK_URL || '',
+    splunkToken: env.SPLUNK_TOKEN || '',
+    splunkIndex: env.SPLUNK_INDEX || 'main',
+    splunkSearch: env.SPLUNK_SEARCH || '',
+    splunkVerifyTls: bool(env.SPLUNK_VERIFY_TLS, true),
     wazuhMode: env.WAZUH_MODE || 'mock',
     wazuhUrl: env.WAZUH_INDEXER_URL || '',
     wazuhPassword: env.WAZUH_INDEXER_PASS || '',
@@ -111,7 +116,7 @@ function validateStartupConfig(config = runtimeConfig()) {
   }
   if (config.apiKey && config.apiKey.length < 24) warnings.push('SOC_API_KEY should be at least 24 characters');
   if (config.nodeEnv === 'production' && !config.cookieSecure) warnings.push('SOC_COOKIE_SECURE is false; use true when the UI is served over HTTPS');
-  if (!['mock','elastic','wazuh'].includes(config.alertSource)) errors.push('ALERT_SOURCE must be mock, elastic, or wazuh');
+  if (!['mock','elastic','wazuh','splunk'].includes(config.alertSource)) errors.push('ALERT_SOURCE must be mock, elastic, wazuh, or splunk');
   if (config.alertSource === 'elastic') {
     if (!config.elasticUrl) errors.push('ELASTICSEARCH_URL is required when ALERT_SOURCE=elastic');
     else if (!validHttpUrl(config.elasticUrl)) errors.push('ELASTICSEARCH_URL must be a valid HTTP(S) URL');
@@ -119,6 +124,12 @@ function validateStartupConfig(config = runtimeConfig()) {
     if (!/^[A-Za-z0-9._,*-]{1,300}$/.test(config.elasticEventIndices)) errors.push('ELASTIC_EVENT_INDICES contains invalid characters');
     if (config.elasticVerifyTls && !config.elasticCaCert) errors.push('ELASTIC_CA_CERT is required when Elastic TLS verification is enabled');
     else if (config.elasticVerifyTls && !fs.existsSync(config.elasticCaCert)) errors.push('ELASTIC_CA_CERT does not exist at the configured path');
+  }
+  if (config.alertSource === 'splunk') {
+    if (!config.splunkUrl) errors.push('SPLUNK_URL is required when ALERT_SOURCE=splunk');
+    else if (!validHttpUrl(config.splunkUrl)) errors.push('SPLUNK_URL must be a valid HTTP(S) URL');
+    if (!config.splunkToken) errors.push('SPLUNK_TOKEN is required when ALERT_SOURCE=splunk');
+    if (!/^[A-Za-z0-9._-]{1,200}$/.test(config.splunkIndex)) errors.push('SPLUNK_INDEX contains invalid characters');
   }
   if (config.alertSource === 'wazuh' && config.wazuhMode !== 'mock') {
     if (!config.wazuhUrl) errors.push('WAZUH_INDEXER_URL is required for a real Wazuh source');

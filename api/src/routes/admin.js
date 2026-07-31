@@ -84,6 +84,8 @@ router.get('/runtime', async (req, res) => {
         elastic_event_indices:config.alertSource === 'elastic' ? config.elasticEventIndices : null,
         tls_verification:config.alertSource === 'elastic' ? config.elasticVerifyTls : null,
         ca_certificate_configured:config.alertSource === 'elastic' ? Boolean(config.elasticCaCert) : null,
+        splunk_configured:config.alertSource === 'splunk' ? Boolean(config.splunkUrl && config.splunkToken) : null,
+        splunk_index:config.alertSource === 'splunk' ? config.splunkIndex : null,
         wazuh_configured:config.alertSource === 'wazuh' ? Boolean(config.wazuhUrl && config.wazuhPassword) : null,
       },
       ai_provider:{

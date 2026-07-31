@@ -57,6 +57,12 @@ docker compose -f docker-compose.yml -f docker-compose.elastic.yml up --build -d
 
 For a controlled development environment only, `ELASTIC_VERIFY_TLS=false` skips certificate verification and does not require the override file.
 
+### Splunk
+
+Set `ALERT_SOURCE=splunk`, `SPLUNK_URL`, and `SPLUNK_TOKEN`. The connector uses Splunk's search API to read recent alert events from the configured Splunk index. For local testing, also set `SPLUNK_INDEX` and optionally `SPLUNK_SEARCH` to constrain the event stream.
+
+For TLS verification, set `SPLUNK_VERIFY_TLS=true`; set it to `false` only in controlled development environments.
+
 ### Wazuh
 
 Set `ALERT_SOURCE=wazuh`. For deterministic mock data keep `WAZUH_MODE=mock`. For a real indexer set `WAZUH_MODE=real`, `WAZUH_INDEXER_URL`, `WAZUH_INDEXER_USER`, and `WAZUH_INDEXER_PASS`. Set `WAZUH_VERIFY_TLS=true` when the indexer certificate is trusted.

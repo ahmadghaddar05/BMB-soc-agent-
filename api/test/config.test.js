@@ -70,3 +70,10 @@ test('Hermes timing and retry settings are bounded', () => {
   assert.equal(config.hermesToolTimeoutMs, 60000);
   assert.equal(config.hermesToolResultMaxBytes, 4096);
 });
+
+test('Splunk startup configuration fails without required credentials', () => {
+  const result = validateStartupConfig(runtimeConfig({ ...base, ALERT_SOURCE:'splunk' }));
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.includes('SPLUNK_URL is required when ALERT_SOURCE=splunk'));
+  assert.ok(result.errors.includes('SPLUNK_TOKEN is required when ALERT_SOURCE=splunk'));
+});

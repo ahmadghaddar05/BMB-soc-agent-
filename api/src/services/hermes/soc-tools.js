@@ -5,6 +5,7 @@ const { isIP } = require('node:net');
 const db = require('../../db');
 const { runtimeConfig } = require('../../config');
 const elastic = require('../elastic');
+const splunk = require('../splunk');
 const { HermesError } = require('./errors');
 const { ActionError, createActionService, stableKey } = require('../actions');
 
@@ -34,7 +35,7 @@ const TOOL_SPECS = [
         source_ip: { type: 'string', minLength: 1, maxLength: 64 },
         username: { type: 'string', minLength: 1, maxLength: 128 },
         hostname: { type: 'string', minLength: 1, maxLength: 253 },
-        source_system: { enum: ['elastic', 'wazuh', 'mock', 'legacy'] },
+        source_system: { enum: ['elastic', 'wazuh', 'splunk', 'mock', 'legacy'] },
         hours: { type: 'integer', minimum: 1, maximum: 720 },
         limit: { type: 'integer', minimum: 1, maximum: 25 },
       },
@@ -599,14 +600,16 @@ function createSocToolkit({
 
     async search_raw_events(args) {
       try {
-        const events = await elasticService.searchEvents(args);
+        const events = config.alertSource === 'splunk'
+          ? await splunk.searchEvents(args)
+          : await elasticService.searchEvents(args);
         const cleanEvents = sanitize(events);
         return {
           data: { count: cleanEvents.length, events: cleanEvents, raw_source_omitted: true },
           evidence: cleanEvents.flatMap(row => evidence('raw_event', row.id)),
         };
       } catch (error) {
-        throw new HermesError('HERMES_TOOL_FAILED', 'Elastic raw-event search failed', {
+        throw new HermesError('HERMES_TOOL_FAILED', `${config.alertSource === 'splunk' ? 'Splunk' : 'Elastic'} raw-event search failed`, {
           status: 502, cause: error,
         });
       }

@@ -3,6 +3,7 @@
 const db = require('../db');
 const { checkHermesHealth } = require('./hermes');
 const elastic = require('./elastic');
+const splunk = require('./splunk');
 const wazuh = require('./wazuh');
 
 async function timedCheck(name, check, { configured = true } = {}) {
@@ -52,6 +53,9 @@ async function dependencyHealth() {
     const configured = Boolean(process.env.ELASTICSEARCH_URL && process.env.ELASTIC_API_KEY &&
       (process.env.ELASTIC_VERIFY_TLS === 'false' || process.env.ELASTIC_CA_CERT));
     checks.push(timedCheck('alert_source', elastic.checkHealth, { configured }));
+  } else if (source === 'splunk') {
+    const configured = Boolean(process.env.SPLUNK_URL && process.env.SPLUNK_TOKEN);
+    checks.push(timedCheck('alert_source', splunk.checkHealth, { configured }));
   } else {
     const configured = process.env.WAZUH_MODE === 'mock' || Boolean(process.env.WAZUH_INDEXER_URL);
     checks.push(timedCheck('alert_source', wazuh.checkHealth, { configured }));

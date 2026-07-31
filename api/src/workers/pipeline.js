@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const db = require('../db');
 const { fetchAlerts: fetchWazuhAlerts } = require('../services/wazuh');
+const { fetchAlerts: fetchSplunkAlerts } = require('../services/splunk');
 const {
   fetchAlerts: fetchElasticAlerts,
   searchAlertsCursor,
@@ -615,6 +616,11 @@ async function runCycle(trigger = 'scheduler', options = {}) {
             limit,
           });
         }
+      } else if (source === 'splunk') {
+        alerts = await fetchSplunkAlerts({
+          minutes,
+          limit,
+        });
       } else {
         alerts = await fetchWazuhAlerts({
           minutes,
