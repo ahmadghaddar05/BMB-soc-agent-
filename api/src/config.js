@@ -45,6 +45,7 @@ function runtimeConfig(env = process.env) {
     authAccounts: authAccounts(env),
     sessionSecret: env.SOC_SESSION_SECRET || '',
     apiKey: env.SOC_API_KEY || '',
+    connectorEncryptionKey: env.CONNECTOR_ENCRYPTION_KEY || '',
     sessionTtlMinutes: Math.min(1440, Math.max(15, parseInt(env.SOC_SESSION_TTL_MINUTES || '480', 10) || 480)),
     cookieSecure: bool(env.SOC_COOKIE_SECURE, (env.NODE_ENV || 'development') === 'production'),
     allowedOrigins: String(env.SOC_ALLOWED_ORIGINS || '')
@@ -117,6 +118,14 @@ function validateStartupConfig(config = runtimeConfig()) {
     if (config.authAccounts.some(account => !AUTH_ROLES.includes(account.role))) errors.push('Authentication account role is unsupported');
   }
   if (config.apiKey && config.apiKey.length < 24) warnings.push('SOC_API_KEY should be at least 24 characters');
+  if (config.connectorEncryptionKey) {
+    const connectorKey = /^[a-f0-9]{64}$/i.test(config.connectorEncryptionKey)
+      ? Buffer.from(config.connectorEncryptionKey, 'hex')
+      : Buffer.from(config.connectorEncryptionKey, 'base64');
+    if (connectorKey.length !== 32) errors.push('CONNECTOR_ENCRYPTION_KEY must decode to exactly 32 bytes');
+  } else {
+    warnings.push('CONNECTOR_ENCRYPTION_KEY is not configured; dashboard connector management is unavailable');
+  }
   if (config.nodeEnv === 'production' && !config.cookieSecure) warnings.push('SOC_COOKIE_SECURE is false; use true when the UI is served over HTTPS');
   if (!['mock','elastic','wazuh','splunk'].includes(config.alertSource)) errors.push('ALERT_SOURCE must be mock, elastic, wazuh, or splunk');
   if (config.alertSource === 'elastic') {

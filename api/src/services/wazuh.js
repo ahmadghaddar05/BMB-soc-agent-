@@ -1,8 +1,9 @@
 'use strict';
 const https = require('https');
 const http = require('http');
+const fs = require('fs');
 
-function requestJson(urlString, { method = 'GET', headers = {}, body = null, timeoutMs = 30000 } = {}) {
+function requestJson(urlString, { method = 'GET', headers = {}, body = null, timeoutMs = 30000, verifyTls = true, caCert = '' } = {}) {
   return new Promise((resolve, reject) => {
     const target = new URL(urlString);
     const client = target.protocol === 'https:' ? https : http;
@@ -13,7 +14,10 @@ function requestJson(urlString, { method = 'GET', headers = {}, body = null, tim
       path: `${target.pathname}${target.search}`,
       method,
       timeout: timeoutMs,
-      ...(target.protocol === 'https:' ? { rejectUnauthorized: process.env.WAZUH_VERIFY_TLS !== 'false' } : {}),
+      ...(target.protocol === 'https:' ? {
+        rejectUnauthorized:verifyTls,
+        ...(caCert ? { ca:caCert.includes('BEGIN CERTIFICATE') ? caCert : fs.readFileSync(caCert) } : {}),
+      } : {}),
       headers: {
         Accept: 'application/json',
         ...headers,
@@ -143,11 +147,24 @@ function extractMitre(src) {
   };
 }
 
-async function fetchFromWazuh({ minutes = 15, minLevel = 7, limit = 200 } = {}) {
-  const url   = (process.env.WAZUH_INDEXER_URL || '').replace(/\/$/, '');
-  const user  = process.env.WAZUH_INDEXER_USER || 'admin';
-  const pass  = process.env.WAZUH_INDEXER_PASS || '';
-  const index = process.env.WAZUH_INDEX || 'wazuh-alerts-*';
+function connectionConfig(connection = null) {
+  return connection || {
+    url:process.env.WAZUH_INDEXER_URL || '',
+    username:process.env.WAZUH_INDEXER_USER || 'admin',
+    password:process.env.WAZUH_INDEXER_PASS || '',
+    index:process.env.WAZUH_INDEX || 'wazuh-alerts-*',
+    verifyTls:process.env.WAZUH_VERIFY_TLS !== 'false',
+    caCert:process.env.WAZUH_CA_CERT || '',
+    mode:process.env.WAZUH_MODE || 'live',
+  };
+}
+
+async function fetchFromWazuh({ minutes = 15, minLevel = 7, limit = 200 } = {}, connection = null) {
+  const config = connectionConfig(connection);
+  const url   = String(config.url || '').replace(/\/$/, '');
+  const user  = config.username || 'admin';
+  const pass  = config.password || '';
+  const index = config.index || 'wazuh-alerts-*';
 
   if (!url) throw new Error('WAZUH_INDEXER_URL is not set');
 
@@ -173,6 +190,8 @@ async function fetchFromWazuh({ minutes = 15, minLevel = 7, limit = 200 } = {}) 
         'Authorization': `Basic ${auth}`,
       },
       body,
+      verifyTls:config.verifyTls,
+      caCert:config.caCert,
     });
     return (data.hits?.hits || []).map(normalizeAlert);
   } catch (netErr) {
@@ -184,15 +203,18 @@ async function fetchFromWazuh({ minutes = 15, minLevel = 7, limit = 200 } = {}) 
 
 }
 
-async function checkHealth() {
-  if (process.env.WAZUH_MODE === 'mock') return { status: 'mock', configured: true, reachable: true, latency_ms: 0 };
-  const url = (process.env.WAZUH_INDEXER_URL || '').replace(/\/$/, '');
+async function checkHealth(connection = null) {
+  const config = connectionConfig(connection);
+  if (config.mode === 'mock') return { status: 'mock', configured: true, reachable: true, latency_ms: 0 };
+  const url = String(config.url || '').replace(/\/$/, '');
   if (!url) throw new Error('WAZUH_INDEXER_URL is not set');
-  const auth = Buffer.from(`${process.env.WAZUH_INDEXER_USER || 'admin'}:${process.env.WAZUH_INDEXER_PASS || ''}`).toString('base64');
+  const auth = Buffer.from(`${config.username || 'admin'}:${config.password || ''}`).toString('base64');
   const started = Date.now();
   const response = await requestJson(`${url}/`, {
     headers: { Authorization: `Basic ${auth}` },
     timeoutMs: 8000,
+    verifyTls:config.verifyTls,
+    caCert:config.caCert,
   });
   return {
     status: 'online', configured: true, reachable: true,
@@ -232,9 +254,10 @@ function makeMock() {
   ];
 }
 
-async function fetchAlerts(opts = {}) {
-  if (process.env.WAZUH_MODE === 'mock') return makeMock();
-  return fetchFromWazuh(opts);
+async function fetchAlerts(opts = {}, connection = null) {
+  const config = connectionConfig(connection);
+  if (config.mode === 'mock') return makeMock();
+  return fetchFromWazuh(opts, config);
 }
 
-module.exports = { checkHealth, fetchAlerts, normalizeAlert, requestJson };
+module.exports = { checkHealth, connectionConfig, fetchAlerts, normalizeAlert, requestJson };

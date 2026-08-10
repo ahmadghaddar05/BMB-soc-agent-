@@ -28,11 +28,14 @@ const {
   roleError,
   usernameError,
 } = require('../services/user-directory');
+const connectorRoutes = require('./connectors');
+const { activeConnector, managerAvailable } = require('../services/connectors');
 
 const router = Router();
 const AUDIT_OUTCOMES = new Set(['success','failure','denied','cancelled']);
 
 router.use(requireRoles('administrator'));
+router.use('/connectors', connectorRoutes);
 
 function pageOptions(query) {
   const page = Number(query.page ?? 1);
@@ -52,6 +55,9 @@ router.get('/runtime', async (req, res) => {
   try {
     const config = runtimeConfig();
     const settings = await db.getAllSettings();
+    const managedSource = await activeConnector();
+    const sourceType = managedSource?.source || config.alertSource;
+    const sourceConnection = managedSource?.connection || null;
     const selectedModel = resolveAiModelProfile(settings, config);
     const directory = config.authDisabled
       ? { rows:[{ total:0, active:0, executives:0, analysts:0, administrators:0 }] }
@@ -79,20 +85,28 @@ router.get('/runtime', async (req, res) => {
         multi_role_accounts_supported:true,
       },
       alert_source:{
-        type:config.alertSource,
-        elastic_configured:Boolean(config.elasticUrl && config.elasticApiKey),
-        elastic_event_indices:config.alertSource === 'elastic' ? config.elasticEventIndices : null,
-        splunk_configured:config.alertSource === 'splunk' ? Boolean(config.splunkUrl && config.splunkToken) : null,
-        splunk_index:config.alertSource === 'splunk' ? config.splunkIndex : null,
-        splunk_server:config.alertSource === 'splunk' && config.splunkUrl ? new URL(config.splunkUrl).host : null,
-        splunk_auth_scheme:config.alertSource === 'splunk' ? config.splunkAuthScheme : null,
-        tls_verification:config.alertSource === 'elastic'
-          ? config.elasticVerifyTls
-          : config.alertSource === 'splunk' ? config.splunkVerifyTls : null,
-        ca_certificate_configured:config.alertSource === 'elastic'
-          ? Boolean(config.elasticCaCert)
-          : config.alertSource === 'splunk' ? Boolean(config.splunkCaCert) : null,
-        wazuh_configured:config.alertSource === 'wazuh' ? Boolean(config.wazuhUrl && config.wazuhPassword) : null,
+        type:sourceType,
+        configuration_source:managedSource ? 'managed_connector' : 'environment_fallback',
+        connector_manager_available:managerAvailable(),
+        active_connector_id:managedSource?.id || null,
+        active_connector_name:managedSource?.name || null,
+        elastic_configured:sourceType === 'elastic'
+          ? Boolean(sourceConnection ? sourceConnection.url && sourceConnection.apiKey : config.elasticUrl && config.elasticApiKey) : null,
+        elastic_event_indices:sourceType === 'elastic' ? sourceConnection?.eventIndices || config.elasticEventIndices : null,
+        splunk_configured:sourceType === 'splunk'
+          ? Boolean(sourceConnection ? sourceConnection.url && sourceConnection.token : config.splunkUrl && config.splunkToken) : null,
+        splunk_index:sourceType === 'splunk' ? sourceConnection?.index || config.splunkIndex : null,
+        splunk_server:sourceType === 'splunk'
+          ? new URL(sourceConnection?.url || config.splunkUrl).host : null,
+        splunk_auth_scheme:sourceType === 'splunk' ? sourceConnection?.authScheme || config.splunkAuthScheme : null,
+        tls_verification:sourceType === 'elastic'
+          ? sourceConnection?.verifyTls ?? config.elasticVerifyTls
+          : sourceType === 'splunk' ? sourceConnection?.verifyTls ?? config.splunkVerifyTls : null,
+        ca_certificate_configured:sourceType === 'elastic'
+          ? Boolean(sourceConnection?.caCert || config.elasticCaCert)
+          : sourceType === 'splunk' ? Boolean(sourceConnection?.caCert || config.splunkCaCert) : null,
+        wazuh_configured:sourceType === 'wazuh'
+          ? Boolean(sourceConnection ? sourceConnection.url && sourceConnection.password : config.wazuhUrl && config.wazuhPassword) : null,
       },
       ai_provider:{
         provider:'Hermes',

@@ -55,15 +55,26 @@ function severityToLegacyLevel(severity) {
   return levels[String(severity || '').toLowerCase()] || 0;
 }
 
-function readCaCertificate() {
-  const caPath = process.env.ELASTIC_CA_CERT;
-  const verifyTls = process.env.ELASTIC_VERIFY_TLS !== 'false';
+function connectionConfig(connection = null) {
+  return connection || {
+    url:process.env.ELASTICSEARCH_URL || '',
+    apiKey:process.env.ELASTIC_API_KEY || '',
+    alertAlias:process.env.ELASTIC_ALERT_ALIAS || '.alerts-security.alerts-default',
+    eventIndices:process.env.ELASTIC_EVENT_INDICES || 'logs-*',
+    verifyTls:process.env.ELASTIC_VERIFY_TLS !== 'false',
+    caCert:process.env.ELASTIC_CA_CERT || '',
+  };
+}
+
+function readCaCertificate(config) {
+  const caPath = config.caCert;
+  const verifyTls = config.verifyTls;
 
   if (!verifyTls) return undefined;
 
-  if (!caPath) {
-    throw new Error('ELASTIC_CA_CERT is required when ELASTIC_VERIFY_TLS is enabled');
-  }
+  if (!caPath) return undefined;
+
+  if (caPath.includes('BEGIN CERTIFICATE')) return caPath;
 
   if (!fs.existsSync(caPath)) {
     throw new Error(
@@ -74,12 +85,13 @@ function readCaCertificate() {
   return fs.readFileSync(caPath);
 }
 
-function requestJson(urlString, body, { method = 'POST' } = {}) {
+function requestJson(urlString, body, { method = 'POST', connection = null } = {}) {
   return new Promise((resolve, reject) => {
+    const config = connectionConfig(connection);
     const target = new URL(urlString);
     const client = target.protocol === 'https:' ? https : http;
     const payload = body == null ? '' : JSON.stringify(body);
-    const ca = target.protocol === 'https:' ? readCaCertificate() : undefined;
+    const ca = target.protocol === 'https:' ? readCaCertificate(config) : undefined;
 
     const request = client.request(
       {
@@ -89,12 +101,12 @@ function requestJson(urlString, body, { method = 'POST' } = {}) {
         method,
         ...(target.protocol === 'https:' && ca ? { ca } : {}),
         ...(target.protocol === 'https:' ? {
-          rejectUnauthorized: process.env.ELASTIC_VERIFY_TLS !== 'false',
+          rejectUnauthorized: config.verifyTls,
         } : {}),
         timeout: 30000,
         headers: {
           Authorization:
-            `ApiKey ${process.env.ELASTIC_API_KEY}`,
+            `ApiKey ${config.apiKey}`,
           'Content-Type': 'application/json',
           Accept: 'application/json',
           ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
@@ -295,24 +307,18 @@ function normalizeAlert(hit, groupWindowMinutes = 5) {
   return normalized;
 }
 
-function validateConfiguration() {
-  const required = [
-    'ELASTICSEARCH_URL',
-    'ELASTIC_API_KEY',
-  ];
-
-  for (const key of required) {
-    if (!process.env[key]) {
-      throw new Error(`${key} is not configured`);
-    }
-  }
+function validateConfiguration(connection = null) {
+  const config = connectionConfig(connection);
+  if (!config.url) throw new Error('ELASTICSEARCH_URL is not configured');
+  if (!config.apiKey) throw new Error('ELASTIC_API_KEY is not configured');
+  return config;
 }
 
-async function checkHealth() {
-  validateConfiguration();
-  const baseUrl = process.env.ELASTICSEARCH_URL.replace(/\/$/, '');
+async function checkHealth(connection = null) {
+  const config = validateConfiguration(connection);
+  const baseUrl = config.url.replace(/\/$/, '');
   const started = Date.now();
-  const response = await requestJson(`${baseUrl}/`, null, { method: 'GET' });
+  const response = await requestJson(`${baseUrl}/`, null, { method: 'GET', connection:config });
   return {
     status: 'online', configured: true, reachable: true,
     latency_ms: Date.now() - started,
@@ -329,14 +335,14 @@ async function searchAlerts({
   severities = ['high', 'critical'],
   excludeRules = [],
   groupWindowMinutes = 5,
-} = {}) {
-  validateConfiguration();
+} = {}, connection = null) {
+  const config = validateConfiguration(connection);
 
   const baseUrl =
-    process.env.ELASTICSEARCH_URL.replace(/\/$/, '');
+    config.url.replace(/\/$/, '');
 
   const alias =
-    process.env.ELASTIC_ALERT_ALIAS ||
+    config.alertAlias ||
     '.alerts-security.alerts-default';
 
   if (!/^[A-Za-z0-9._*-]+$/.test(alias)) {
@@ -566,7 +572,8 @@ async function searchAlerts({
 
   const data = await requestJson(
     `${baseUrl}/${alias}/_search`,
-    body
+    body,
+    { connection:config }
   );
 
   const alerts = (
@@ -629,8 +636,8 @@ async function searchAlertsCursor({
   severities = ['high', 'critical'],
   excludeRules = [],
   groupWindowMinutes = 5,
-} = {}) {
-  validateConfiguration();
+} = {}, connection = null) {
+  const config = validateConfiguration(connection);
 
   const safeCursor = validateCursor(cursor);
 
@@ -658,10 +665,10 @@ async function searchAlertsCursor({
   ).toISOString();
 
   const baseUrl =
-    process.env.ELASTICSEARCH_URL.replace(/\/$/, '');
+    config.url.replace(/\/$/, '');
 
   const alias =
-    process.env.ELASTIC_ALERT_ALIAS ||
+    config.alertAlias ||
     '.alerts-security.alerts-default';
 
   if (!/^[A-Za-z0-9._*-]+$/.test(alias)) {
@@ -804,7 +811,8 @@ async function searchAlertsCursor({
 
     const data = await requestJson(
       `${baseUrl}/${alias}/_search`,
-      body
+      body,
+      { connection:config }
     );
 
     const hits = data.hits?.hits || [];
@@ -880,8 +888,8 @@ async function searchAlertsCursor({
  * This function matches the interface expected by pipeline.js.
  * We will activate it only after the independent test succeeds.
  */
-async function fetchAlerts(options = {}) {
-  const result = await searchAlerts(options);
+async function fetchAlerts(options = {}, connection = null) {
+  const result = await searchAlerts(options, connection);
   return result.alerts;
 }
 
@@ -969,10 +977,10 @@ function normalizeRawEvent(hit) {
   };
 }
 
-async function searchEvents(options = {}, { request = requestJson } = {}) {
-  validateConfiguration();
-  const baseUrl = process.env.ELASTICSEARCH_URL.replace(/\/$/, '');
-  const indices = process.env.ELASTIC_EVENT_INDICES || 'logs-*';
+async function searchEvents(options = {}, { request = requestJson, connection = null } = {}) {
+  const config = validateConfiguration(connection);
+  const baseUrl = config.url.replace(/\/$/, '');
+  const indices = config.eventIndices || 'logs-*';
   if (!/^[A-Za-z0-9._,*-]{1,300}$/.test(indices)) {
     throw new Error('ELASTIC_EVENT_INDICES contains invalid characters');
   }
@@ -1006,7 +1014,8 @@ async function searchEvents(options = {}, { request = requestJson } = {}) {
       sort: [{ '@timestamp': { order: 'desc', unmapped_type: 'date' } }],
       fields: RAW_EVENT_FIELDS,
       query: { bool: { filter: filters } },
-    }
+    },
+    { connection:config }
   );
   return (data.hits?.hits || []).map(normalizeRawEvent);
 }
@@ -1019,5 +1028,6 @@ module.exports = {
   normalizeAlert,
   normalizeRawEvent,
   checkHealth,
+  connectionConfig,
   validateConfiguration,
 };

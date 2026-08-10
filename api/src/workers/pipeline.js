@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const { fetchAlerts: fetchWazuhAlerts } = require('../services/wazuh');
 const { fetchAlerts: fetchSplunkAlerts } = require('../services/splunk');
+const { activeConnector } = require('../services/connectors');
 const {
   fetchAlerts: fetchElasticAlerts,
   searchAlertsCursor,
@@ -476,7 +477,9 @@ async function runCycle(trigger = 'scheduler', options = {}) {
     throw new Error('A pipeline cycle must collect alerts, process stored alerts, or both');
   }
   const settings = await db.getAllSettings();
-  const source   = process.env.ALERT_SOURCE || settings.alert_source || 'mock';
+  const managedConnector = await activeConnector();
+  const source = managedConnector?.source || process.env.ALERT_SOURCE || settings.alert_source || 'mock';
+  const sourceConnection = managedConnector?.connection || null;
 
   const minutes = source === 'elastic'
     ? parseInt(settings.elastic_lookback_minutes || 1)
@@ -537,7 +540,9 @@ async function runCycle(trigger = 'scheduler', options = {}) {
           .map(value => value.trim())
           .filter(Boolean);
 
-        const cursorEnabled =
+        // Dashboard-managed Elastic connectors always use their own durable
+        // cursor. The legacy setting only governs environment configuration.
+        const cursorEnabled = Boolean(managedConnector) ||
           (settings.elastic_cursor_enabled || 'false') === 'true';
 
       /*
@@ -572,9 +577,12 @@ async function runCycle(trigger = 'scheduler', options = {}) {
           let cursor;
 
           try {
-            cursor = JSON.parse(
-              settings.elastic_cursor_json || ''
-            );
+            cursor = managedConnector
+              ? managedConnector.collectionState?.elastic_cursor || [
+                new Date(Date.now() - minutes * 60 * 1000).toISOString(),
+                '00000000-0000-0000-0000-000000000000',
+              ]
+              : JSON.parse(settings.elastic_cursor_json || '');
           } catch {
             throw new Error(
               'elastic_cursor_json is not valid JSON'
@@ -600,7 +608,7 @@ async function runCycle(trigger = 'scheduler', options = {}) {
                 settings.elastic_cursor_delay_seconds || 15,
                 10
               ),
-            });
+            }, sourceConnection);
 
           alerts = elasticCursorResult.alerts;
 
@@ -614,19 +622,19 @@ async function runCycle(trigger = 'scheduler', options = {}) {
             ...commonElasticOptions,
             minutes,
             limit,
-          });
+          }, sourceConnection);
         }
       } else if (source === 'splunk') {
         alerts = await fetchSplunkAlerts({
           minutes,
           limit,
-        });
+        }, sourceConnection);
       } else {
         alerts = await fetchWazuhAlerts({
           minutes,
           minLevel,
           limit,
-        });
+        }, sourceConnection);
       }
 
       stats.fetched = alerts.length;
@@ -680,10 +688,16 @@ async function runCycle(trigger = 'scheduler', options = {}) {
             JSON.stringify(nextCursor) !==
             JSON.stringify(previousCursor)
           ) {
-            await db.setSetting(
-              'elastic_cursor_json',
-              JSON.stringify(nextCursor)
-            );
+            if (managedConnector) {
+              await db.query(
+                `UPDATE source_connectors
+                 SET collection_state=jsonb_set(collection_state,'{elastic_cursor}',$2::jsonb,TRUE),updated_at=NOW()
+                 WHERE id=$1 AND active=TRUE`,
+                [managedConnector.id, JSON.stringify(nextCursor)]
+              );
+            } else {
+              await db.setSetting('elastic_cursor_json', JSON.stringify(nextCursor));
+            }
 
             console.log(
               '[cycle] Elastic cursor advanced to ' +

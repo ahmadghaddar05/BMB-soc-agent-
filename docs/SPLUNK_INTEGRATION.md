@@ -5,7 +5,7 @@
 BMB reads security detections from Splunk Enterprise through Splunk's management REST API. It does not send events to Splunk and therefore does not use the HTTP Event Collector endpoint.
 
 ```text
-Splunk Enterprise 10.1.1.160:8089
+Splunk Enterprise <client-host>:8089
   -> authenticated export search
   -> BMB canonical alert normalization
   -> PostgreSQL deduplication
@@ -22,13 +22,24 @@ Create a dedicated read-only Splunk user and token. Its role must be able to:
 - use the search jobs export endpoint;
 - read its own authentication context.
 
-Do not use an administrator token. BMB never returns the token to the browser or writes it to PostgreSQL.
+Do not use an administrator token. BMB never returns the token to the browser. Dashboard-managed credentials are stored in PostgreSQL only as AES-256-GCM authenticated ciphertext.
 
-## BMB environment
+## Recommended dashboard setup
+
+Open **Security Administrator → Settings → Security source connectors**, select **Splunk Enterprise**, and provide:
+
+- the Splunk management hostname or IP and port `8089`;
+- a read-only JWT bearer token, or a Splunk session key when required;
+- the index and base generating search;
+- certificate verification and, for a private PKI, the issuing CA certificate.
+
+Save and test the connector, review the result, then activate it. No BMB rebuild is required. `10.1.1.160` is only an example client address and is not hardcoded into BMB.
+
+## Environment fallback
 
 ```dotenv
 ALERT_SOURCE=splunk
-SPLUNK_URL=https://10.1.1.160:8089
+SPLUNK_URL=https://splunk.example.internal:8089
 SPLUNK_TOKEN=replace-with-the-read-only-token
 SPLUNK_AUTH_SCHEME=Bearer
 SPLUNK_INDEX=main
@@ -44,7 +55,7 @@ Use `Bearer` for a Splunk JWT authentication token. Use `Splunk` only when the s
 
 ## TLS
 
-Production and enterprise deployments should keep certificate verification enabled. The certificate must be valid for `10.1.1.160`, or the URL should use the DNS name present in the certificate. Mount the issuing CA with `docker-compose.splunk.yml`.
+Production and enterprise deployments should keep certificate verification enabled. The certificate must be valid for the configured hostname or IP. Dashboard-managed connectors accept the private CA PEM directly; the environment fallback can mount the issuing CA with `docker-compose.splunk.yml`.
 
 `SPLUNK_VERIFY_TLS=false` is supported only for a temporary isolated-lab connectivity test. It is surfaced as a configuration warning.
 

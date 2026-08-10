@@ -41,13 +41,23 @@ The API is bound to `http://127.0.0.1:3000`; the database is bound to `127.0.0.1
 
 ## Alert-source modes
 
+The recommended production workflow is **Security Administrator → Settings → Security source connectors**. An administrator selects Elastic, Splunk, or Wazuh, enters the endpoint and least-privilege credential, saves it, runs a bounded read-only test, and explicitly activates it. Credentials and optional CA certificates are AES-256-GCM encrypted by the API and are never returned to the browser. Switching the active connector takes effect on the next collection pass and does not delete previously stored evidence.
+
+Set `CONNECTOR_ENCRYPTION_KEY` once on the API server to a stable random 32-byte value. Keep it in the deployment secret store; changing or losing it makes saved connector credentials unreadable. Environment source variables remain supported as a bootstrap and disaster-recovery fallback when no dashboard-managed connector is active.
+
+```bash
+openssl rand -base64 32
+```
+
 ### Mock
 
 Set `ALERT_SOURCE=mock` and `WAZUH_MODE=mock`. Collection uses deterministic sample alerts, no external alert platform is contacted, and AI triage remains disabled by the fresh-database settings. This is the recommended local validation mode.
 
 ### Elastic Security
 
-Set `ALERT_SOURCE=elastic`, `ELASTICSEARCH_URL`, and `ELASTIC_API_KEY`. Elastic access is read-only and automatic writeback remains disabled.
+Choose Elastic in the connector wizard and provide its host, port, read-only API key, alert alias, raw-event indices, and TLS trust. Each managed Elastic connector has an independent durable cursor. Automatic writeback remains disabled.
+
+For the environment fallback, set `ALERT_SOURCE=elastic`, `ELASTICSEARCH_URL`, and `ELASTIC_API_KEY`.
 
 For verified TLS, set `ELASTIC_VERIFY_TLS=true`, `ELASTIC_CA_HOST_PATH` to the certificate on the Docker host, and keep `ELASTIC_CA_CERT` as its container path. Start with the certificate override:
 
@@ -59,9 +69,11 @@ For a controlled development environment only, `ELASTIC_VERIFY_TLS=false` skips 
 
 ### Splunk
 
-Set `ALERT_SOURCE=splunk`, `SPLUNK_URL=https://10.1.1.160:8089`, and a read-only `SPLUNK_TOKEN`. Port `8089` is Splunk's management REST API; HEC port `8088` is not used because BMB reads events rather than sending them. The token's role needs permission to search the configured index and access its own authentication context. The connector uses `/services/search/jobs/export`, sends time bounds as export parameters, and normalizes Splunk fields into BMB's canonical alert schema.
+Choose Splunk in the connector wizard and provide its management host, port `8089`, read-only token, index, base search, and TLS trust. Port `8089` is Splunk's management REST API; HEC port `8088` is not used because BMB reads events rather than sending them. The token's role needs permission to search the configured index and access its own authentication context. The connector uses `/services/search/jobs/export`, sends time bounds as export parameters, and normalizes Splunk fields into BMB's canonical alert schema.
 
-Use `SPLUNK_AUTH_SCHEME=Bearer` for Splunk JWT authentication tokens. `Splunk` is also supported for a Splunk session key/token when required by the deployment. Set `SPLUNK_INDEX` and optionally `SPLUNK_SEARCH` to constrain collection; the configured search must be a base generating search such as `search index=notable` or `search index=main sourcetype=...`.
+In the environment fallback, use `SPLUNK_AUTH_SCHEME=Bearer` for Splunk JWT authentication tokens. `Splunk` is also supported for a Splunk session key/token when required by the deployment. Set `SPLUNK_INDEX` and optionally `SPLUNK_SEARCH` to constrain collection; the configured search must be a base generating search such as `search index=notable` or `search index=main sourcetype=...`.
+
+Those environment variables are fallback configuration only; the wizard stores the corresponding values securely without requiring an image rebuild.
 
 For verified TLS, set `SPLUNK_VERIFY_TLS=true`, `SPLUNK_CA_HOST_PATH` to the CA certificate on the Docker host, and `SPLUNK_CA_CERT=/run/secrets/splunk_ca.pem`, then include the Splunk Compose override:
 
@@ -73,7 +85,7 @@ Set `SPLUNK_VERIFY_TLS=false` only for a short connectivity test in an isolated 
 
 ### Wazuh
 
-Set `ALERT_SOURCE=wazuh`. For deterministic mock data keep `WAZUH_MODE=mock`. For a real indexer set `WAZUH_MODE=real`, `WAZUH_INDEXER_URL`, `WAZUH_INDEXER_USER`, and `WAZUH_INDEXER_PASS`. Set `WAZUH_VERIFY_TLS=true` when the indexer certificate is trusted.
+Choose Wazuh in the connector wizard and provide the indexer endpoint, least-privilege username/password, index pattern, and TLS trust. For the environment fallback, set `ALERT_SOURCE=wazuh`, `WAZUH_MODE=real`, `WAZUH_INDEXER_URL`, `WAZUH_INDEXER_USER`, and `WAZUH_INDEXER_PASS`.
 
 ## Hermes grounded analyst, triage, and correlation setup
 

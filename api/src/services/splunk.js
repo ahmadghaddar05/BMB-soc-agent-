@@ -23,8 +23,9 @@ function booleanValue(value, fallback = true) {
   return String(value).trim().toLowerCase() === 'true';
 }
 
-function validateConfiguration(env = process.env) {
-  const url = String(env.SPLUNK_URL || '').trim().replace(/\/$/, '');
+function validateConfiguration(input = process.env) {
+  const managed = Object.prototype.hasOwnProperty.call(input || {}, 'url');
+  const url = String(managed ? input.url : input.SPLUNK_URL || '').trim().replace(/\/$/, '');
   if (!url) throw new Error('SPLUNK_URL is not set');
   let parsed;
   try { parsed = new URL(url); }
@@ -33,22 +34,22 @@ function validateConfiguration(env = process.env) {
     throw new Error('SPLUNK_URL must be a valid HTTP(S) URL');
   }
 
-  const token = String(env.SPLUNK_TOKEN || '').trim();
+  const token = String(managed ? input.token : input.SPLUNK_TOKEN || '').trim();
   if (!token) throw new Error('SPLUNK_TOKEN is not set');
 
-  const index = String(env.SPLUNK_INDEX || 'main').trim();
+  const index = String((managed ? input.index : input.SPLUNK_INDEX) || 'main').trim();
   if (!/^[A-Za-z0-9._-]{1,200}$/.test(index)) {
     throw new Error('SPLUNK_INDEX contains invalid characters');
   }
 
-  const authScheme = String(env.SPLUNK_AUTH_SCHEME || 'Bearer').trim();
+  const authScheme = String((managed ? input.authScheme : input.SPLUNK_AUTH_SCHEME) || 'Bearer').trim();
   if (!/^(Bearer|Splunk)$/i.test(authScheme)) {
     throw new Error('SPLUNK_AUTH_SCHEME must be Bearer or Splunk');
   }
 
-  const verifyTls = booleanValue(env.SPLUNK_VERIFY_TLS, true);
-  const caCert = String(env.SPLUNK_CA_CERT || '').trim();
-  if (verifyTls && caCert && !fs.existsSync(caCert)) {
+  const verifyTls = managed ? Boolean(input.verifyTls) : booleanValue(input.SPLUNK_VERIFY_TLS, true);
+  const caCert = String((managed ? input.caCert : input.SPLUNK_CA_CERT) || '').trim();
+  if (verifyTls && caCert && !caCert.includes('BEGIN CERTIFICATE') && !fs.existsSync(caCert)) {
     throw new Error('SPLUNK_CA_CERT does not exist at the configured path');
   }
 
@@ -56,7 +57,7 @@ function validateConfiguration(env = process.env) {
     url,
     token,
     index,
-    search: String(env.SPLUNK_SEARCH || '').trim() || `search index=${index}`,
+    search: String((managed ? input.search : input.SPLUNK_SEARCH) || '').trim() || `search index=${index}`,
     authScheme: /^splunk$/i.test(authScheme) ? 'Splunk' : 'Bearer',
     verifyTls,
     caCert,
@@ -242,15 +243,16 @@ function requestOptions(config, url, { method, headers, timeoutMs }) {
   };
   if (url.protocol === 'https:') {
     options.rejectUnauthorized = config.verifyTls;
-    if (config.caCert) options.ca = fs.readFileSync(config.caCert);
+    if (config.caCert) options.ca = config.caCert.includes('BEGIN CERTIFICATE')
+      ? config.caCert : fs.readFileSync(config.caCert);
   }
   return options;
 }
 
 async function requestSplunk(path, {
   method = 'GET', headers = {}, body = null, timeoutMs = DEFAULT_TIMEOUT_MS,
-} = {}) {
-  const config = validateConfiguration();
+} = {}, connection = null) {
+  const config = validateConfiguration(connection || process.env);
   const url = new URL(path, `${config.url}/`);
   const transport = url.protocol === 'https:' ? https : http;
   const options = requestOptions(config, url, { method, headers, timeoutMs });
@@ -323,13 +325,13 @@ function exportBody({ search, earliestTime, latestTime = 'now', limit }) {
   }).toString();
 }
 
-async function fetchAlerts({ minutes = 15, limit = 200 } = {}) {
-  const config = validateConfiguration();
+async function fetchAlerts({ minutes = 15, limit = 200 } = {}, connection = null) {
+  const config = validateConfiguration(connection || process.env);
   const boundedMinutes = Math.min(Math.max(1, Number(minutes) || 15), 43200);
   const boundedLimit = Math.min(Math.max(1, Number(limit) || 200), 5000);
   const search = `${normalizedBaseSearch(config)} | head ${boundedLimit}`;
   const body = exportBody({ search, earliestTime: `-${boundedMinutes}m`, limit: boundedLimit });
-  const text = await requestSplunk('/services/search/jobs/export', { method: 'POST', body, timeoutMs: 60000 });
+  const text = await requestSplunk('/services/search/jobs/export', { method: 'POST', body, timeoutMs: 60000 }, config);
   return parseExportResponse(text).map(normalizeAlert);
 }
 
@@ -351,8 +353,8 @@ function buildSearchClauses(options = {}) {
   return clauses;
 }
 
-async function searchEvents(options = {}) {
-  const config = validateConfiguration();
+async function searchEvents(options = {}, connection = null) {
+  const config = validateConfiguration(connection || process.env);
   const hours = Math.min(Math.max(Number(options.hours) || 24, 1), 168);
   const limit = Math.min(Math.max(Number(options.limit) || 20, 1), 25);
   let search = normalizedBaseSearch(config);
@@ -360,16 +362,16 @@ async function searchEvents(options = {}) {
   if (clauses.length) search = `${search} | search ${clauses.join(' ')}`;
   search = `${search} | head ${limit}`;
   const body = exportBody({ search, earliestTime: `-${hours}h`, limit });
-  const text = await requestSplunk('/services/search/jobs/export', { method: 'POST', body, timeoutMs: 60000 });
+  const text = await requestSplunk('/services/search/jobs/export', { method: 'POST', body, timeoutMs: 60000 }, config);
   return parseExportResponse(text).map(normalizeRawEvent);
 }
 
-async function checkHealth() {
+async function checkHealth(connection = null) {
   const started = Date.now();
-  const config = validateConfiguration();
+  const config = validateConfiguration(connection || process.env);
   const text = await requestSplunk('/services/authentication/current-context?output_mode=json', {
     method: 'GET', timeoutMs: 8000,
-  });
+  }, config);
   const data = JSON.parse(text);
   const entry = Array.isArray(data.entry) ? data.entry[0] : null;
   return {

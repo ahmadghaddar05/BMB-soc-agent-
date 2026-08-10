@@ -6,6 +6,7 @@ const db = require('../../db');
 const { runtimeConfig } = require('../../config');
 const elastic = require('../elastic');
 const splunk = require('../splunk');
+const { activeConnector } = require('../connectors');
 const { HermesError } = require('./errors');
 const { ActionError, createActionService, stableKey } = require('../actions');
 
@@ -599,17 +600,25 @@ function createSocToolkit({
     },
 
     async search_raw_events(args) {
+      const managedSource = await activeConnector();
+      // Injected unit-test configurations predate alertSource and historically
+      // exercised the Elastic raw-event adapter. Runtime configuration always
+      // supplies the field explicitly.
+      const source = managedSource?.source || config.alertSource || 'elastic';
       try {
-        const events = config.alertSource === 'splunk'
-          ? await splunk.searchEvents(args)
-          : await elasticService.searchEvents(args);
+        if (!['elastic', 'splunk'].includes(source)) {
+          throw new Error(`Raw-event pivots are not implemented for ${source}`);
+        }
+        const events = source === 'splunk'
+          ? await splunk.searchEvents(args, managedSource?.connection || null)
+          : await elasticService.searchEvents(args, { connection:managedSource?.connection || null });
         const cleanEvents = sanitize(events);
         return {
           data: { count: cleanEvents.length, events: cleanEvents, raw_source_omitted: true },
           evidence: cleanEvents.flatMap(row => evidence('raw_event', row.id)),
         };
       } catch (error) {
-        throw new HermesError('HERMES_TOOL_FAILED', `${config.alertSource === 'splunk' ? 'Splunk' : 'Elastic'} raw-event search failed`, {
+        throw new HermesError('HERMES_TOOL_FAILED', `${source === 'splunk' ? 'Splunk' : source === 'elastic' ? 'Elastic' : source} raw-event search failed`, {
           status: 502, cause: error,
         });
       }

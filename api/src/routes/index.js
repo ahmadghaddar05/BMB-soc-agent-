@@ -14,6 +14,7 @@ const responses = require('./responses');
 const admin = require('./admin');
 const { POLICY_VERSION: AUTONOMOUS_POLICY_VERSION, runAutonomousAgent } = require('../workers/autonomous');
 const { requireRoles } = require('../middleware/auth');
+const { activeConnector } = require('../services/connectors');
 
 const r = Router();
 
@@ -571,14 +572,15 @@ r.get('/scheduler/status', async (_, res) => {
 r.get('/collector/status', async (_, res) => {
   try {
     const settings = await db.getAllSettings();
+    const managedSource = await activeConnector();
     const runtime = scheduler.status();
 
     let cursor = null;
 
     try {
-      cursor = JSON.parse(
-        settings.elastic_cursor_json || 'null'
-      );
+      cursor = managedSource?.source === 'elastic'
+        ? managedSource.collectionState?.elastic_cursor || null
+        : JSON.parse(settings.elastic_cursor_json || 'null');
     } catch {
       cursor = null;
     }
@@ -650,7 +652,14 @@ r.get('/collector/status', async (_, res) => {
     res.json({
       collector: {
         source:
-          process.env.ALERT_SOURCE || settings.alert_source || 'mock',
+          managedSource?.source || process.env.ALERT_SOURCE || settings.alert_source || 'mock',
+
+        source_configuration:
+          managedSource ? 'managed_connector' : 'environment_fallback',
+
+        active_connector_id:managedSource?.id || null,
+
+        active_connector_name:managedSource?.name || null,
 
         scheduler_enabled:
           settings.scheduler_enabled === 'true',

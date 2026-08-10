@@ -15,6 +15,7 @@ const originalQuery = db.query;
 const originalSettings = db.getAllSettings;
 const originalSetSetting = db.setSetting;
 const originalSetSettingsAtomic = db.setSettingsAtomic;
+const originalConnectorEncryptionKey = process.env.CONNECTOR_ENCRYPTION_KEY;
 
 function routeApp() {
   process.env.SOC_AUTH_DISABLED = 'true';
@@ -26,6 +27,8 @@ test.afterEach(() => {
   db.getAllSettings = originalSettings;
   db.setSetting = originalSetSetting;
   db.setSettingsAtomic = originalSetSettingsAtomic;
+  if (originalConnectorEncryptionKey === undefined) delete process.env.CONNECTOR_ENCRYPTION_KEY;
+  else process.env.CONNECTOR_ENCRYPTION_KEY = originalConnectorEncryptionKey;
 });
 
 function highestPlaceholder(sql) {
@@ -41,6 +44,31 @@ test('administrator runtime summary exposes configuration state without credenti
   assert.equal(response.body.ai_provider.provider, 'Hermes');
   assert.equal(Object.prototype.hasOwnProperty.call(response.body.ai_provider, 'api_key'), false);
   assert.equal(Object.prototype.hasOwnProperty.call(response.body.alert_source, 'elastic_api_key'), false);
+});
+
+test('administrator connector inventory exposes status but never encrypted credentials', async () => {
+  const { encryptSecrets } = require('../src/services/connectors');
+  process.env.CONNECTOR_ENCRYPTION_KEY = Buffer.alloc(32, 11).toString('base64');
+  const encrypted = encryptSecrets({ token:'never-return-this', ca_certificate:null });
+  db.query = async sql => {
+    assert.match(String(sql), /FROM source_connectors/);
+    return { rows:[{
+      id:'00000000-0000-4000-8000-000000000001', name:'Client Splunk', connector_type:'splunk',
+      config:{ protocol:'https', host:'splunk.client.internal', port:8089, verify_tls:true,
+        index:'security', search:'search index=security', auth_scheme:'Bearer' },
+      collection_state:{}, enabled:true, active:false, last_test_status:'success',
+      last_tested_at:new Date().toISOString(), ...encrypted,
+    }] };
+  };
+
+  const response = await request(routeApp()).get('/api/admin/connectors');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.connectors[0].endpoint, 'https://splunk.client.internal:8089');
+  assert.equal(response.body.connectors[0].credential_configured, true);
+  const body = JSON.stringify(response.body);
+  assert.equal(body.includes('never-return-this'), false);
+  assert.equal(body.includes(encrypted.secret_ciphertext), false);
+  assert.equal(Object.hasOwn(response.body.connectors[0], 'secret_ciphertext'), false);
 });
 
 test('administrator can inspect and activate an allowlisted AI model profile without exposing secrets', async () => {

@@ -221,6 +221,19 @@ test('correlation capacity migration matches triage throughput and replays unpro
   assert.match(sql, /correlation_cursor_json/);
 });
 
+test('managed connector migration stores encrypted credentials and enforces one active source', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/020_managed_connectors.sql'),
+    'utf8'
+  );
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS source_connectors/);
+  assert.match(sql, /secret_ciphertext TEXT NOT NULL/);
+  assert.match(sql, /secret_iv TEXT NOT NULL/);
+  assert.match(sql, /secret_tag TEXT NOT NULL/);
+  assert.match(sql, /collection_state JSONB NOT NULL/);
+  assert.match(sql, /WHERE active = TRUE/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;
