@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_postgres_init_09_collection_capacity_1000_sql", "label": "09_collection_capacity_1000.sql", "file_type": "code", "source_file": "postgres/init/09_collection_capacity_1000.sql", "source_location": null}], "edges": []}

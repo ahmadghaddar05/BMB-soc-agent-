@@ -59,7 +59,9 @@ function runtimeConfig(env = process.env) {
     splunkToken: env.SPLUNK_TOKEN || '',
     splunkIndex: env.SPLUNK_INDEX || 'main',
     splunkSearch: env.SPLUNK_SEARCH || '',
+    splunkAuthScheme: env.SPLUNK_AUTH_SCHEME || 'Bearer',
     splunkVerifyTls: bool(env.SPLUNK_VERIFY_TLS, true),
+    splunkCaCert: env.SPLUNK_CA_CERT || '',
     wazuhMode: env.WAZUH_MODE || 'mock',
     wazuhUrl: env.WAZUH_INDEXER_URL || '',
     wazuhPassword: env.WAZUH_INDEXER_PASS || '',
@@ -130,6 +132,11 @@ function validateStartupConfig(config = runtimeConfig()) {
     else if (!validHttpUrl(config.splunkUrl)) errors.push('SPLUNK_URL must be a valid HTTP(S) URL');
     if (!config.splunkToken) errors.push('SPLUNK_TOKEN is required when ALERT_SOURCE=splunk');
     if (!/^[A-Za-z0-9._-]{1,200}$/.test(config.splunkIndex)) errors.push('SPLUNK_INDEX contains invalid characters');
+    if (!/^(Bearer|Splunk)$/i.test(config.splunkAuthScheme)) errors.push('SPLUNK_AUTH_SCHEME must be Bearer or Splunk');
+    if (config.splunkVerifyTls && config.splunkCaCert && !fs.existsSync(config.splunkCaCert)) {
+      errors.push('SPLUNK_CA_CERT does not exist at the configured path');
+    }
+    if (!config.splunkVerifyTls) warnings.push('SPLUNK_VERIFY_TLS is false; use verified TLS outside controlled testing');
   }
   if (config.alertSource === 'wazuh' && config.wazuhMode !== 'mock') {
     if (!config.wazuhUrl) errors.push('WAZUH_INDEXER_URL is required for a real Wazuh source');

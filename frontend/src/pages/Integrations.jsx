@@ -63,10 +63,13 @@ export default function Integrations() {
       detail:'Source used by the BMB collector to retrieve security detections. Credentials remain environment-managed and are never returned to the browser.',
       facts:[
         ['Source',source.type],
+        ['Server',source.type === 'splunk' ? source.splunk_server : null],
         ['Indices', source.type === 'elastic' ? source.elastic_event_indices : source.type === 'splunk' ? source.splunk_index : 'Not applicable'],
+        ['Authentication',source.type === 'splunk' ? `${source.splunk_auth_scheme || 'Bearer'} token` : 'Environment managed'],
         ['TLS verification',source.tls_verification == null ? 'Not applicable' : source.tls_verification ? 'Enabled' : 'Disabled'],
+        ['Custom CA',source.type === 'splunk' ? source.ca_certificate_configured ? 'Configured' : 'System trust store' : null],
         ['Last collection',fmtTs(data.collector?.latest_run?.finished_at || data.collector?.latest_run?.started_at)],
-      ],
+      ].filter(([,value]) => value != null),
       error:services.alert_source?.error, action:'Review collector health', path:'/collector-health',
     },
     {

@@ -1,4 +1,3 @@
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -106,6 +105,14 @@ services:
       HERMES_ENFORCE_SAFE_TOOLSETS: ${HERMES_ENFORCE_SAFE_TOOLSETS:-true}
       HERMES_REQUIRE_TOOLLESS_PROFILE: ${HERMES_REQUIRE_TOOLLESS_PROFILE:-true}
       HERMES_FORBIDDEN_TOOLS: ${HERMES_FORBIDDEN_TOOLS:-terminal,execute_code,write_file,patch,delete_file,move_file,browser,web_search,web_extract,delegate_task,cronjob,shell,ssh}
+      # Splunk
+      SPLUNK_URL: ${SPLUNK_URL:-}
+      SPLUNK_TOKEN: ${SPLUNK_TOKEN:-}
+      SPLUNK_INDEX: ${SPLUNK_INDEX:-main}
+      SPLUNK_SEARCH: ${SPLUNK_SEARCH:-}
+      SPLUNK_AUTH_SCHEME: ${SPLUNK_AUTH_SCHEME:-Bearer}
+      SPLUNK_VERIFY_TLS: ${SPLUNK_VERIFY_TLS:-true}
+      SPLUNK_CA_CERT: ${SPLUNK_CA_CERT:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "elastictrainee:host-gateway"

@@ -8,6 +8,7 @@
     "dev": "node --watch src/index.js",
     "lint": "node scripts/check-syntax.js",
     "check": "node scripts/check-syntax.js",
+    "test:splunk": "node src/scripts/test-splunk.js",
     "test": "node --test --test-isolation=none --test-concurrency=1 test/*.test.js"
   },
   "engines": {

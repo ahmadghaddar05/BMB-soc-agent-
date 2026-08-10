@@ -59,9 +59,17 @@ For a controlled development environment only, `ELASTIC_VERIFY_TLS=false` skips 
 
 ### Splunk
 
-Set `ALERT_SOURCE=splunk`, `SPLUNK_URL`, and `SPLUNK_TOKEN`. The connector uses Splunk's search API to read recent alert events from the configured Splunk index. For local testing, also set `SPLUNK_INDEX` and optionally `SPLUNK_SEARCH` to constrain the event stream.
+Set `ALERT_SOURCE=splunk`, `SPLUNK_URL=https://10.1.1.160:8089`, and a read-only `SPLUNK_TOKEN`. Port `8089` is Splunk's management REST API; HEC port `8088` is not used because BMB reads events rather than sending them. The token's role needs permission to search the configured index and access its own authentication context. The connector uses `/services/search/jobs/export`, sends time bounds as export parameters, and normalizes Splunk fields into BMB's canonical alert schema.
 
-For TLS verification, set `SPLUNK_VERIFY_TLS=true`; set it to `false` only in controlled development environments.
+Use `SPLUNK_AUTH_SCHEME=Bearer` for Splunk JWT authentication tokens. `Splunk` is also supported for a Splunk session key/token when required by the deployment. Set `SPLUNK_INDEX` and optionally `SPLUNK_SEARCH` to constrain collection; the configured search must be a base generating search such as `search index=notable` or `search index=main sourcetype=...`.
+
+For verified TLS, set `SPLUNK_VERIFY_TLS=true`, `SPLUNK_CA_HOST_PATH` to the CA certificate on the Docker host, and `SPLUNK_CA_CERT=/run/secrets/splunk_ca.pem`, then include the Splunk Compose override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.splunk.yml up --build -d
+```
+
+Set `SPLUNK_VERIFY_TLS=false` only for a short connectivity test in an isolated lab. This mode is reported as degraded security configuration and does not use `docker-compose.splunk.yml`.
 
 ### Wazuh
 

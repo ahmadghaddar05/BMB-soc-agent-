@@ -77,3 +77,19 @@ test('Splunk startup configuration fails without required credentials', () => {
   assert.ok(result.errors.includes('SPLUNK_URL is required when ALERT_SOURCE=splunk'));
   assert.ok(result.errors.includes('SPLUNK_TOKEN is required when ALERT_SOURCE=splunk'));
 });
+
+test('Splunk startup configuration validates authentication and reports insecure TLS', () => {
+  const invalidAuth = validateStartupConfig(runtimeConfig({
+    ...base, ALERT_SOURCE:'splunk', SPLUNK_URL:'https://10.1.1.160:8089',
+    SPLUNK_TOKEN:'token', SPLUNK_AUTH_SCHEME:'Basic',
+  }));
+  assert.equal(invalidAuth.ok, false);
+  assert.ok(invalidAuth.errors.includes('SPLUNK_AUTH_SCHEME must be Bearer or Splunk'));
+
+  const insecure = validateStartupConfig(runtimeConfig({
+    ...base, ALERT_SOURCE:'splunk', SPLUNK_URL:'https://10.1.1.160:8089',
+    SPLUNK_TOKEN:'token', SPLUNK_VERIFY_TLS:'false',
+  }));
+  assert.equal(insecure.ok, true);
+  assert.ok(insecure.warnings.some(message => message.includes('SPLUNK_VERIFY_TLS')));
+});

@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_postgres_init_07_elastic_cursor_sql", "label": "07_elastic_cursor.sql", "file_type": "code", "source_file": "postgres/init/07_elastic_cursor.sql", "source_location": null}], "edges": []}

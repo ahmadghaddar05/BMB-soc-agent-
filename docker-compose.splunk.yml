@@ -1,0 +1,4 @@
+services:
+  api:
+    volumes:
+      - ${SPLUNK_CA_HOST_PATH:?set SPLUNK_CA_HOST_PATH}:${SPLUNK_CA_CERT:-/run/secrets/splunk_ca.pem}:ro
