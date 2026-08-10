@@ -90,6 +90,31 @@ function listValue(value) {
   return String(value).split(',').map(item => item.trim()).filter(Boolean);
 }
 
+function parseRawKeyValueFields(value) {
+  if (typeof value !== 'string' || !value.includes('=')) return {};
+  const fields = {};
+  const pattern = /(?:^|[\s,[{])([A-Za-z_][A-Za-z0-9_.:-]*)=(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|([^,\]}\s]+))/g;
+  let match;
+  while ((match = pattern.exec(value)) !== null) {
+    const raw = match[2] ?? match[3] ?? match[4] ?? '';
+    fields[match[1]] = raw.replace(/\\([\\"'])/g, '$1');
+  }
+  return fields;
+}
+
+function enrichedResult(result) {
+  const raw = valueAt(result, '_raw', 'raw', 'message');
+  return { ...parseRawKeyValueFields(raw), ...result };
+}
+
+function readableAlertName(value) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  return text
+    .replace(/^bmb\b/i, 'BMB')
+    .replace(/(^|\s[-:]\s)([a-z])/g, (_, prefix, letter) => `${prefix}${letter.toUpperCase()}`);
+}
+
 function normalizeTimestamp(value) {
   if (value == null || value === '') return new Date().toISOString();
   const text = String(value).trim();
@@ -115,13 +140,18 @@ function normalizeSeverity(result) {
     if (riskScore > 0) return 4;
   }
 
-  const severity = String(valueAt(result, 'urgency', 'severity', 'priority') || 'unknown').toLowerCase();
+  const severity = sourceSeverity(result) || 'unknown';
   return SEVERITY_LEVELS[severity] ?? SEVERITY_LEVELS.unknown;
 }
 
 function sourceSeverity(result) {
   const value = valueAt(result, 'urgency', 'severity', 'priority');
-  return value == null ? null : String(value).toLowerCase();
+  if (value == null) return null;
+  const text = String(value).trim().toLowerCase();
+  if (/^[1-5]$/.test(text)) {
+    return ({ 1:'informational', 2:'low', 3:'medium', 4:'high', 5:'critical' })[Number(text)];
+  }
+  return text;
 }
 
 function stableEventId(result) {
@@ -139,30 +169,46 @@ function stableEventId(result) {
 }
 
 function normalizeAlert(hit) {
-  const result = hit?.result || hit || {};
+  const sourceResult = hit?.result || hit || {};
+  const result = enrichedResult(sourceResult);
   const rawValue = valueAt(result, '_raw', 'raw', 'message');
   const raw = typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue || result);
   const timestamp = normalizeTimestamp(valueAt(result, '_time', 'time', 'timestamp'));
   const severity = sourceSeverity(result);
-  const ruleDescription = stringValue(
-    result, 'rule_desc', 'rule_title', 'search_name', 'savedsearch_name',
-    'signature', 'event_name', 'sourcetype'
-  ) || 'Splunk detection';
+  const action = stringValue(result, 'action', 'event.action');
+  const ruleDescription = readableAlertName(stringValue(
+    result, 'rule_desc', 'rule_title', 'alert_name', 'ss_name', 'search_name',
+    'savedsearch_name', 'signature', 'event_name', 'title', 'name'
+  )) || (action === 'alert_fired' ? 'Splunk alert fired' : stringValue(result, 'sourcetype')) || 'Splunk detection';
+  const application = stringValue(result, 'ss_app', 'app', 'application');
+  const triggeredCount = stringValue(result, 'triggered_alerts', 'result_count');
+  const explicitReason = stringValue(result, 'description', 'reason', 'rule_description');
+  const alertReason = action === 'alert_fired'
+    ? [
+      `Splunk alert "${ruleDescription}" fired`,
+      application ? `in the ${application} application` : null,
+      stringValue(result, 'ss_user', 'user') ? `for user ${stringValue(result, 'ss_user', 'user')}` : null,
+      triggeredCount ? `with ${triggeredCount} triggered result${triggeredCount === '1' ? '' : 's'}` : null,
+    ].filter(Boolean).join(' ') + '.'
+    : explicitReason || raw.slice(0, 2000);
+  const groups = listValue(valueAt(result, 'rule_groups', 'event.category', 'category'));
+  if (action === 'alert_fired') groups.push('splunk_alert');
+  if (application) groups.push(application);
   const riskValue = valueAt(result, 'risk_score', 'risk_object_risk_score');
   const riskScore = riskValue == null ? NaN : Number(riskValue);
   return {
     id: stableEventId(result),
     timestamp,
-    rule_id: stringValue(result, 'rule_id', 'event_id', 'search_name', 'savedsearch_name', 'signature_id') || 'splunk_event',
+    rule_id: stringValue(result, 'rule_id', 'event_id', 'search_name', 'savedsearch_name', 'ss_name', 'signature_id', 'sid') || 'splunk_event',
     rule_level: normalizeSeverity(result),
     rule_desc: ruleDescription.slice(0, 500),
-    rule_groups: listValue(valueAt(result, 'rule_groups', 'event.category', 'category')),
+    rule_groups: [...new Set(groups)],
     source_system: 'splunk',
     source_index: stringValue(result, 'index', '_index'),
     full_log: raw,
     src_ip: stringValue(result, 'src', 'src_ip', 'source_ip', 'client_ip', 'clientip', 'source.ip'),
     dst_ip: stringValue(result, 'dest', 'dest_ip', 'dst_ip', 'destination_ip', 'destination.ip'),
-    username: stringValue(result, 'user', 'username', 'user_name', 'user.name', 'src_user'),
+    username: stringValue(result, 'ss_user', 'user', 'username', 'user_name', 'user.name', 'src_user'),
     hostname: stringValue(result, 'host', 'hostname', 'host_name', 'host.name', 'dest_host'),
     target_db: stringValue(result, 'database.name', 'database', 'db_name'),
     process: stringValue(result, 'process_name', 'process.name', 'process', 'exe', 'Image'),
@@ -171,10 +217,10 @@ function normalizeAlert(hit) {
     risk_score: Number.isFinite(riskScore) ? riskScore : null,
     source_severity: severity,
     workflow_status: stringValue(result, 'status', 'workflow_status'),
-    event_dataset: stringValue(result, 'event_dataset', 'event.dataset', 'sourcetype'),
+    event_dataset: stringValue(result, 'event_dataset', 'event.dataset') || (action === 'alert_fired' ? 'splunk.alert' : stringValue(result, 'sourcetype')),
     event_category: listValue(valueAt(result, 'event.category', 'category')),
-    event_action: stringValue(result, 'action', 'event.action'),
-    alert_reason: stringValue(result, 'description', 'reason', 'rule_description') || raw.slice(0, 2000),
+    event_action: action,
+    alert_reason: alertReason,
     raw: result,
   };
 }
@@ -391,6 +437,7 @@ module.exports = {
   checkHealth,
   fetchAlerts,
   normalizeAlert,
+  parseRawKeyValueFields,
   normalizeRawEvent,
   parseExportResponse,
   searchEvents,

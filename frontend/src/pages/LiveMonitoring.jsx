@@ -513,7 +513,7 @@ function ActivityRows({ activity, id, technicalId, severity, expanded, onToggle 
                 <Detail label="Destination address" value={activity.dst_ip || 'Not provided'} />
                 <Detail label="First observed" value={formatTimestamp(activity.first_seen || activity.timestamp)} />
                 <Detail label="Last observed" value={formatTimestamp(activityTimestamp(activity))} />
-                <Detail label="Elastic technical ID" value={technicalId || 'Not provided'} />
+                <Detail label="Source technical ID" value={technicalId || 'Not provided'} />
               </dl>
               <div className="flex items-end lg:justify-end">
                 <Link

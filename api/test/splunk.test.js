@@ -8,6 +8,7 @@ const {
   checkHealth,
   fetchAlerts,
   normalizeAlert,
+  parseRawKeyValueFields,
   parseExportResponse,
   searchEvents,
   validateConfiguration,
@@ -71,6 +72,29 @@ test('Splunk normalization maps textual urgency and common CIM fields', () => {
   assert.match(alert.id, /^splunk:[a-f0-9]{64}$/);
   assert.match(alert.timestamp, /^2026-/);
   assert.equal(alert.risk_score, null);
+});
+
+test('Splunk audit alert_fired records expose the saved-search context embedded in _raw', () => {
+  const raw = 'Audit:[timestamp=08-10-2026 14:43:15.607, user=cybersec, action=alert_fired, ss_user="cybersec", ss_app="cisco_ios", ss_name="bmb - port flapping", sid="rt_scheduler_test", severity=3, triggered_alerts=1]';
+  const parsed = parseRawKeyValueFields(raw);
+  assert.equal(parsed.ss_name, 'bmb - port flapping');
+  assert.equal(parsed.ss_app, 'cisco_ios');
+
+  const alert = normalizeAlert({
+    _cd:'69:93294013', _time:'2026-08-10T11:43:15.607Z', index:'_audit',
+    host:'lbspshi', source:'audittrail', sourcetype:'audittrail', action:'alert_fired', _raw:raw,
+  });
+  assert.equal(alert.rule_desc, 'BMB - Port flapping');
+  assert.equal(alert.rule_id, 'bmb - port flapping');
+  assert.equal(alert.rule_level, 8);
+  assert.equal(alert.source_severity, 'medium');
+  assert.equal(alert.username, 'cybersec');
+  assert.equal(alert.hostname, 'lbspshi');
+  assert.equal(alert.event_dataset, 'splunk.alert');
+  assert.equal(alert.event_action, 'alert_fired');
+  assert.deepEqual(alert.rule_groups, ['splunk_alert', 'cisco_ios']);
+  assert.match(alert.alert_reason, /Port flapping.*cisco_ios.*cybersec.*1 triggered result/);
+  assert.equal(alert.raw.ss_name, 'bmb - port flapping');
 });
 
 test('Splunk identifiers remain stable when a source event has no timestamp', () => {
