@@ -60,6 +60,9 @@ function runtimeConfig(env = process.env) {
     splunkToken: env.SPLUNK_TOKEN || '',
     splunkIndex: env.SPLUNK_INDEX || 'main',
     splunkSearch: env.SPLUNK_SEARCH || '',
+    splunkCollectionMode: env.SPLUNK_COLLECTION_MODE || 'index',
+    splunkNamespaceOwner: env.SPLUNK_NAMESPACE_OWNER || '-',
+    splunkNamespaceApp: env.SPLUNK_NAMESPACE_APP || 'search',
     splunkAuthScheme: env.SPLUNK_AUTH_SCHEME || 'Bearer',
     splunkVerifyTls: bool(env.SPLUNK_VERIFY_TLS, true),
     splunkCaCert: env.SPLUNK_CA_CERT || '',
@@ -141,6 +144,12 @@ function validateStartupConfig(config = runtimeConfig()) {
     else if (!validHttpUrl(config.splunkUrl)) errors.push('SPLUNK_URL must be a valid HTTP(S) URL');
     if (!config.splunkToken) errors.push('SPLUNK_TOKEN is required when ALERT_SOURCE=splunk');
     if (!/^[A-Za-z0-9._-]{1,200}$/.test(config.splunkIndex)) errors.push('SPLUNK_INDEX contains invalid characters');
+    if (!['index','triggered_alerts'].includes(config.splunkCollectionMode)) {
+      errors.push('SPLUNK_COLLECTION_MODE must be index or triggered_alerts');
+    }
+    if (![config.splunkNamespaceOwner, config.splunkNamespaceApp].every(value => /^[A-Za-z0-9._-]{1,200}$/.test(value))) {
+      errors.push('SPLUNK_NAMESPACE_OWNER and SPLUNK_NAMESPACE_APP contain invalid characters');
+    }
     if (!/^(Bearer|Splunk)$/i.test(config.splunkAuthScheme)) errors.push('SPLUNK_AUTH_SCHEME must be Bearer or Splunk');
     if (config.splunkVerifyTls && config.splunkCaCert && !fs.existsSync(config.splunkCaCert)) {
       errors.push('SPLUNK_CA_CERT does not exist at the configured path');

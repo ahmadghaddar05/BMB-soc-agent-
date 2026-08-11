@@ -17,6 +17,7 @@ const {
 function withSplunkEnvironment(url, fn) {
   const keys = [
     'SPLUNK_URL', 'SPLUNK_TOKEN', 'SPLUNK_INDEX', 'SPLUNK_SEARCH',
+    'SPLUNK_COLLECTION_MODE', 'SPLUNK_NAMESPACE_OWNER', 'SPLUNK_NAMESPACE_APP',
     'SPLUNK_AUTH_SCHEME', 'SPLUNK_VERIFY_TLS', 'SPLUNK_CA_CERT',
   ];
   const original = Object.fromEntries(keys.map(key => [key, process.env[key]]));
@@ -25,6 +26,9 @@ function withSplunkEnvironment(url, fn) {
     SPLUNK_TOKEN:'test-token',
     SPLUNK_INDEX:'security',
     SPLUNK_SEARCH:'search index=security',
+    SPLUNK_COLLECTION_MODE:'index',
+    SPLUNK_NAMESPACE_OWNER:'-',
+    SPLUNK_NAMESPACE_APP:'search',
     SPLUNK_AUTH_SCHEME:'Bearer',
     SPLUNK_VERIFY_TLS:'true',
     SPLUNK_CA_CERT:'',
@@ -54,6 +58,9 @@ test('Splunk configuration validates URL, token, index, and authentication schem
   assert.throws(() => validateConfiguration({
     SPLUNK_URL:'https://10.1.1.160:8089', SPLUNK_TOKEN:'x', SPLUNK_AUTH_SCHEME:'Basic',
   }), /SPLUNK_AUTH_SCHEME must be Bearer or Splunk/);
+  assert.throws(() => validateConfiguration({
+    SPLUNK_URL:'https://10.1.1.160:8089', SPLUNK_TOKEN:'x', SPLUNK_COLLECTION_MODE:'web_scrape',
+  }), /SPLUNK_COLLECTION_MODE must be index or triggered_alerts/);
 });
 
 test('Splunk normalization maps textual urgency and common CIM fields', () => {
@@ -95,6 +102,17 @@ test('Splunk audit alert_fired records expose the saved-search context embedded 
   assert.deepEqual(alert.rule_groups, ['splunk_alert', 'cisco_ios']);
   assert.match(alert.alert_reason, /Port flapping.*cisco_ios.*cybersec.*1 triggered result/);
   assert.equal(alert.raw.ss_name, 'bmb - port flapping');
+});
+
+test('Splunk alert index notifications use the alert source as their detection name', () => {
+  const alert = normalizeAlert({
+    _cd:'0:10', _time:'2026-08-11T11:30:20Z', index:'alerts', host:'127.0.0.1',
+    source:'alert:Automation - Network - Potential C2 Beaconing Detected',
+    sourcetype:'generic_single_line', _raw:'Alert triggered! Raw log:',
+  });
+  assert.equal(alert.rule_desc, 'Automation - Network - Potential C2 Beaconing Detected');
+  assert.equal(alert.event_action, 'alert_fired');
+  assert.equal(alert.event_dataset, 'splunk.alert');
 });
 
 test('repeated named Splunk alerts share one group across different firing times', () => {
@@ -152,6 +170,51 @@ test('Splunk collection uses the export API, token auth, and request-level time 
     assert.equal(form.get('count'), '10');
     assert.equal(form.get('search'), 'search index=security | head 10');
     assert.doesNotMatch(form.get('search'), /earliest_time/);
+  }));
+});
+
+test('Splunk triggered-alert collection follows each fired alert SID to its evidence rows', async () => {
+  const requests = [];
+  const triggerTime = String(Math.floor(Date.now() / 1000));
+  await testServer((req, res) => {
+    requests.push(req.url);
+    assert.equal(req.headers.authorization, 'Bearer test-token');
+    res.writeHead(200, { 'Content-Type':'application/json' });
+    if (req.url.startsWith('/servicesNS/-/search/alerts/fired_alerts/-?')) {
+      res.end(JSON.stringify({ entry:[{
+        name:'fired-instance-1', author:'cybersec',
+        content:{
+          sid:'scheduler_sid_1', savedsearch_name:'Automation - Network - Potential C2 Beaconing Detected',
+          severity:'4', trigger_time:triggerTime, triggered_alerts:'1',
+          'eai:acl':{ app:'search', owner:'cybersec' },
+        },
+      }] }));
+      return;
+    }
+    if (req.url.startsWith('/services/search/jobs/scheduler_sid_1/results?')) {
+      res.end(JSON.stringify({ results:[{
+        _time:new Date(Number(triggerTime) * 1000).toISOString(), host:'EDGE-01',
+        src:'198.51.100.24', dest:'10.1.1.20', process_name:'beacon.exe',
+        _raw:'Outbound beacon matched the C2 analytic',
+      }] }));
+      return;
+    }
+    res.end(JSON.stringify({ results:[] }));
+  }, url => withSplunkEnvironment(url, async () => {
+    process.env.SPLUNK_COLLECTION_MODE = 'triggered_alerts';
+    const alerts = await fetchAlerts({ minutes:30, limit:10 });
+    assert.equal(alerts.length, 1);
+    assert.equal(alerts[0].rule_desc, 'Automation - Network - Potential C2 Beaconing Detected');
+    assert.equal(alerts[0].rule_level, 12);
+    assert.equal(alerts[0].hostname, 'EDGE-01');
+    assert.equal(alerts[0].src_ip, '198.51.100.24');
+    assert.equal(alerts[0].dst_ip, '10.1.1.20');
+    assert.equal(alerts[0].process, 'beacon.exe');
+    assert.equal(alerts[0].event_action, 'alert_fired');
+    assert.equal(alerts[0].event_dataset, 'splunk.alert');
+    assert.match(alerts[0].full_log, /Outbound beacon/);
+    assert.equal(requests.some(path => path.includes('/alerts/fired_alerts/-?')), true);
+    assert.equal(requests.some(path => path.includes('/search/jobs/scheduler_sid_1/results?')), true);
   }));
 });
 

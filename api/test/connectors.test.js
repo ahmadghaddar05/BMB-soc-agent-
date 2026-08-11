@@ -48,9 +48,12 @@ test('connector validation produces bounded source-specific configuration', () =
   const splunk = validateConnectorInput({
     connector_type:'splunk', name:'Client Splunk', host:'10.1.1.160', port:8089,
     token:'jwt-token', index:'security', search:'search index=security', auth_scheme:'Bearer',
+    collection_mode:'triggered_alerts', namespace_owner:'-', namespace_app:'search',
   });
   assert.equal(splunk.config.auth_scheme, 'Bearer');
   assert.equal(splunk.config.port, 8089);
+  assert.equal(splunk.config.collection_mode, 'triggered_alerts');
+  assert.equal(splunk.config.namespace_app, 'search');
 
   assert.throws(() => validateConnectorInput({
     connector_type:'splunk', name:'Unsafe', host:'127.0.0.1', token:'token',

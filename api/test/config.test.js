@@ -86,6 +86,13 @@ test('Splunk startup configuration validates authentication and reports insecure
   assert.equal(invalidAuth.ok, false);
   assert.ok(invalidAuth.errors.includes('SPLUNK_AUTH_SCHEME must be Bearer or Splunk'));
 
+  const invalidMode = validateStartupConfig(runtimeConfig({
+    ...base, ALERT_SOURCE:'splunk', SPLUNK_URL:'https://10.1.1.160:8089',
+    SPLUNK_TOKEN:'token', SPLUNK_COLLECTION_MODE:'browser',
+  }));
+  assert.equal(invalidMode.ok, false);
+  assert.ok(invalidMode.errors.includes('SPLUNK_COLLECTION_MODE must be index or triggered_alerts'));
+
   const insecure = validateStartupConfig(runtimeConfig({
     ...base, ALERT_SOURCE:'splunk', SPLUNK_URL:'https://10.1.1.160:8089',
     SPLUNK_TOKEN:'token', SPLUNK_VERIFY_TLS:'false',

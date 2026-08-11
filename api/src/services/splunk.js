@@ -9,6 +9,8 @@ const { buildGroupKey } = require('./grouping');
 
 const DEFAULT_TIMEOUT_MS = 30000;
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
+const MAX_FIRED_ALERT_INSTANCES = 200;
+const FIRED_ALERT_CONCURRENCY = 4;
 const SEVERITY_LEVELS = Object.freeze({
   critical: 15,
   high: 12,
@@ -54,6 +56,22 @@ function validateConfiguration(input = process.env) {
     throw new Error('SPLUNK_CA_CERT does not exist at the configured path');
   }
 
+  const collectionMode = String(
+    (managed ? input.collectionMode : input.SPLUNK_COLLECTION_MODE) || 'index'
+  ).trim().toLowerCase();
+  if (!['index', 'triggered_alerts'].includes(collectionMode)) {
+    throw new Error('SPLUNK_COLLECTION_MODE must be index or triggered_alerts');
+  }
+  const namespaceOwner = String(
+    (managed ? input.namespaceOwner : input.SPLUNK_NAMESPACE_OWNER) || '-'
+  ).trim();
+  const namespaceApp = String(
+    (managed ? input.namespaceApp : input.SPLUNK_NAMESPACE_APP) || 'search'
+  ).trim();
+  if (![namespaceOwner, namespaceApp].every(value => /^[A-Za-z0-9._-]{1,200}$/.test(value))) {
+    throw new Error('Splunk namespace owner and app contain invalid characters');
+  }
+
   return {
     url,
     token,
@@ -62,6 +80,9 @@ function validateConfiguration(input = process.env) {
     authScheme: /^splunk$/i.test(authScheme) ? 'Splunk' : 'Bearer',
     verifyTls,
     caCert,
+    collectionMode,
+    namespaceOwner,
+    namespaceApp,
   };
 }
 
@@ -114,6 +135,12 @@ function readableAlertName(value) {
   return text
     .replace(/^bmb\b/i, 'BMB')
     .replace(/(^|\s[-:]\s)([a-z])/g, (_, prefix, letter) => `${prefix}${letter.toUpperCase()}`);
+}
+
+function alertNameFromSource(result) {
+  const source = stringValue(result, 'source');
+  const match = source?.match(/^alert\s*:\s*(.+)$/i);
+  return match?.[1]?.trim() || null;
 }
 
 function normalizeTimestamp(value) {
@@ -176,11 +203,12 @@ function normalizeAlert(hit) {
   const raw = typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue || result);
   const timestamp = normalizeTimestamp(valueAt(result, '_time', 'time', 'timestamp'));
   const severity = sourceSeverity(result);
-  const action = stringValue(result, 'action', 'event.action');
+  const sourceAlertName = alertNameFromSource(result);
+  const action = stringValue(result, 'action', 'event.action') || (sourceAlertName ? 'alert_fired' : null);
   const stableRuleName = stringValue(
     result, 'rule_desc', 'rule_title', 'alert_name', 'ss_name', 'search_name',
     'savedsearch_name', 'signature', 'event_name', 'title', 'name'
-  );
+  ) || sourceAlertName;
   const ruleDescription = readableAlertName(stableRuleName) ||
     (action === 'alert_fired' ? 'Splunk alert fired' : stringValue(result, 'sourcetype')) ||
     'Splunk detection';
@@ -370,6 +398,133 @@ function parseExportResponse(text) {
   return events;
 }
 
+function parseJsonResponse(text, context) {
+  let parsed;
+  try { parsed = JSON.parse(String(text)); }
+  catch { throw new Error(`Splunk ${context} returned malformed JSON`); }
+  const errorMessage = parsed.messages?.find?.(message => String(message.type).toUpperCase() === 'ERROR');
+  if (errorMessage) throw new Error(`Splunk ${context} error: ${errorMessage.text || 'unknown error'}`);
+  return parsed;
+}
+
+function firedAlertTimestamp(entry) {
+  const raw = valueAt(entry?.content || {}, 'trigger_time') || entry?.published || entry?.updated;
+  if (raw == null || raw === '') return null;
+  const timestamp = normalizeTimestamp(raw);
+  const milliseconds = new Date(timestamp).getTime();
+  return Number.isFinite(milliseconds) ? milliseconds : null;
+}
+
+function firedAlertMetadata(entry, config) {
+  const content = entry?.content || {};
+  const sid = stringValue(content, 'sid');
+  const savedSearchName = stringValue(content, 'savedsearch_name', 'alert_name') || entry?.name || 'Splunk alert';
+  const acl = content['eai:acl'] && typeof content['eai:acl'] === 'object' ? content['eai:acl'] : {};
+  return {
+    _time:valueAt(content, 'trigger_time') || entry?.published || entry?.updated,
+    index:config.index,
+    action:'alert_fired',
+    source:`alert:${savedSearchName}`,
+    sourcetype:'splunk_triggered_alert',
+    ss_name:savedSearchName,
+    search_name:savedSearchName,
+    savedsearch_name:savedSearchName,
+    ss_app:stringValue(content, 'app') || acl.app || (config.namespaceApp === '-' ? null : config.namespaceApp),
+    alert_owner:entry?.author || acl.owner || null,
+    severity:valueAt(content, 'severity'),
+    sid,
+    orig_sid:sid,
+    trigger_time:valueAt(content, 'trigger_time'),
+    triggered_alerts:valueAt(content, 'triggered_alerts'),
+    alert_type:valueAt(content, 'alert_type'),
+    digest_mode:valueAt(content, 'digest_mode'),
+  };
+}
+
+function mergeFiredAlertResult(entry, result, resultIndex, config) {
+  const metadata = firedAlertMetadata(entry, config);
+  const sourceResult = result && typeof result === 'object' ? result : {};
+  return {
+    ...sourceResult,
+    ...metadata,
+    _time:valueAt(sourceResult, '_time', 'time', 'timestamp') || metadata._time,
+    _raw:valueAt(sourceResult, '_raw', 'raw', 'message') || JSON.stringify(sourceResult),
+    index:stringValue(sourceResult, 'index', '_index') || metadata.index,
+    source:stringValue(sourceResult, 'source') || metadata.source,
+    severity:valueAt(metadata, 'severity') || valueAt(sourceResult, 'severity', 'urgency', 'priority'),
+    event_id:stringValue(sourceResult, 'event_id') || stringValue(sourceResult, '_cd') || `${metadata.sid}:${resultIndex}`,
+    source_event_action:stringValue(sourceResult, 'action', 'event.action'),
+    bmb_splunk_result_status:Object.keys(sourceResult).length ? 'retrieved' : 'empty',
+  };
+}
+
+async function fetchSearchJobRows(sid, count, config) {
+  const query = new URLSearchParams({ output_mode:'json', count:String(count), offset:'0' });
+  const encodedSid = encodeURIComponent(sid);
+  const resultsText = await requestSplunk(
+    `/services/search/jobs/${encodedSid}/results?${query}`,
+    { timeoutMs:60000 }, config
+  );
+  const results = parseJsonResponse(resultsText, 'search-job results');
+  if (Array.isArray(results.results) && results.results.length) return results.results;
+
+  const eventsText = await requestSplunk(
+    `/services/search/jobs/${encodedSid}/events?${query}`,
+    { timeoutMs:60000 }, config
+  );
+  const events = parseJsonResponse(eventsText, 'search-job events');
+  return Array.isArray(events.results) ? events.results : [];
+}
+
+async function fetchTriggeredAlerts({ minutes, limit }, config) {
+  const cutoff = Date.now() - (minutes * 60 * 1000);
+  const instanceLimit = Math.min(Math.max(limit, 20), MAX_FIRED_ALERT_INSTANCES);
+  const query = new URLSearchParams({
+    output_mode:'json', count:String(instanceLimit), offset:'0',
+    sort_key:'trigger_time', sort_dir:'desc',
+  });
+  const owner = encodeURIComponent(config.namespaceOwner);
+  const app = encodeURIComponent(config.namespaceApp);
+  const text = await requestSplunk(
+    `/servicesNS/${owner}/${app}/alerts/fired_alerts/-?${query}`,
+    { timeoutMs:30000 }, config
+  );
+  const data = parseJsonResponse(text, 'fired-alert list');
+  const entries = (Array.isArray(data.entry) ? data.entry : [])
+    .filter(entry => stringValue(entry?.content || {}, 'sid'))
+    .filter(entry => {
+      const timestamp = firedAlertTimestamp(entry);
+      return timestamp == null || timestamp >= cutoff;
+    })
+    .sort((left, right) => (firedAlertTimestamp(right) || 0) - (firedAlertTimestamp(left) || 0));
+
+  const normalized = [];
+  let attemptedJobs = 0;
+  let readableJobs = 0;
+  for (let start = 0; start < entries.length && normalized.length < limit; start += FIRED_ALERT_CONCURRENCY) {
+    const batch = entries.slice(start, start + FIRED_ALERT_CONCURRENCY);
+    const remaining = Math.max(1, limit - normalized.length);
+    const rowsPerJob = Math.min(100, remaining);
+    const batchRows = await Promise.all(batch.map(async entry => {
+      attemptedJobs += 1;
+      try {
+        const rows = await fetchSearchJobRows(entry.content.sid, rowsPerJob, config);
+        readableJobs += 1;
+        const evidenceRows = rows.length ? rows : [{}];
+        return evidenceRows.map((row, index) => mergeFiredAlertResult(entry, row, index, config));
+      } catch {
+        return [];
+      }
+    }));
+    normalized.push(...batchRows.flat().map(normalizeAlert));
+  }
+
+  if (attemptedJobs > 0 && readableJobs === 0) {
+    throw new Error('Splunk fired alerts were found, but their search-job results could not be read');
+  }
+  return normalized.slice(0, limit);
+}
+
 function normalizedBaseSearch(config) {
   const search = config.search.trim();
   return /^search(?:\s|$)/i.test(search) ? search : `search ${search}`;
@@ -389,6 +544,9 @@ async function fetchAlerts({ minutes = 15, limit = 200 } = {}, connection = null
   const config = validateConfiguration(connection || process.env);
   const boundedMinutes = Math.min(Math.max(1, Number(minutes) || 15), 43200);
   const boundedLimit = Math.min(Math.max(1, Number(limit) || 200), 5000);
+  if (config.collectionMode === 'triggered_alerts') {
+    return fetchTriggeredAlerts({ minutes:boundedMinutes, limit:boundedLimit }, config);
+  }
   const search = `${normalizedBaseSearch(config)} | head ${boundedLimit}`;
   const body = exportBody({ search, earliestTime: `-${boundedMinutes}m`, limit: boundedLimit });
   const text = await requestSplunk('/services/search/jobs/export', { method: 'POST', body, timeoutMs: 60000 }, config);
@@ -442,6 +600,9 @@ async function checkHealth(connection = null) {
     server: new URL(config.url).host,
     authenticated_user: entry?.content?.username || entry?.name || null,
     index: config.index,
+    collection_mode:config.collectionMode,
+    namespace:config.collectionMode === 'triggered_alerts'
+      ? `${config.namespaceOwner}/${config.namespaceApp}` : null,
     tls_verified: config.verifyTls,
   };
 }

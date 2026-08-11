@@ -48,6 +48,13 @@ Use a read-only API key that can read the configured alert alias and raw-event i
 
 Use port `8089`, the management REST API, with a dedicated read-only JWT bearer token where available. The role needs permission to use the search export endpoint, search the configured index, and read its own authentication context. Port `8000` is only the Splunk web UI; port `8088` is HEC ingestion and is not used by this read connector.
 
+The connector supports two collection methods:
+
+- **Triggered alerts and their search results** reads Splunk's `alerts/fired_alerts` REST resource, takes the SID recorded for each fired saved search, and retrieves the evidence rows from `search/jobs/{sid}/results`. This matches the Triggered Alerts view without scraping Splunk Web. Configure the owner/app namespace that contains the saved searches; `-`/`search` reads every accessible owner in the Search app.
+- **Index search** runs the configured bounded SPL base search through `search/jobs/export`. It remains useful for notable-event indexes, custom alert indexes, fallback collection, and analyst evidence pivots.
+
+Triggered-result access is read-only and bounded by the BMB collection lookback, per-cycle alert limit, fired-alert pagination ceiling, and four concurrent job-result requests. The Splunk role must be allowed to list fired alerts and read the associated search jobs. If fired alerts are visible but every referenced job is unreadable, connector testing fails visibly rather than ingesting context-free placeholders.
+
 ### Wazuh
 
 Use the Wazuh indexer/OpenSearch-compatible endpoint and a least-privilege account that can read the configured alert index pattern.

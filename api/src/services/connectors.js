@@ -119,6 +119,15 @@ function validateConnectorInput(input, { requireCredentials = true } = {}) {
     config.index = boundedText(input.index || 'main', 'index', 200, { required:true });
     if (!/^[A-Za-z0-9._-]{1,200}$/.test(config.index)) throw new Error('Splunk index contains unsupported characters');
     config.search = boundedText(input.search || `search index=${config.index}`, 'search', 2000, { required:true });
+    config.collection_mode = boundedText(input.collection_mode || 'index', 'collection_mode', 40, { required:true }).toLowerCase();
+    if (!['index', 'triggered_alerts'].includes(config.collection_mode)) {
+      throw new Error('Splunk collection_mode must be index or triggered_alerts');
+    }
+    config.namespace_owner = boundedText(input.namespace_owner || '-', 'namespace_owner', 200, { required:true });
+    config.namespace_app = boundedText(input.namespace_app || 'search', 'namespace_app', 200, { required:true });
+    if (![config.namespace_owner, config.namespace_app].every(value => /^[A-Za-z0-9._-]{1,200}$/.test(value))) {
+      throw new Error('Splunk namespace owner and app contain unsupported characters');
+    }
     config.auth_scheme = /^(splunk)$/i.test(input.auth_scheme || '') ? 'Splunk' : 'Bearer';
     secrets.token = boundedText(input.token, 'token', 10000, { required:requireCredentials });
   } else {
@@ -153,6 +162,9 @@ function connectionFromRow(row) {
     connection:{
       url:endpoint(row.config), token:secret.token, index:row.config.index,
       search:row.config.search, authScheme:row.config.auth_scheme,
+      collectionMode:row.config.collection_mode || 'index',
+      namespaceOwner:row.config.namespace_owner || '-',
+      namespaceApp:row.config.namespace_app || 'search',
       verifyTls:row.config.verify_tls, caCert:secret.ca_certificate || '',
     },
   };
@@ -184,6 +196,9 @@ function publicConnector(row) {
     index:config.index || config.alert_alias || null,
     event_indices:config.event_indices || null,
     search:config.search || null,
+    collection_mode:config.collection_mode || (row.connector_type === 'splunk' ? 'index' : null),
+    namespace_owner:config.namespace_owner || null,
+    namespace_app:config.namespace_app || null,
     auth_scheme:config.auth_scheme || (row.connector_type === 'wazuh' ? 'Basic' : 'ApiKey'),
     username:row.connector_type === 'wazuh' ? config.username : null,
     last_test_status:row.last_test_status,

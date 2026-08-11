@@ -75,8 +75,8 @@
     "semantic_hash": "d432fcf8c41cd4b1c771e5da6d591c54"
   },
   "api/src/config.js": {
-    "mtime": 1786358770.896888,
-    "ast_hash": "e5a1ba913fc35228d689436b95f9f42b",
+    "mtime": 1786448693.3812997,
+    "ast_hash": "fe550f06bdc621c1f588b27a88f77751",
     "semantic_hash": ""
   },
   "api/src/db/index.js": {
@@ -330,8 +330,8 @@
     "semantic_hash": "b92ed4e800a4bda2895d5711e50d6442"
   },
   "api/src/services/splunk.js": {
-    "mtime": 1786433315.5730276,
-    "ast_hash": "ba893d1a512fa1a51b64a3df69e0add2",
+    "mtime": 1786448673.2193036,
+    "ast_hash": "25d746ad01592bbf995d287e013543a9",
     "semantic_hash": ""
   },
   "api/src/services/tools.js": {
@@ -395,8 +395,8 @@
     "semantic_hash": "097e8172a9afa5d21081e630fa6940b4"
   },
   "api/test/config.test.js": {
-    "mtime": 1786358770.7225616,
-    "ast_hash": "0caf28d08c21bc07775bd8b5b17c25f7",
+    "mtime": 1786448783.2419293,
+    "ast_hash": "3982336921ec4bdbedb0f96615e224e8",
     "semantic_hash": ""
   },
   "api/test/correlation-worker.test.js": {
@@ -545,8 +545,8 @@
     "semantic_hash": ""
   },
   "frontend/src/App.test.jsx": {
-    "mtime": 1786440214.853109,
-    "ast_hash": "6ba1fb12d59620731afc42223e03aefc",
+    "mtime": 1786444198.5434787,
+    "ast_hash": "0ebc78c74873b79a5ad9179168544638",
     "semantic_hash": ""
   },
   "frontend/src/Reports.jsx": {
@@ -575,9 +575,9 @@
     "semantic_hash": "9d8dfa9ea73167aff2bf11a5df97efcb"
   },
   "frontend/src/components/EntityRelationshipGraph.jsx": {
-    "mtime": 1785321168.9129708,
-    "ast_hash": "cd49a00c2a315c71e57fd8685658af0a",
-    "semantic_hash": "cd49a00c2a315c71e57fd8685658af0a"
+    "mtime": 1786443993.0442588,
+    "ast_hash": "260f0d8fb6815f1466aac82ed876e765",
+    "semantic_hash": ""
   },
   "frontend/src/components/IncidentCorrelationTrace.jsx": {
     "mtime": 1785316480.0813212,
@@ -735,8 +735,8 @@
     "semantic_hash": "6b67ca6cae8c64f769414f93594df27d"
   },
   "frontend/src/pages/Alerts.jsx": {
-    "mtime": 1786437821.0479343,
-    "ast_hash": "c273cc9a2ec4606abb51145739b80271",
+    "mtime": 1786441842.6843722,
+    "ast_hash": "7b4b28d5ca813c92918bcb81c968e39b",
     "semantic_hash": ""
   },
   "frontend/src/pages/Approvals.jsx": {
@@ -745,9 +745,9 @@
     "semantic_hash": "002f83dd6c1eab011d15d7dc259b5253"
   },
   "frontend/src/pages/Assets.jsx": {
-    "mtime": 1784547714.051223,
-    "ast_hash": "e69b48e7434d5b8eac82e63beac2695f",
-    "semantic_hash": "e69b48e7434d5b8eac82e63beac2695f"
+    "mtime": 1786443864.1474123,
+    "ast_hash": "2669b724c275437f981625b76db2facf",
+    "semantic_hash": ""
   },
   "frontend/src/pages/AuditGovernance.jsx": {
     "mtime": 1784548608.6006904,
@@ -755,9 +755,9 @@
     "semantic_hash": "1c9d51a3b549992fd4e05ffed7db3e9c"
   },
   "frontend/src/pages/Cases.jsx": {
-    "mtime": 1784548061.6255295,
-    "ast_hash": "d874045022f9134cdf0cd0ac8ed3055b",
-    "semantic_hash": "d874045022f9134cdf0cd0ac8ed3055b"
+    "mtime": 1786441133.0364325,
+    "ast_hash": "81b8b18378fb4518bb0081001bbbde6d",
+    "semantic_hash": ""
   },
   "frontend/src/pages/CollectorHealth.jsx": {
     "mtime": 1785228434.5432162,
@@ -775,9 +775,9 @@
     "semantic_hash": "8e1fe3dd1796baab2433df5431ccfdd9"
   },
   "frontend/src/pages/Incidents.jsx": {
-    "mtime": 1785318732.2529976,
-    "ast_hash": "2c92ca5d4ab3483f30693f220e3e7352",
-    "semantic_hash": "2c92ca5d4ab3483f30693f220e3e7352"
+    "mtime": 1786442261.611261,
+    "ast_hash": "d2bb588a8fb83c71822af82c4ddbb5a0",
+    "semantic_hash": ""
   },
   "frontend/src/pages/Integrations.jsx": {
     "mtime": 1786358770.7225616,
@@ -785,9 +785,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/Investigations.jsx": {
-    "mtime": 1784547785.1354747,
-    "ast_hash": "c764ab9de843df52615a306d3cfca560",
-    "semantic_hash": "c764ab9de843df52615a306d3cfca560"
+    "mtime": 1786441944.3122778,
+    "ast_hash": "9c5ab268787daab5d383864c0e573f85",
+    "semantic_hash": ""
   },
   "frontend/src/pages/LiveMonitoring.jsx": {
     "mtime": 1786439267.9934926,
@@ -825,9 +825,9 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/ThreatIntelligence.jsx": {
-    "mtime": 1785320882.7982194,
-    "ast_hash": "6c5e85de2a7036753e37710b02a63bc5",
-    "semantic_hash": "6c5e85de2a7036753e37710b02a63bc5"
+    "mtime": 1786444155.633592,
+    "ast_hash": "52b2f7d018bc8b450698d7d8ef066801",
+    "semantic_hash": ""
   },
   "frontend/src/pages/UsersAccess.jsx": {
     "mtime": 1785221817.8967497,
@@ -990,8 +990,8 @@
     "semantic_hash": ""
   },
   "api/test/splunk.test.js": {
-    "mtime": 1786433316.731928,
-    "ast_hash": "cfd13b9c810f0f9bc3b8aeb4aa20033f",
+    "mtime": 1786448767.4510355,
+    "ast_hash": "4b6da2f955f3b60b44f1c1b72027bdbb",
     "semantic_hash": ""
   },
   "AGENTS.md": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1786358770.8930988,
-    "ast_hash": "e954ffbcfc681b1bfea81aad82489b36",
+    "mtime": 1786448797.8554382,
+    "ast_hash": "a0b0694f619386e5147e1d5044db9142",
     "semantic_hash": ""
   },
   "docker-compose.elastic.yml": {
@@ -1020,8 +1020,8 @@
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1786358770.9090884,
-    "ast_hash": "66a8fc178c4af5fa956dd7f1b114ba08",
+    "mtime": 1786448693.6999636,
+    "ast_hash": "6473b39c430bd558c254df15a0d3f3cd",
     "semantic_hash": ""
   },
   "docs/AI_TRIAGE_AND_CORRELATION_GUIDE.md": {
@@ -1255,23 +1255,23 @@
     "semantic_hash": ""
   },
   "api/src/services/connectors.js": {
-    "mtime": 1786358770.896888,
-    "ast_hash": "1f339d29cd251c03981049b4a37996c0",
+    "mtime": 1786448673.5358624,
+    "ast_hash": "2538bb207b0f42f82c890006e70cd486",
     "semantic_hash": ""
   },
   "api/test/connectors.test.js": {
-    "mtime": 1786358770.896888,
-    "ast_hash": "793ebee87679f3babe0b0311f2cc59c4",
+    "mtime": 1786448767.775628,
+    "ast_hash": "de1e593a68b583cdf76a5bcc9248e877",
     "semantic_hash": ""
   },
   "frontend/src/components/admin/ConnectorManager.jsx": {
-    "mtime": 1786358770.9125254,
-    "ast_hash": "d4fecb0ec330b2322c5a4dc6f16bc10b",
+    "mtime": 1786448880.9377992,
+    "ast_hash": "190c5fcaa9b79336b5ce361b3b69124e",
     "semantic_hash": ""
   },
   "docs/MANAGED_CONNECTORS.md": {
-    "mtime": 1786358770.9090884,
-    "ast_hash": "7d73f85a342feeaf031b71933f365d03",
+    "mtime": 1786448798.193173,
+    "ast_hash": "70a690dab6406c2b9c587e987ce1b40a",
     "semantic_hash": ""
   },
   "docker-compose.ca.yml": {
@@ -1290,8 +1290,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ui/Button.jsx": {
-    "mtime": 1786436069.080667,
-    "ast_hash": "174e39e5645794f9389e4a1a49ee3b24",
+    "mtime": 1786441132.1201844,
+    "ast_hash": "7e7e6522a1ab07625ca2269b27361dd7",
     "semantic_hash": ""
   },
   "frontend/src/components/ui/Card.jsx": {
@@ -1355,8 +1355,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ui/ui.test.jsx": {
-    "mtime": 1786440048.2270653,
-    "ast_hash": "84a562794a144051785f6df0c45b64a2",
+    "mtime": 1786441234.1590564,
+    "ast_hash": "090e76dad295be13c97377b20d01034d",
     "semantic_hash": ""
   },
   "frontend/src/components/ui/utils.js": {
@@ -1377,6 +1377,11 @@
   "frontend/src/components/ui/RankedBarList.jsx": {
     "mtime": 1786440047.3059478,
     "ast_hash": "5540ab1d458ca0e8014d995eabd284f3",
+    "semantic_hash": ""
+  },
+  "frontend/src/nginx.test.js": {
+    "mtime": 1786444888.8447065,
+    "ast_hash": "53339cebfc821236418af65a25d6ed82",
     "semantic_hash": ""
   }
 }

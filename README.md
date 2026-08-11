@@ -71,7 +71,7 @@ For a controlled development environment only, `ELASTIC_VERIFY_TLS=false` skips 
 
 Choose Splunk in the connector wizard and provide its management host, port `8089`, read-only token, index, base search, and TLS trust. Port `8089` is Splunk's management REST API; HEC port `8088` is not used because BMB reads events rather than sending them. The token's role needs permission to search the configured index and access its own authentication context. The connector uses `/services/search/jobs/export`, sends time bounds as export parameters, and normalizes Splunk fields into BMB's canonical alert schema.
 
-In the environment fallback, use `SPLUNK_AUTH_SCHEME=Bearer` for Splunk JWT authentication tokens. `Splunk` is also supported for a Splunk session key/token when required by the deployment. Set `SPLUNK_INDEX` and optionally `SPLUNK_SEARCH` to constrain collection; the configured search must be a base generating search such as `search index=notable` or `search index=main sourcetype=...`.
+In the environment fallback, use `SPLUNK_AUTH_SCHEME=Bearer` for Splunk JWT authentication tokens. `Splunk` is also supported for a Splunk session key/token when required by the deployment. `SPLUNK_COLLECTION_MODE=index` runs the bounded `SPLUNK_SEARCH`. `SPLUNK_COLLECTION_MODE=triggered_alerts` reads fired-alert metadata and follows each alert SID to the triggering search-job results; set `SPLUNK_NAMESPACE_OWNER` and `SPLUNK_NAMESPACE_APP` to the saved-search namespace (`-` and `search` are the common defaults). The index/base search remain available for raw-event pivots and fallback collection.
 
 Those environment variables are fallback configuration only; the wizard stores the corresponding values securely without requiring an image rebuild.
 

@@ -20,6 +20,7 @@ function initialForm(type = 'elastic') {
     alert_alias:'.alerts-security.alerts-default', event_indices:'logs-*',
     index:type === 'splunk' ? 'main' : 'wazuh-alerts-*',
     search:type === 'splunk' ? 'search index=main' : '', auth_scheme:'Bearer', username:'admin',
+    collection_mode:type === 'splunk' ? 'triggered_alerts' : '', namespace_owner:'-', namespace_app:'search',
   };
 }
 
@@ -109,9 +110,15 @@ function ConnectorWizard({ connector, onClose, onSaved }) {
           </>}
           {form.connector_type === 'splunk' && <>
             <label>Authentication<select value={form.auth_scheme} onChange={event => set('auth_scheme', event.target.value)}><option value="Bearer">Bearer token</option><option value="Splunk">Splunk session key</option></select></label>
-            <label>Index<input value={form.index} onChange={event => { set('index', event.target.value); if (form.search === `search index=${form.index}`) set('search', `search index=${event.target.value}`); }} required /></label>
             <label className="span-2">Authentication token<input type="password" value={form.token} onChange={event => set('token', event.target.value)} required={!editing} autoComplete="new-password" placeholder={editing ? 'Leave blank to keep existing token' : 'Paste the read-only token'} /></label>
-            <label className="span-2">Base search<input value={form.search} onChange={event => set('search', event.target.value)} required /></label>
+            <label className="span-2">Collection method<select value={form.collection_mode} onChange={event => set('collection_mode', event.target.value)}><option value="triggered_alerts">Triggered alerts and their search results</option><option value="index">Index search</option></select><small>{form.collection_mode === 'triggered_alerts' ? 'Reads fired-alert metadata, then retrieves the result rows from each triggering search job.' : 'Runs the configured bounded SPL search and ingests its result rows.'}</small></label>
+            {form.collection_mode === 'index' ? <>
+              <label>Index<input value={form.index} onChange={event => { set('index', event.target.value); if (form.search === `search index=${form.index}`) set('search', `search index=${event.target.value}`); }} required /></label>
+              <label>Base search<input value={form.search} onChange={event => set('search', event.target.value)} required /></label>
+            </> : <>
+              <label>Alert owner namespace<input value={form.namespace_owner} onChange={event => set('namespace_owner', event.target.value)} required placeholder="-" /><small>Use - for every accessible owner.</small></label>
+              <label>Splunk app namespace<input value={form.namespace_app} onChange={event => set('namespace_app', event.target.value)} required placeholder="search" /><small>The screenshot uses the search app.</small></label>
+            </>}
           </>}
           {form.connector_type === 'wazuh' && <>
             <label>Username<input value={form.username} onChange={event => set('username', event.target.value)} required autoComplete="username" /></label>
@@ -130,6 +137,7 @@ function ConnectorWizard({ connector, onClose, onSaved }) {
           <div><small>Endpoint</small><strong>{form.protocol}://{form.host}:{form.port}</strong></div>
           <div><small>Credentials</small><strong>{editing && !credentialProvided ? 'Keep encrypted credential' : 'Replace with supplied credential'}</strong></div>
           <div><small>TLS verification</small><strong>{form.verify_tls ? 'Enabled' : 'Disabled — lab use only'}</strong></div>
+          {form.connector_type === 'splunk' && <div><small>Collection</small><strong>{form.collection_mode === 'triggered_alerts' ? `Triggered results · ${form.namespace_owner}/${form.namespace_app}` : form.search}</strong></div>}
         </div>
         <div className="module-notice"><ShieldCheck /><span>Saving encrypts credentials on the API server and immediately performs a bounded read-only connection and search test. Activation remains a separate administrator decision.</span></div>
         {error && <div className="module-notice danger" role="alert">{error}</div>}
@@ -178,7 +186,7 @@ export default function ConnectorManager() {
 
     <div className="connector-list">
       {connectors.map(connector => <article className={`connector-card ${connector.active ? 'active' : ''}`} key={connector.id}>
-        <div className="connector-card-main"><span className="connector-icon"><Server /></span><div><div className="connector-title"><h3>{connector.name}</h3>{connector.active && <StatusBadge tone="success">Active source</StatusBadge>}<StatusBadge tone={connectorTone(connector)}>{connector.last_test_status === 'success' ? 'Tested' : connector.last_test_status === 'failure' ? 'Test failed' : connector.enabled ? 'Needs test' : 'Disabled'}</StatusBadge></div><p>{PLATFORMS[connector.connector_type]?.label} · {connector.endpoint}</p><div className="connector-facts"><span>Index <b>{connector.index || 'Default'}</b></span><span>TLS <b>{connector.verify_tls ? 'Verified' : 'Disabled'}</b></span><span>Credential <b>Encrypted</b></span><span>Last test <b>{fmtTs(connector.last_tested_at)}</b></span></div>{connector.last_test_error && <small className="connector-error">{connector.last_test_error}</small>}</div></div>
+        <div className="connector-card-main"><span className="connector-icon"><Server /></span><div><div className="connector-title"><h3>{connector.name}</h3>{connector.active && <StatusBadge tone="success">Active source</StatusBadge>}<StatusBadge tone={connectorTone(connector)}>{connector.last_test_status === 'success' ? 'Tested' : connector.last_test_status === 'failure' ? 'Test failed' : connector.enabled ? 'Needs test' : 'Disabled'}</StatusBadge></div><p>{PLATFORMS[connector.connector_type]?.label} · {connector.endpoint}</p><div className="connector-facts"><span>{connector.connector_type === 'splunk' && connector.collection_mode === 'triggered_alerts' ? 'Collection' : 'Index'} <b>{connector.connector_type === 'splunk' && connector.collection_mode === 'triggered_alerts' ? 'Triggered results' : connector.index || 'Default'}</b></span><span>TLS <b>{connector.verify_tls ? 'Verified' : 'Disabled'}</b></span><span>Credential <b>Encrypted</b></span><span>Last test <b>{fmtTs(connector.last_tested_at)}</b></span></div>{connector.last_test_error && <small className="connector-error">{connector.last_test_error}</small>}</div></div>
         <div className="connector-card-actions">
           <button type="button" onClick={() => action(connector, 'test')} disabled={Boolean(busy)}><RefreshCw className={busy === `${connector.id}:test` ? 'animate-spin' : ''} />Test</button>
           {!connector.active && <button type="button" onClick={() => action(connector, 'activate')} disabled={Boolean(busy) || connector.last_test_status !== 'success'}><Power />{connector.enabled ? 'Activate' : 'Enable & activate'}</button>}
