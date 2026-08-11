@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Activity, AlertTriangle, ChevronDown, ChevronUp, Clock3, Database,
-  Pause, Play, RefreshCw, Search, Server, ShieldCheck, User, X,
+  Activity, AlertTriangle, BellOff, ChevronDown, ChevronUp, Clock3,
+  Database, FileSearch, Pause, Play, RefreshCw, Server, ShieldCheck, User,
 } from 'lucide-react';
 import { api } from '../lib/api';
-import { activityTitle, alertReference, businessAssetLabel, humanize, severityOf } from '../lib/executive';
+import {
+  activityTitle, alertReference, businessAssetLabel, humanize, severityOf,
+} from '../lib/executive';
+import {
+  Button, EmptyState, LiveIndicator, SegmentedControl, Select, SeverityBadge,
+  SkeletonLoader, StatusChip,
+} from '../components/ui';
 
 const REFRESH_INTERVAL_MS = 15_000;
-
-const SEVERITY_STYLES = {
-  critical: 'border-rose-400/35 bg-rose-400/10 text-rose-300',
-  high: 'border-orange-400/35 bg-orange-400/10 text-orange-300',
-  medium: 'border-amber-300/35 bg-amber-300/10 text-amber-200',
-  low: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300',
-};
-
+const PAGE_SIZE = 100;
 const TIME_RANGES = {
   '15m': 15 * 60 * 1000,
   '1h': 60 * 60 * 1000,
@@ -39,7 +38,11 @@ function activitySignature(activity) {
 }
 
 function sourceLabel(activity) {
-  return activity.event_dataset || activity.decoder || activity.agent_name || 'Elastic';
+  return activity.source_system || activity.event_dataset || activity.decoder || activity.agent_name || 'Unknown source';
+}
+
+function datasetLabel(activity) {
+  return activity.event_dataset || activity.decoder || activity.source_system || 'Unknown dataset';
 }
 
 function formatTimestamp(value) {
@@ -49,6 +52,32 @@ function formatTimestamp(value) {
   return date.toLocaleString([], {
     month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
   });
+}
+
+function relativeTimestamp(value) {
+  if (!value) return 'Unknown';
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return 'Unknown';
+  const elapsed = Math.max(0, Date.now() - timestamp);
+  if (elapsed < 60_000) return `${Math.max(1, Math.floor(elapsed / 1000))}s ago`;
+  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
+  if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)}h ago`;
+  return `${Math.floor(elapsed / 86_400_000)}d ago`;
+}
+
+function aiState(activity) {
+  const status = String(activity.triage_status || 'pending').toLowerCase();
+  const verdict = String(activity.verdict || '').toLowerCase();
+  if (status === 'triage_failed') return { label:'AI failed', tone:'error' };
+  if (status === 'pending') return { label:'Pending', tone:'neutral' };
+  if (verdict === 'needs_investigation' || verdict === 'true_positive') {
+    return { label:humanize(verdict), tone:'attention' };
+  }
+  if (verdict === 'false_positive' || verdict === 'benign_anomaly') {
+    return { label:humanize(verdict), tone:'resolved' };
+  }
+  if (status === 'triaged') return { label:'Triaged', tone:'active' };
+  return { label:humanize(status), tone:'neutral' };
 }
 
 function buildSignatureMap(activities) {
@@ -71,7 +100,8 @@ export default function LiveMonitoring() {
   const [viewUpdatedAt, setViewUpdatedAt] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [viewMode, setViewMode] = useState('grouped');
-  const [filters, setFilters] = useState({ severity: 'all', source: 'all', time: '24h', search: '' });
+  const [filters, setFilters] = useState({ severity:'all', source:'all', time:'24h' });
+  const [mutedIds, setMutedIds] = useState(() => new Set());
   const [page, setPage] = useState(1);
 
   const pausedRef = useRef(false);
@@ -97,8 +127,8 @@ export default function LiveMonitoring() {
         ? `&from=${encodeURIComponent(new Date(Date.now() - TIME_RANGES[filters.time]).toISOString())}`
         : '';
       const activityPath = viewMode === 'grouped'
-        ? `/alert-groups?page=${page}&limit=100`
-        : `/alerts?page=${page}&limit=100`;
+        ? `/alert-groups?page=${page}&limit=${PAGE_SIZE}`
+        : `/alerts?page=${page}&limit=${PAGE_SIZE}`;
       const [activityResult, collectorResult] = await Promise.allSettled([
         api(`${activityPath}${rangeQuery}`),
         api('/collector/status'),
@@ -108,14 +138,14 @@ export default function LiveMonitoring() {
       if (activityResult.status === 'rejected') throw activityResult.reason;
       const activityData = activityResult.value;
       const collectorData = collectorResult.status === 'fulfilled' ? collectorResult.value : null;
-
       const nextActivities = viewMode === 'grouped'
         ? activityData.groups || []
         : activityData.alerts || [];
       const checkedAt = new Date();
+
       if (collectorData) setCollector(collectorData);
       setCollectorError(collectorResult.status === 'rejected'
-        ? collectorResult.reason?.message || 'Collector health is unavailable.'
+        ? collectorResult.reason?.message || 'Collector status is unavailable.'
         : null);
       setLastCheckedAt(checkedAt);
       setError(null);
@@ -165,39 +195,33 @@ export default function LiveMonitoring() {
 
   const filteredActivities = useMemo(() => {
     const now = Date.now();
-    const search = filters.search.trim().toLowerCase();
     return activities.filter(activity => {
-      const severity = severityOf(activity);
-      if (filters.severity !== 'all' && severity !== filters.severity) return false;
+      const id = activityId(activity);
+      if (mutedIds.has(id)) return false;
+      if (filters.severity !== 'all' && severityOf(activity) !== filters.severity) return false;
       if (filters.source !== 'all' && sourceLabel(activity) !== filters.source) return false;
       if (filters.time !== 'all') {
         const timestamp = new Date(activityTimestamp(activity)).getTime();
         if (!Number.isFinite(timestamp) || timestamp < now - TIME_RANGES[filters.time]) return false;
       }
-      if (!search) return true;
-      return [
-        activityTitle(activity), businessAssetLabel(activity), representativeId(activity),
-        activity.hostname, activity.username, activity.src_ip, activity.event_action,
-        activity.alert_reason, sourceLabel(activity),
-      ].filter(Boolean).some(value => String(value).toLowerCase().includes(search));
+      return true;
     });
-  }, [activities, filters]);
+  }, [activities, filters, mutedIds]);
 
   const collectorState = useMemo(() => {
     const status = collector?.collector || {};
-    if (status.collection_active) return { label: 'Receiving Elastic alerts', tone: 'text-cyan-300', dot: 'bg-cyan-300' };
+    const source = humanize(status.source || 'elastic');
+    if (status.collection_active) return { label:`Receiving ${source} alerts`, live:true };
     if (status.live_collection_enabled && status.live_collection_running) {
-      return { label: 'Elastic live ingest active', tone: 'text-emerald-300', dot: 'bg-emerald-300' };
+      return { label:`${source} live ingest active`, live:true };
     }
-    if (status.cycle_active) return { label: 'Processing stored alerts', tone: 'text-cyan-300', dot: 'bg-cyan-300' };
-    if (status.scheduler_enabled && status.scheduler_running) {
-      return { label: 'AI processing scheduled', tone: 'text-amber-200', dot: 'bg-amber-300' };
-    }
-    if (collector) return { label: 'Live ingest stopped', tone: 'text-amber-200', dot: 'bg-amber-300' };
-    return { label: 'Checking collector', tone: 'text-slate-400', dot: 'bg-slate-500' };
+    if (status.cycle_active) return { label:'Processing stored alerts', live:true };
+    if (status.scheduler_enabled && status.scheduler_running) return { label:'AI processing scheduled', tone:'attention' };
+    if (collector) return { label:'Live ingest stopped', tone:'attention' };
+    return { label:'Checking collector', tone:'neutral' };
   }, [collector]);
 
-  const hasFilters = filters.severity !== 'all' || filters.source !== 'all' || filters.time !== '24h' || filters.search;
+  const hasFilters = filters.severity !== 'all' || filters.source !== 'all' || filters.time !== '24h';
 
   function pauseUpdates() {
     pausedRef.current = true;
@@ -219,372 +243,227 @@ export default function LiveMonitoring() {
     setPaused(false);
   }
 
+  function muteActivity(id) {
+    setExpandedId(current => current === id ? null : current);
+    setMutedIds(current => new Set([...current, id]));
+  }
+
+  function clearFilters() {
+    setFilters({ severity:'all', source:'all', time:'24h' });
+    setPage(1);
+  }
+
   return (
-    <section className="live-monitoring-page min-h-full bg-[#07111b] px-4 py-5 text-slate-100 sm:px-6 lg:px-8" aria-labelledby="live-monitoring-title">
-      <header className="mx-auto flex max-w-[1600px] flex-col gap-4 border-b border-slate-700/50 pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-300">
-            <Activity className="h-4 w-4" aria-hidden="true" />
-            Operational visibility
-          </div>
-          <h2 id="live-monitoring-title" className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-[28px]">
-            Live Monitoring
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-            Repeated detections are collapsed into one live activity by default. Switch to individual records when raw arrival detail is needed.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <span className={`inline-flex items-center gap-2 ${collectorState.tone}`}>
-            <i className={`h-2 w-2 rounded-full ${collectorState.dot}`} aria-hidden="true" />
-            {collectorState.label}
-          </span>
-          <span className="inline-flex items-center gap-2 text-slate-400">
-            <Clock3 className="h-4 w-4" aria-hidden="true" />
-            {paused
-              ? `View paused${viewUpdatedAt ? ` at ${viewUpdatedAt.toLocaleTimeString()}` : ''}`
-              : lastCheckedAt ? `Refreshed ${lastCheckedAt.toLocaleTimeString()}` : 'Awaiting first refresh'}
-          </span>
-          <button
-            type="button"
-            onClick={paused ? resumeUpdates : pauseUpdates}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-600/70 bg-slate-900/60 px-3 text-sm font-medium text-slate-200 transition hover:border-cyan-400/50 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
-          >
-            {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            {paused ? 'Resume updates' : 'Pause updates'}
-          </button>
-          <button
-            type="button"
-            onClick={refresh}
-            disabled={refreshing}
-            aria-label="Refresh monitoring data now"
-            className="grid h-9 w-9 place-items-center rounded-lg border border-slate-600/70 bg-slate-900/60 text-slate-300 transition hover:border-cyan-400/50 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:cursor-wait disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </header>
-
-      <div className="mx-auto mt-5 max-w-[1600px]">
-        <p className="sr-only" aria-live="polite" aria-atomic="true">{paused && bufferedCount ? `${bufferedCount} new activity update${bufferedCount === 1 ? '' : 's'} buffered.` : ''}</p>
-        {paused && (
-          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-amber-300/25 bg-amber-300/[0.07] px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-amber-100">
-              Updates are paused. {bufferedCount
-                ? `${bufferedCount} new activity update${bufferedCount === 1 ? '' : 's'} buffered.`
-                : 'No new activity updates are buffered.'}
-            </span>
-            {bufferedCount > 0 && (
-              <button type="button" onClick={resumeUpdates} className="font-semibold text-amber-200 hover:text-amber-100">
-                Resume and show updates
-              </button>
-            )}
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-4 flex items-start gap-3 rounded-xl border border-rose-400/25 bg-rose-400/[0.07] px-4 py-3" role="alert">
-            <AlertTriangle className="mt-0.5 h-5 w-5 flex-none text-rose-300" aria-hidden="true" />
-            <div className="min-w-0">
-              <strong className="block text-sm text-rose-100">Monitoring refresh failed</strong>
-              <span className="mt-1 block text-sm text-rose-200/70">{error}</span>
-            </div>
-          </div>
-        )}
-        {!error && collectorError && (
-          <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-300/25 bg-amber-300/[0.07] px-4 py-3" role="status">
-            <AlertTriangle className="mt-0.5 h-5 w-5 flex-none text-amber-200" aria-hidden="true" />
-            <div className="min-w-0">
-              <strong className="block text-sm text-amber-100">Alerts are live; collector health is unavailable</strong>
-              <span className="mt-1 block text-sm text-amber-100/70">{collectorError}</span>
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-xl border border-slate-700/60 bg-[#0b1622] shadow-2xl shadow-black/10">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-700/50 px-4 pt-3">
-            <div className="flex gap-1" role="group" aria-label="Monitoring record view">
-              {[
-                ['grouped', 'Grouped activity'],
-                ['individual', 'Individual records'],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={viewMode === value}
-                  onClick={() => {
-                    setViewMode(value);
-                    setPage(1);
-                    setExpandedId(null);
-                  }}
-                  className={`border-b-2 px-3 py-2 text-sm font-medium transition ${viewMode === value
-                    ? 'border-cyan-400 text-cyan-200'
-                    : 'border-transparent text-slate-500 hover:text-slate-300'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <span className="pb-2 text-xs text-slate-500">
-              {viewMode === 'grouped' ? 'Repeated matches share one row' : 'Every source record is visible'}
-            </span>
-          </div>
-          <div className="grid gap-3 border-b border-slate-700/50 p-4 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_160px_210px_170px_auto]">
-            <label className="relative block">
-              <span className="sr-only">Search monitored activities</span>
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-              <input
-                type="search"
-                value={filters.search}
-                onChange={event => setFilters(current => ({ ...current, search: event.target.value }))}
-                placeholder="Search detection, asset, user, or ID"
-                className="h-10 w-full rounded-lg border border-slate-700 bg-[#07111b] pl-10 pr-9 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/10"
-              />
-              {filters.search && (
-                <button
-                  type="button"
-                  onClick={() => setFilters(current => ({ ...current, search: '' }))}
-                  aria-label="Clear search"
-                  className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded text-slate-500 hover:bg-slate-800 hover:text-slate-200"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </label>
-
-            <label>
-              <span className="sr-only">Filter by severity</span>
-              <select
-                value={filters.severity}
-                onChange={event => setFilters(current => ({ ...current, severity: event.target.value }))}
-                className="h-10 w-full rounded-lg border border-slate-700 bg-[#07111b] px-3 text-sm text-slate-200 outline-none focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/10"
-              >
-                <option value="all">All severities</option>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </label>
-
-            <label>
-              <span className="sr-only">Filter by source</span>
-              <select
-                value={filters.source}
-                onChange={event => setFilters(current => ({ ...current, source: event.target.value }))}
-                className="h-10 w-full rounded-lg border border-slate-700 bg-[#07111b] px-3 text-sm text-slate-200 outline-none focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/10"
-              >
-                <option value="all">All sources</option>
-                {sources.map(source => <option value={source} key={source}>{source}</option>)}
-              </select>
-            </label>
-
-            <label>
-              <span className="sr-only">Filter by time</span>
-              <select
-                value={filters.time}
-                onChange={event => setFilters(current => ({ ...current, time: event.target.value }))}
-                className="h-10 w-full rounded-lg border border-slate-700 bg-[#07111b] px-3 text-sm text-slate-200 outline-none focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/10"
-              >
-                <option value="15m">Last 15 minutes</option>
-                <option value="1h">Last hour</option>
-                <option value="24h">Last 24 hours</option>
-                <option value="all">All loaded</option>
-              </select>
-            </label>
-
-            <div className="flex items-center justify-between gap-3 xl:justify-end">
-              <span className="whitespace-nowrap text-sm text-slate-400">
-                {filteredActivities.length} of {activities.length} loaded
-              </span>
-              {hasFilters && (
-                <button
-                  type="button"
-                  onClick={() => setFilters({ severity: 'all', source: 'all', time: '24h', search: '' })}
-                  className="whitespace-nowrap text-sm font-medium text-cyan-300 hover:text-cyan-200"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="space-y-2 p-4" aria-label="Loading monitoring activities">
-              {[0, 1, 2, 3, 4].map(item => <div key={item} className="h-16 animate-pulse rounded-lg bg-slate-800/55" />)}
-            </div>
-          ) : filteredActivities.length ? (<>
-            <div className="divide-y divide-slate-800 lg:hidden">
-              {filteredActivities.map(activity => {
-                const id = activityId(activity);
-                return <ActivityCard key={id} activity={activity} id={id} technicalId={representativeId(activity)} severity={severityOf(activity)} expanded={expandedId === id} onToggle={() => setExpandedId(current => current === id ? null : id)} />;
-              })}
-            </div>
-            <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[900px] border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-700/50 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                    <th className="px-4 py-3">Detection</th>
-                    <th className="px-3 py-3">Severity</th>
-                    <th className="px-3 py-3">Business asset</th>
-                    <th className="px-3 py-3">Source</th>
-                    <th className="px-3 py-3">Last observed</th>
-                    <th className="px-3 py-3 text-right">AI state</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredActivities.map(activity => {
-                    const id = activityId(activity);
-                    const technicalId = representativeId(activity);
-                    const severity = severityOf(activity);
-                    const expanded = expandedId === id;
-                    return (
-                      <ActivityRows
-                        key={id}
-                        activity={activity}
-                        id={id}
-                        technicalId={technicalId}
-                        severity={severity}
-                        expanded={expanded}
-                        onToggle={() => setExpandedId(current => current === id ? null : id)}
-                      />
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </>) : (
-            <div className="grid min-h-72 place-items-center px-6 py-12 text-center">
-              <div>
-                <ShieldCheck className="mx-auto h-8 w-8 text-emerald-300/70" aria-hidden="true" />
-                <strong className="mt-4 block text-base text-slate-200">No matching activity in the loaded window</strong>
-                <span className="mt-2 block text-sm text-slate-500">Adjust the filters or wait for the next automatic refresh.</span>
-              </div>
-            </div>
+    <section className="monitoring-page ui-page-enter" aria-label="Live security activity">
+      <div className="monitoring-command-bar">
+        <div className="monitoring-state">
+          {paused
+            ? <StatusChip status="attention">Paused</StatusChip>
+            : collectorState.live
+              ? <LiveIndicator label={collectorState.label} />
+              : <StatusChip status={collectorState.tone}>{collectorState.label}</StatusChip>}
+          <span>{filteredActivities.length.toLocaleString()} visible</span>
+          {mutedIds.size > 0 && (
+            <button type="button" onClick={() => setMutedIds(new Set())}>
+              Restore {mutedIds.size.toLocaleString()} muted
+            </button>
           )}
-          <div className="flex items-center justify-between gap-4 border-t border-slate-700/50 px-4 py-3 text-sm text-slate-400">
-            <span>{total ? `${((page - 1) * 100 + 1).toLocaleString()}–${Math.min(page * 100, total).toLocaleString()} of ${total.toLocaleString()} ${viewMode === 'grouped' ? 'grouped activities' : 'individual alerts'}` : 'No alert records'}</span>
-            <div className="flex items-center gap-2">
-              <button type="button" disabled={page === 1} onClick={() => setPage(value => Math.max(1, value - 1))} className="rounded-lg border border-slate-600 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
-              <span className="min-w-16 text-center">Page {page}</span>
-              <button type="button" disabled={page * 100 >= total} onClick={() => setPage(value => value + 1)} className="rounded-lg border border-slate-600 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
-            </div>
-          </div>
         </div>
+        <div className="monitoring-refresh-controls">
+          <Clock3 size={16} strokeWidth={1.5} aria-hidden="true" />
+          <time dateTime={lastCheckedAt?.toISOString()}>
+            {paused
+              ? `Paused${viewUpdatedAt ? ` at ${viewUpdatedAt.toLocaleTimeString()}` : ''}`
+              : lastCheckedAt ? `Updated ${lastCheckedAt.toLocaleTimeString()}` : 'Awaiting first refresh'}
+          </time>
+          <Button variant="secondary" icon={paused ? Play : Pause} onClick={paused ? resumeUpdates : pauseUpdates}>
+            {paused ? 'Resume' : 'Pause'}
+          </Button>
+          <Button icon={RefreshCw} iconOnly onClick={refresh} disabled={refreshing} aria-label="Refresh monitoring data" title="Refresh monitoring data" />
+        </div>
+      </div>
 
-        <p className="mt-3 text-xs leading-5 text-slate-500">
-          {viewMode === 'grouped'
-            ? 'Repeated records with the same source, rule, asset, and identity are collapsed. First seen, last seen, and occurrence count remain available.'
-            : 'Showing every source record in newest-first order. Human-readable references are used here; full source identifiers remain available in expanded technical details.'}
-        </p>
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {paused && bufferedCount ? `${bufferedCount} new alert update${bufferedCount === 1 ? '' : 's'} since pause.` : ''}
+      </p>
+
+      {paused && (
+        <div className="monitoring-pause-notice" role="status">
+          <span>{bufferedCount
+            ? `${bufferedCount} new alert update${bufferedCount === 1 ? '' : 's'} since pause`
+            : 'Monitoring is paused; no new alerts are waiting'}</span>
+          {bufferedCount > 0 && <button type="button" onClick={resumeUpdates}>Resume and show</button>}
+        </div>
+      )}
+
+      {(error || collectorError) && (
+        <div className={`monitoring-inline-alert ${error ? 'is-error' : ''}`} role={error ? 'alert' : 'status'}>
+          <AlertTriangle size={16} strokeWidth={1.5} aria-hidden="true" />
+          <span>{error || `Alerts are live; collector health is unavailable. ${collectorError}`}</span>
+        </div>
+      )}
+
+      <div className="monitoring-filter-bar" id="monitoring-filters">
+        <SegmentedControl
+          label="Monitoring record view"
+          value={viewMode}
+          options={[
+            { value:'grouped', label:'Grouped' },
+            { value:'individual', label:'Individual' },
+          ]}
+          onChange={value => {
+            setViewMode(value);
+            setPage(1);
+            setExpandedId(null);
+          }}
+        />
+        <div className="monitoring-filter-controls">
+          <Select aria-label="Filter by severity" value={filters.severity} onChange={event => { setFilters(current => ({ ...current, severity:event.target.value })); setPage(1); }}>
+            <option value="all">All severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </Select>
+          <Select aria-label="Filter by source" value={filters.source} onChange={event => { setFilters(current => ({ ...current, source:event.target.value })); setPage(1); }}>
+            <option value="all">All sources</option>
+            {sources.map(source => <option value={source} key={source}>{humanize(source)}</option>)}
+          </Select>
+          <Select aria-label="Filter by time range" value={filters.time} onChange={event => { setFilters(current => ({ ...current, time:event.target.value })); setPage(1); }}>
+            <option value="15m">Last 15 minutes</option>
+            <option value="1h">Last hour</option>
+            <option value="24h">Last 24 hours</option>
+            <option value="all">All loaded</option>
+          </Select>
+        </div>
+        <div className="monitoring-filter-summary">
+          <span>{filteredActivities.length.toLocaleString()} results</span>
+          {hasFilters && <button type="button" onClick={clearFilters}>Clear filters</button>}
+        </div>
+      </div>
+
+      <div className="monitoring-feed-card">
+        {loading ? (
+          <div className="monitoring-skeleton" aria-label="Loading monitoring activities">
+            {[0, 1, 2, 3, 4].map(item => <SkeletonLoader key={item} lines={2} />)}
+          </div>
+        ) : filteredActivities.length ? (
+          <ol className="monitoring-feed" aria-label={`${viewMode === 'grouped' ? 'Grouped' : 'Individual'} security activity`}>
+            {filteredActivities.map(activity => {
+              const id = activityId(activity);
+              return (
+                <ActivityItem
+                  key={id}
+                  activity={activity}
+                  id={id}
+                  technicalId={representativeId(activity)}
+                  expanded={expandedId === id}
+                  onToggle={() => setExpandedId(current => current === id ? null : id)}
+                  onMute={() => muteActivity(id)}
+                />
+              );
+            })}
+          </ol>
+        ) : (
+          <EmptyState
+            icon={ShieldCheck}
+            message="No alerts in this view"
+            action={(hasFilters || mutedIds.size > 0) ? <button type="button" onClick={() => { clearFilters(); setMutedIds(new Set()); }}>Reset view</button> : null}
+          />
+        )}
+
+        <footer className="monitoring-pagination">
+          <span>{total
+            ? `${((page - 1) * PAGE_SIZE + 1).toLocaleString()}–${Math.min(page * PAGE_SIZE, total).toLocaleString()} of ${total.toLocaleString()}`
+            : '0 alerts'}</span>
+          <div>
+            <Button variant="secondary" disabled={page === 1} onClick={() => setPage(value => Math.max(1, value - 1))}>Previous</Button>
+            <span>Page {page}</span>
+            <Button variant="secondary" disabled={page * PAGE_SIZE >= total} onClick={() => setPage(value => value + 1)}>Next</Button>
+          </div>
+        </footer>
       </div>
     </section>
   );
 }
 
-function ActivityCard({ activity, id, technicalId, severity, expanded, onToggle }) {
+function ActivityItem({ activity, id, technicalId, expanded, onToggle, onMute }) {
   const title = activityTitle(activity);
-  const triageTarget = technicalId ? `/alerts?time_range=all&search=${encodeURIComponent(technicalId)}` : '/alerts?time_range=all';
-  const severityStyle = SEVERITY_STYLES[severity] || 'border-slate-600 bg-slate-700/30 text-slate-300';
-  return <article className="p-4">
-    <button type="button" onClick={onToggle} aria-expanded={expanded} aria-controls={`mobile-activity-details-${id}`} className="w-full rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50">
-      <span className="flex items-start justify-between gap-3">
-        <span className="min-w-0"><strong className="block text-sm font-semibold leading-5 text-slate-100">{title}</strong><span className="mt-1 block truncate text-xs text-slate-500">{alertReference(activity)}</span></span>
-        {expanded ? <ChevronUp className="mt-1 h-4 w-4 flex-none text-slate-400" /> : <ChevronDown className="mt-1 h-4 w-4 flex-none text-slate-400" />}
-      </span>
-      <span className="mt-3 flex flex-wrap items-center gap-2"><span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold capitalize ${severityStyle}`}>{severity}</span><span className="text-xs font-medium text-slate-300">{businessAssetLabel(activity)}</span><span className="text-xs text-slate-500">AI {humanize(activity.triage_status || 'pending')}</span></span>
-      <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500"><span>{sourceLabel(activity)}</span><time>{formatTimestamp(activityTimestamp(activity))}</time></span>
-    </button>
-    {expanded && <div id={`mobile-activity-details-${id}`} className="mt-4 border-t border-slate-700/60 pt-4"><dl className="grid gap-4 sm:grid-cols-2"><Detail icon={Server} label="Host" value={activity.hostname || activity.agent_name || 'Not resolved'} /><Detail icon={User} label="Identity" value={activity.username || 'Not resolved'} /><Detail icon={Database} label="Dataset" value={activity.event_dataset || activity.decoder || 'Elastic'} /><Detail icon={AlertTriangle} label="Detection action" value={activity.event_action || activity.alert_reason || title} /></dl><Link to={triageTarget} className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg border border-cyan-400/35 bg-cyan-400/[0.08] px-4 text-sm font-semibold text-cyan-200">Open technical triage</Link></div>}
-  </article>;
-}
-
-function ActivityRows({ activity, id, technicalId, severity, expanded, onToggle }) {
-  const title = activityTitle(activity);
-  const asset = businessAssetLabel(activity);
-  const severityStyle = SEVERITY_STYLES[severity] || 'border-slate-600 bg-slate-700/30 text-slate-300';
-  const triageTarget = technicalId ? `/alerts?time_range=all&search=${encodeURIComponent(technicalId)}` : '/alerts?time_range=all';
+  const timestamp = activityTimestamp(activity);
+  const severity = severityOf(activity);
+  const state = aiState(activity);
+  const triageTarget = technicalId
+    ? `/alerts?time_range=all&search=${encodeURIComponent(technicalId)}`
+    : '/alerts?time_range=all';
+  const investigationTarget = `/investigations?search=${encodeURIComponent(technicalId || alertReference(activity))}`;
+  const domId = `monitoring-details-${String(id).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 
   return (
-    <>
-      <tr className="border-b border-slate-800/80 transition hover:bg-slate-800/25">
-        <td className="px-4 py-3.5">
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-expanded={expanded}
-            aria-controls={`activity-details-${id}`}
-            className="flex max-w-xl items-start gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
-          >
-            <span className="mt-0.5 grid h-8 w-8 flex-none place-items-center rounded-lg border border-cyan-400/20 bg-cyan-400/[0.07] text-cyan-300">
-              <Activity className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <span className="min-w-0">
-              <span className="flex flex-wrap items-center gap-2">
-                <strong className="block text-sm font-semibold leading-5 text-slate-100">{title}</strong>
-                {Number(activity.occurrence_count || 0) > 1 && (
-                  <span className="rounded-full border border-cyan-400/25 bg-cyan-400/[0.08] px-2 py-0.5 text-[11px] font-semibold text-cyan-200">
-                    {Number(activity.occurrence_count).toLocaleString()} occurrences
-                  </span>
-                )}
-              </span>
-              <span className="mt-1 block truncate text-xs text-slate-500">{alertReference(activity)}</span>
-            </span>
-            {expanded ? <ChevronUp className="mt-2 h-4 w-4 flex-none text-slate-400" /> : <ChevronDown className="mt-2 h-4 w-4 flex-none text-slate-400" />}
-          </button>
-        </td>
-        <td className="px-3 py-3.5">
-          <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold capitalize ${severityStyle}`}>{severity}</span>
-        </td>
-        <td className="px-3 py-3.5">
-          <span className="block max-w-[220px] truncate text-sm font-medium text-slate-200">{asset}</span>
-          <span className="mt-1 block max-w-[220px] truncate text-xs text-slate-500">{activity.username || activity.hostname || 'Entity not resolved'}</span>
-        </td>
-        <td className="px-3 py-3.5 text-sm text-slate-400">{sourceLabel(activity)}</td>
-        <td className="whitespace-nowrap px-3 py-3.5 text-sm text-slate-400">{formatTimestamp(activityTimestamp(activity))}</td>
-        <td className="px-3 py-3.5 text-right text-xs font-semibold text-slate-300">{humanize(activity.triage_status || 'pending')}</td>
-      </tr>
+    <li className={`monitoring-feed-item ${expanded ? 'is-expanded' : ''}`}>
+      <span className={`monitoring-feed-marker is-${severity}`} aria-hidden="true"><Activity size={16} strokeWidth={1.5} /></span>
+      <button
+        type="button"
+        className="monitoring-row-main"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={domId}
+      >
+        <span className="monitoring-detection">
+          <span>
+            <strong>{title}</strong>
+            {Number(activity.occurrence_count || 0) > 1 && (
+              <StatusChip status="active">{Number(activity.occurrence_count).toLocaleString()} matches</StatusChip>
+            )}
+          </span>
+          <code>{alertReference(activity)}</code>
+        </span>
+        <SeverityBadge severity={severity} />
+        <span className="monitoring-asset">
+          <strong>{businessAssetLabel(activity)}</strong>
+          <small>{activity.username || activity.hostname || 'Entity unresolved'}</small>
+        </span>
+        <span className="monitoring-source">{humanize(sourceLabel(activity))}</span>
+        <time className="monitoring-time" dateTime={timestamp || undefined} title={formatTimestamp(timestamp)}>{relativeTimestamp(timestamp)}</time>
+        <StatusChip status={state.tone}>{state.label}</StatusChip>
+        {expanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
+      </button>
+
+      <div className="monitoring-row-actions" aria-label={`Actions for ${title}`}>
+        <Link to={triageTarget} className="monitoring-row-action" aria-label={`Open ${title} in technical triage`} title="Open technical triage">
+          <ShieldCheck size={16} strokeWidth={1.5} aria-hidden="true" />
+        </Link>
+        <Link to={investigationTarget} className="monitoring-row-action" aria-label={`Investigate ${title}`} title="Build investigation">
+          <FileSearch size={16} strokeWidth={1.5} aria-hidden="true" />
+        </Link>
+        <button type="button" className="monitoring-row-action" onClick={onMute} aria-label={`Mute ${title} from this view`} title="Mute from this view">
+          <BellOff size={16} strokeWidth={1.5} aria-hidden="true" />
+        </button>
+      </div>
+
       {expanded && (
-        <tr id={`activity-details-${id}`} className="border-b border-slate-700/60 bg-[#08131e]">
-          <td colSpan={6} className="px-5 py-5">
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
-              <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Detail icon={Server} label="Host" value={activity.hostname || activity.agent_name || 'Not resolved'} />
-                <Detail icon={User} label="Identity" value={activity.username || 'Not resolved'} />
-                <Detail icon={Database} label="Dataset" value={activity.event_dataset || activity.decoder || 'Elastic'} />
-                <Detail icon={AlertTriangle} label="Detection action" value={activity.event_action || activity.alert_reason || title} />
-                <Detail label="Source address" value={activity.src_ip || 'Not provided'} />
-                <Detail label="Destination address" value={activity.dst_ip || 'Not provided'} />
-                <Detail label="First observed" value={formatTimestamp(activity.first_seen || activity.timestamp)} />
-                <Detail label="Last observed" value={formatTimestamp(activityTimestamp(activity))} />
-                {Number(activity.occurrence_count || 0) > 1 && <Detail label="Occurrence count" value={Number(activity.occurrence_count).toLocaleString()} />}
-                <Detail label="Source technical ID" value={technicalId || 'Not provided'} />
-              </dl>
-              <div className="flex items-end lg:justify-end">
-                <Link
-                  to={triageTarget}
-                  className="inline-flex h-10 items-center justify-center rounded-lg border border-cyan-400/35 bg-cyan-400/[0.08] px-4 text-sm font-semibold text-cyan-200 transition hover:border-cyan-300/60 hover:bg-cyan-400/[0.12] focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
-                >
-                  Open technical triage
-                </Link>
-              </div>
-            </div>
-          </td>
-        </tr>
+        <div id={domId} className="monitoring-row-details">
+          <dl>
+            <Detail icon={Server} label="Host" value={activity.hostname || activity.agent_name || 'Unresolved'} />
+            <Detail icon={User} label="Identity" value={activity.username || 'Unresolved'} />
+            <Detail icon={Database} label="Dataset" value={datasetLabel(activity)} />
+            <Detail label="Detection action" value={activity.event_action || activity.alert_reason || title} />
+            <Detail label="Source address" value={activity.src_ip || 'Unavailable'} />
+            <Detail label="Destination address" value={activity.dst_ip || 'Unavailable'} />
+            <Detail label="First observed" value={formatTimestamp(activity.first_seen || activity.timestamp)} />
+            <Detail label="Last observed" value={formatTimestamp(timestamp)} />
+          </dl>
+          <Link to={triageTarget} className="monitoring-details-link">Open technical triage</Link>
+        </div>
       )}
-    </>
+    </li>
   );
 }
 
 function Detail({ icon: Icon, label, value }) {
   return (
-    <div className="min-w-0">
-      <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-        {Icon && <Icon className="h-3.5 w-3.5" aria-hidden="true" />}
-        {label}
-      </dt>
-      <dd className="mt-1.5 break-words text-sm leading-5 text-slate-300">{value}</dd>
+    <div>
+      <dt>{Icon && <Icon size={16} strokeWidth={1.5} aria-hidden="true" />}{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
