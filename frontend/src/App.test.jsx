@@ -221,6 +221,29 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('identity: maya.georges');
   });
 
+  it('presents alert-derived assets as a filterable evidence sample', async () => {
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.includes('/alerts?limit=100')) return jsonResponse({ alerts:[
+        { id:'elastic:asset-a', timestamp:'2026-08-11T08:00:00Z', hostname:'HR-WS001', username:'maya.georges', src_ip:'198.51.100.24', source_severity:'critical', triage_status:'triaged', rule_desc:'Suspicious PowerShell execution' },
+        { id:'elastic:asset-b', timestamp:'2026-08-11T08:05:00Z', hostname:'WEBAPP01', username:'svc-web', src_ip:'203.0.113.18', source_severity:'high', triage_status:'pending', rule_desc:'Repeated authentication failures' },
+      ] });
+      return jsonResponse({});
+    });
+
+    await renderAt('/assets');
+
+    expect(document.body.textContent).toContain('Evidence-derived sample from the latest 100 stored alerts');
+    expect(document.body.textContent).toContain('HR-WS001');
+    expect(document.body.textContent).toContain('maya.georges');
+    expect(document.body.textContent).toContain('198.51.100.24');
+    expect(document.body.textContent).toContain('Recent security activity');
+    expect(document.body.textContent).toContain('AI triaged');
+    expect(document.querySelector('.assets-list-v2 .ui-severity-badge')?.textContent).toContain('critical');
+  });
+
   it('lets an administrator create a role-bound user from Users & Access', async () => {
     const requests = [];
     globalThis.fetch = vi.fn(async (input, options = {}) => {
