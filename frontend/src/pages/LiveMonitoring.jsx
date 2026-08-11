@@ -70,6 +70,7 @@ export default function LiveMonitoring() {
   const [lastCheckedAt, setLastCheckedAt] = useState(null);
   const [viewUpdatedAt, setViewUpdatedAt] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [viewMode, setViewMode] = useState('grouped');
   const [filters, setFilters] = useState({ severity: 'all', source: 'all', time: '24h', search: '' });
   const [page, setPage] = useState(1);
 
@@ -92,8 +93,14 @@ export default function LiveMonitoring() {
     if (mountedRef.current) setRefreshing(true);
 
     try {
+      const rangeQuery = filters.time !== 'all'
+        ? `&from=${encodeURIComponent(new Date(Date.now() - TIME_RANGES[filters.time]).toISOString())}`
+        : '';
+      const activityPath = viewMode === 'grouped'
+        ? `/alert-groups?page=${page}&limit=100`
+        : `/alerts?page=${page}&limit=100`;
       const [activityResult, collectorResult] = await Promise.allSettled([
-        api(`/alerts?page=${page}&limit=100`),
+        api(`${activityPath}${rangeQuery}`),
         api('/collector/status'),
       ]);
       if (!mountedRef.current) return;
@@ -102,7 +109,9 @@ export default function LiveMonitoring() {
       const activityData = activityResult.value;
       const collectorData = collectorResult.status === 'fulfilled' ? collectorResult.value : null;
 
-      const nextActivities = activityData.alerts || [];
+      const nextActivities = viewMode === 'grouped'
+        ? activityData.groups || []
+        : activityData.alerts || [];
       const checkedAt = new Date();
       if (collectorData) setCollector(collectorData);
       setCollectorError(collectorResult.status === 'rejected'
@@ -135,7 +144,7 @@ export default function LiveMonitoring() {
         setRefreshing(false);
       }
     }
-  }, [page]);
+  }, [filters.time, page, viewMode]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -222,7 +231,7 @@ export default function LiveMonitoring() {
             Live Monitoring
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-            Individual Elastic alert records in newest-first order, automatically refreshed every 15 seconds.
+            Repeated detections are collapsed into one live activity by default. Switch to individual records when raw arrival detail is needed.
           </p>
         </div>
 
@@ -294,6 +303,33 @@ export default function LiveMonitoring() {
         )}
 
         <div className="rounded-xl border border-slate-700/60 bg-[#0b1622] shadow-2xl shadow-black/10">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-700/50 px-4 pt-3">
+            <div className="flex gap-1" role="group" aria-label="Monitoring record view">
+              {[
+                ['grouped', 'Grouped activity'],
+                ['individual', 'Individual records'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={viewMode === value}
+                  onClick={() => {
+                    setViewMode(value);
+                    setPage(1);
+                    setExpandedId(null);
+                  }}
+                  className={`border-b-2 px-3 py-2 text-sm font-medium transition ${viewMode === value
+                    ? 'border-cyan-400 text-cyan-200'
+                    : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="pb-2 text-xs text-slate-500">
+              {viewMode === 'grouped' ? 'Repeated matches share one row' : 'Every source record is visible'}
+            </span>
+          </div>
           <div className="grid gap-3 border-b border-slate-700/50 p-4 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_160px_210px_170px_auto]">
             <label className="relative block">
               <span className="sr-only">Search monitored activities</span>
@@ -428,7 +464,7 @@ export default function LiveMonitoring() {
             </div>
           )}
           <div className="flex items-center justify-between gap-4 border-t border-slate-700/50 px-4 py-3 text-sm text-slate-400">
-            <span>{total ? `${((page - 1) * 100 + 1).toLocaleString()}–${Math.min(page * 100, total).toLocaleString()} of ${total.toLocaleString()} individual alerts` : 'No alert records'}</span>
+            <span>{total ? `${((page - 1) * 100 + 1).toLocaleString()}–${Math.min(page * 100, total).toLocaleString()} of ${total.toLocaleString()} ${viewMode === 'grouped' ? 'grouped activities' : 'individual alerts'}` : 'No alert records'}</span>
             <div className="flex items-center gap-2">
               <button type="button" disabled={page === 1} onClick={() => setPage(value => Math.max(1, value - 1))} className="rounded-lg border border-slate-600 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
               <span className="min-w-16 text-center">Page {page}</span>
@@ -438,7 +474,9 @@ export default function LiveMonitoring() {
         </div>
 
         <p className="mt-3 text-xs leading-5 text-slate-500">
-          Showing raw alert records rather than grouped activity. Human-readable references are used here; full Elastic identifiers remain available in expanded technical details.
+          {viewMode === 'grouped'
+            ? 'Repeated records with the same source, rule, asset, and identity are collapsed. First seen, last seen, and occurrence count remain available.'
+            : 'Showing every source record in newest-first order. Human-readable references are used here; full source identifiers remain available in expanded technical details.'}
         </p>
       </div>
     </section>
@@ -483,7 +521,14 @@ function ActivityRows({ activity, id, technicalId, severity, expanded, onToggle 
               <Activity className="h-4 w-4" aria-hidden="true" />
             </span>
             <span className="min-w-0">
-              <strong className="block text-sm font-semibold leading-5 text-slate-100">{title}</strong>
+              <span className="flex flex-wrap items-center gap-2">
+                <strong className="block text-sm font-semibold leading-5 text-slate-100">{title}</strong>
+                {Number(activity.occurrence_count || 0) > 1 && (
+                  <span className="rounded-full border border-cyan-400/25 bg-cyan-400/[0.08] px-2 py-0.5 text-[11px] font-semibold text-cyan-200">
+                    {Number(activity.occurrence_count).toLocaleString()} occurrences
+                  </span>
+                )}
+              </span>
               <span className="mt-1 block truncate text-xs text-slate-500">{alertReference(activity)}</span>
             </span>
             {expanded ? <ChevronUp className="mt-2 h-4 w-4 flex-none text-slate-400" /> : <ChevronDown className="mt-2 h-4 w-4 flex-none text-slate-400" />}
@@ -513,6 +558,7 @@ function ActivityRows({ activity, id, technicalId, severity, expanded, onToggle 
                 <Detail label="Destination address" value={activity.dst_ip || 'Not provided'} />
                 <Detail label="First observed" value={formatTimestamp(activity.first_seen || activity.timestamp)} />
                 <Detail label="Last observed" value={formatTimestamp(activityTimestamp(activity))} />
+                {Number(activity.occurrence_count || 0) > 1 && <Detail label="Occurrence count" value={Number(activity.occurrence_count).toLocaleString()} />}
                 <Detail label="Source technical ID" value={technicalId || 'Not provided'} />
               </dl>
               <div className="flex items-end lg:justify-end">

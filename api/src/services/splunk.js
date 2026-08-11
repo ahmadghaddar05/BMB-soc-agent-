@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const https = require('node:https');
 const { URL } = require('node:url');
+const { buildGroupKey } = require('./grouping');
 
 const DEFAULT_TIMEOUT_MS = 30000;
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
@@ -176,10 +177,13 @@ function normalizeAlert(hit) {
   const timestamp = normalizeTimestamp(valueAt(result, '_time', 'time', 'timestamp'));
   const severity = sourceSeverity(result);
   const action = stringValue(result, 'action', 'event.action');
-  const ruleDescription = readableAlertName(stringValue(
+  const stableRuleName = stringValue(
     result, 'rule_desc', 'rule_title', 'alert_name', 'ss_name', 'search_name',
     'savedsearch_name', 'signature', 'event_name', 'title', 'name'
-  )) || (action === 'alert_fired' ? 'Splunk alert fired' : stringValue(result, 'sourcetype')) || 'Splunk detection';
+  );
+  const ruleDescription = readableAlertName(stableRuleName) ||
+    (action === 'alert_fired' ? 'Splunk alert fired' : stringValue(result, 'sourcetype')) ||
+    'Splunk detection';
   const application = stringValue(result, 'ss_app', 'app', 'application');
   const triggeredCount = stringValue(result, 'triggered_alerts', 'result_count');
   const explicitReason = stringValue(result, 'description', 'reason', 'rule_description');
@@ -196,10 +200,16 @@ function normalizeAlert(hit) {
   if (application) groups.push(application);
   const riskValue = valueAt(result, 'risk_score', 'risk_object_risk_score');
   const riskScore = riskValue == null ? NaN : Number(riskValue);
-  return {
+  const explicitRuleId = stringValue(
+    result, 'rule_id', 'event_id', 'signature_id'
+  );
+  const ruleIdentity = explicitRuleId ||
+    (application && stableRuleName ? `${application}:${stableRuleName}` : stableRuleName) ||
+    'splunk_event';
+  const normalized = {
     id: stableEventId(result),
     timestamp,
-    rule_id: stringValue(result, 'rule_id', 'event_id', 'search_name', 'savedsearch_name', 'ss_name', 'signature_id', 'sid') || 'splunk_event',
+    rule_id: ruleIdentity,
     rule_level: normalizeSeverity(result),
     rule_desc: ruleDescription.slice(0, 500),
     rule_groups: [...new Set(groups)],
@@ -223,6 +233,10 @@ function normalizeAlert(hit) {
     alert_reason: alertReason,
     raw: result,
   };
+  normalized.group_key = buildGroupKey(normalized, 5, {
+    includeTimeBucket:!(action === 'alert_fired' && stableRuleName),
+  });
+  return normalized;
 }
 
 function normalizeRawEvent(result) {

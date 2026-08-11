@@ -948,7 +948,7 @@ r.get('/alerts', async (req, res) => {
 
 
 // ────────────────────────────────────────────────────────────────────────────
-// Grouped Elastic activities
+// Grouped activities from every configured telemetry source
 // ────────────────────────────────────────────────────────────────────────────
 r.get('/alert-groups', async (req, res) => {
   try {
@@ -985,10 +985,7 @@ r.get('/alert-groups', async (req, res) => {
     const offset =
       (safePage - 1) * safeLimit;
 
-    const conditions = [
-      "source_system = 'elastic'",
-      'group_key IS NOT NULL',
-    ];
+    const conditions = ['group_key IS NOT NULL'];
 
     const params = [];
     let i = 1;

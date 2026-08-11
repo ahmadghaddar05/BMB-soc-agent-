@@ -29,10 +29,11 @@ async function main() {
       src_ip::text AS src_ip,
       dst_ip::text AS dst_ip,
       process,
+      event_action,
       source_system
     FROM alerts
-    WHERE source_system = 'elastic'
-      AND group_key IS NULL
+    WHERE group_key IS NULL
+       OR source_system = 'splunk'
     ORDER BY timestamp
   `);
 
@@ -41,7 +42,15 @@ async function main() {
   for (const alert of result.rows) {
     const groupKey = buildGroupKey(
       alert,
-      windowMinutes
+      windowMinutes,
+      {
+        includeTimeBucket:!(
+          alert.source_system === 'splunk' &&
+          alert.event_action === 'alert_fired' &&
+          alert.rule_id &&
+          alert.rule_id !== 'splunk_event'
+        ),
+      }
     );
 
     await db.query(
@@ -63,7 +72,7 @@ async function main() {
       COUNT(DISTINCT group_key)
         AS repeated_alerts
     FROM alerts
-    WHERE source_system = 'elastic'
+    WHERE group_key IS NOT NULL
   `);
 
   console.log(

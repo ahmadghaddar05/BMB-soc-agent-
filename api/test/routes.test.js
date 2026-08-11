@@ -383,6 +383,7 @@ test('grouped alerts expose specific titles and search technical and asset ident
   for (const field of ['id','group_key','agent_name','hostname','target_db','username']) {
     assert.match(groupsSql, new RegExp(`COALESCE\\(${field}|\\b${field} ILIKE`));
   }
+  assert.doesNotMatch(groupsSql, /source_system\s*=\s*'elastic'/);
 });
 
 test('identity pivots search alert evidence and incidents linked through matching alerts', async () => {

@@ -1,11 +1,11 @@
 # Graph Report - BMB-soc-agent--main  (2026-08-11)
 
 ## Corpus Check
-- 249 files · ~195,898 words
+- 249 files · ~195,884 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2243 nodes · 3965 edges · 200 communities (179 shown, 21 thin omitted)
+- 2243 nodes · 3965 edges · 201 communities (179 shown, 22 thin omitted)
 - Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 440 edges (avg confidence: 0.61)
 - Token cost: 0 input · 0 output
 
@@ -152,7 +152,7 @@
 - Phase 2 - Establish Hermes as the shared AI boundary
 - DeepDiveDrawer.jsx
 - Phase 4 - Move automated alert triage to Hermes
-- Phase 1 - Secure and stabilize the foundation
+- Phase 5 - Correlate alerts into incidents
 - Phase 6 - Make investigations and cases durable
 - routes/actions.js
 - responses.js
@@ -193,6 +193,7 @@
 - 020_managed_connectors.sql
 - DataRetention.jsx
 - Phase 8 - Add the proactive autonomous SOC worker
+- pages/Reports.jsx
 
 ## God Nodes (most connected - your core abstractions)
 1. `choose_user()` - 59 edges
@@ -221,7 +222,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (200 total, 21 thin omitted)
+## Communities (201 total, 22 thin omitted)
 
 ### Community 0 - "enrich_event_evidence"
 Cohesion: 0.09
@@ -357,8 +358,8 @@ Cohesion: 0.10
 Nodes (17): AD_GROUPS, AD_USERS, app, CMDB_HOST, CMDB_IP, CMDB_LIST, DATA, EDR_AGENTS (+9 more)
 
 ### Community 29 - "roles.js"
-Cohesion: 0.18
-Nodes (16): Shell(), PermissionGuard(), ICONS, RoleAwareSidebar(), canAccessRoute(), getRoleLanding(), getRoleNavigation(), normalizeRole() (+8 more)
+Cohesion: 0.22
+Nodes (14): Shell(), PermissionGuard(), ICONS, RoleAwareSidebar(), canAccessRoute(), getRoleLanding(), getRoleNavigation(), normalizeRole() (+6 more)
 
 ### Community 30 - "src.before-elastic-connector-20260713-101839/index.js"
 Cohesion: 0.22
@@ -529,8 +530,8 @@ Cohesion: 0.60
 Nodes (5): dispatch(), enrichmentUrl(), get(), post(), TRIAGE_TOOLS
 
 ### Community 70 - "services/connectors.js"
-Cohesion: 0.10
-Nodes (34): actor(), audit(), db, { Router }, {
+Cohesion: 0.11
+Nodes (29): actor(), audit(), db, { Router }, {
   SELECT_COLUMNS,
   configHash,
   decryptSecrets,
@@ -541,7 +542,7 @@ Nodes (34): actor(), audit(), db, { Router }, {
   safeConnectorError,
   testConnection,
   validateConnectorInput,
-}, unavailable(), activeConnector(), boundedPort() (+26 more)
+}, unavailable(), boundedPort(), boundedText() (+21 more)
 
 ### Community 71 - "src/services/tools.js"
 Cohesion: 0.60
@@ -605,7 +606,7 @@ Nodes (9): 6.1 Alert collection and storage, 6.2 Enrichment, 6.3 Hermes triage, 
 
 ### Community 92 - "7. Phase-by-phase evolution"
 Cohesion: 0.22
-Nodes (9): 7. Phase-by-phase evolution, Final lab extension - Realistic coordinated telemetry and raw evidence, Phase 5 - Correlate alerts into incidents, Problem, Problem, What the extension did, What the phase did, Why it mattered (+1 more)
+Nodes (9): 7. Phase-by-phase evolution, Final lab extension - Realistic coordinated telemetry and raw evidence, Phase 1 - Secure and stabilize the foundation, Problem, Problem, What the extension did, What the phase did, Why it mattered (+1 more)
 
 ### Community 93 - "9. Phase 4 - Hermes-only automated triage"
 Cohesion: 0.22
@@ -802,9 +803,9 @@ Nodes (8): AssetBrief(), DeepDiveDrawer(), drawerCopy(), impactOf(), impactTone(
 Cohesion: 0.50
 Nodes (4): Phase 4 - Move automated alert triage to Hermes, Problem, What the phase did, Why it mattered
 
-### Community 141 - "Phase 1 - Secure and stabilize the foundation"
+### Community 141 - "Phase 5 - Correlate alerts into incidents"
 Cohesion: 0.50
-Nodes (4): Phase 1 - Secure and stabilize the foundation, Problem, What the phase did, Why it mattered
+Nodes (4): Phase 5 - Correlate alerts into incidents, Problem, What the phase did, Why it mattered
 
 ### Community 142 - "Phase 6 - Make investigations and cases durable"
 Cohesion: 0.50
@@ -859,8 +860,8 @@ Cohesion: 0.18
 Nodes (10): Dashboard-managed security connectors, Elastic, Environment fallback, Purpose, Security boundaries, Server prerequisite, Source-specific access, Splunk (+2 more)
 
 ### Community 191 - "health.js"
-Cohesion: 0.22
-Nodes (9): checkHealth(), { activeConnector }, { checkHermesHealth }, db, dependencyHealth(), elastic, splunk, timedCheck() (+1 more)
+Cohesion: 0.16
+Nodes (14): activeConnector(), configHash(), connectionFromRow(), testConnection(), checkHealth(), fetchAlerts(), { activeConnector }, { checkHermesHealth } (+6 more)
 
 ### Community 192 - "behavior_engine.py"
 Cohesion: 0.36
@@ -893,7 +894,7 @@ Nodes (4): Phase 8 - Add the proactive autonomous SOC worker, Problem, What the 
 ## Knowledge Gaps
 - **913 isolated node(s):** `name`, `version`, `description`, `main`, `start` (+908 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **21 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **22 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_

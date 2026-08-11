@@ -85,7 +85,7 @@ test('Splunk audit alert_fired records expose the saved-search context embedded 
     host:'lbspshi', source:'audittrail', sourcetype:'audittrail', action:'alert_fired', _raw:raw,
   });
   assert.equal(alert.rule_desc, 'BMB - Port flapping');
-  assert.equal(alert.rule_id, 'bmb - port flapping');
+  assert.equal(alert.rule_id, 'cisco_ios:bmb - port flapping');
   assert.equal(alert.rule_level, 8);
   assert.equal(alert.source_severity, 'medium');
   assert.equal(alert.username, 'cybersec');
@@ -95,6 +95,24 @@ test('Splunk audit alert_fired records expose the saved-search context embedded 
   assert.deepEqual(alert.rule_groups, ['splunk_alert', 'cisco_ios']);
   assert.match(alert.alert_reason, /Port flapping.*cisco_ios.*cybersec.*1 triggered result/);
   assert.equal(alert.raw.ss_name, 'bmb - port flapping');
+});
+
+test('repeated named Splunk alerts share one group across different firing times', () => {
+  const raw = timestamp => `Audit:[timestamp=${timestamp}, action=alert_fired, ss_user="cybersec", ss_app="cisco_ios", ss_name="bmb - port flapping", severity=3]`;
+  const first = normalizeAlert({
+    _cd:'69:1', _time:'2026-08-11T07:00:00Z', host:'lbspshi',
+    index:'_audit', action:'alert_fired', _raw:raw('08-11-2026 10:00:00'),
+  });
+  const later = normalizeAlert({
+    _cd:'69:2', _time:'2026-08-11T09:30:00Z', host:'lbspshi',
+    index:'_audit', action:'alert_fired', _raw:raw('08-11-2026 12:30:00'),
+  });
+  const otherRule = normalizeAlert({
+    _cd:'69:3', _time:'2026-08-11T09:30:00Z', host:'lbspshi', index:'_audit',
+    action:'alert_fired', _raw:raw('08-11-2026 12:30:00').replace('port flapping', 'login failure'),
+  });
+  assert.equal(first.group_key, later.group_key);
+  assert.notEqual(first.group_key, otherRule.group_key);
 });
 
 test('Splunk identifiers remain stable when a source event has no timestamp', () => {
