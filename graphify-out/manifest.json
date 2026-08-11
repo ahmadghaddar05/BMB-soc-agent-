@@ -540,14 +540,14 @@
     "semantic_hash": "20e362dac654cd615ebf803332d28e7d"
   },
   "frontend/src/App.jsx": {
-    "mtime": 1785321143.426385,
-    "ast_hash": "b55240a7ab3916d82e800c20ac36fb94",
-    "semantic_hash": "b55240a7ab3916d82e800c20ac36fb94"
+    "mtime": 1786436291.8036323,
+    "ast_hash": "b0d51cf90b7b79f534771d9577e70e02",
+    "semantic_hash": ""
   },
   "frontend/src/App.test.jsx": {
-    "mtime": 1785321198.4162734,
-    "ast_hash": "dac8c90f41590115852d0559f01a03fb",
-    "semantic_hash": "dac8c90f41590115852d0559f01a03fb"
+    "mtime": 1786436633.0634372,
+    "ast_hash": "1c6265024e48faa2acd309f1ed5f8007",
+    "semantic_hash": ""
   },
   "frontend/src/Reports.jsx": {
     "mtime": 1784110390.9217527,
@@ -568,11 +568,6 @@
     "mtime": 1785224800.2230682,
     "ast_hash": "ac3c38067e307f8cd56dbc20349cb230",
     "semantic_hash": "ac3c38067e307f8cd56dbc20349cb230"
-  },
-  "frontend/src/components/DataTrustBanner.jsx": {
-    "mtime": 1784544018.1959937,
-    "ast_hash": "614592fb1d121f4361bab74dfc479236",
-    "semantic_hash": "614592fb1d121f4361bab74dfc479236"
   },
   "frontend/src/components/DecisionQualityPanel.jsx": {
     "mtime": 1785314718.8917933,
@@ -615,9 +610,9 @@
     "semantic_hash": "dee8018c1caa985662ce8db33dd995c5"
   },
   "frontend/src/components/StatusBadge.jsx": {
-    "mtime": 1784544017.7329834,
-    "ast_hash": "840dbdf3e3fe01995d7ffa2435b51635",
-    "semantic_hash": "840dbdf3e3fe01995d7ffa2435b51635"
+    "mtime": 1786436320.716119,
+    "ast_hash": "1f131123eba92c6103312e450482b4fa",
+    "semantic_hash": ""
   },
   "frontend/src/components/TriageDecisionTrace.jsx": {
     "mtime": 1785318732.5857973,
@@ -845,9 +840,9 @@
     "semantic_hash": "4598824054482e07496221bb85ad806c"
   },
   "frontend/tailwind.config.js": {
-    "mtime": 1784544264.8574524,
-    "ast_hash": "a71f504255b4bf250531fc40dd578956",
-    "semantic_hash": "a71f504255b4bf250531fc40dd578956"
+    "mtime": 1786436087.5390508,
+    "ast_hash": "c9c77b105b36d9b3b2091b65e4aad9be",
+    "semantic_hash": ""
   },
   "frontend/vite.config.js": {
     "mtime": 1784203583.7980726,
@@ -1292,6 +1287,81 @@
   "api/src/scripts/backfill-splunk-normalization.js": {
     "mtime": 1786363050.2317164,
     "ast_hash": "55ea3f78274bc4a5fa70886e8445ad7c",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/Button.jsx": {
+    "mtime": 1786436069.080667,
+    "ast_hash": "174e39e5645794f9389e4a1a49ee3b24",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/Card.jsx": {
+    "mtime": 1786436067.331403,
+    "ast_hash": "4a6c358291a70bbf3dd82217a073558f",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/EmptyState.jsx": {
+    "mtime": 1786436069.3956401,
+    "ast_hash": "425729f1b19b322397f04e60a62ca947",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/HeaderStatusChip.jsx": {
+    "mtime": 1786436365.6664279,
+    "ast_hash": "01ed7ec2f4cec64fdcc3fb1b9f8f17c7",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/KpiTile.jsx": {
+    "mtime": 1786436365.2685385,
+    "ast_hash": "e21dac976028f9d1699bad9bf3107ddc",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/LiveIndicator.jsx": {
+    "mtime": 1786436068.733587,
+    "ast_hash": "e1b3e27cad4eca255fd020122e2bdce9",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/SegmentedControl.jsx": {
+    "mtime": 1786436070.3396242,
+    "ast_hash": "37f913d651f369f1776674228ad0959c",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/Select.jsx": {
+    "mtime": 1786436070.0327978,
+    "ast_hash": "165b59c743a4a58e84a335f4af925286",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/SeverityBadge.jsx": {
+    "mtime": 1786436068.0664032,
+    "ast_hash": "c6f9f4e41f4064319bba5e0cf93152be",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/SkeletonLoader.jsx": {
+    "mtime": 1786436069.712707,
+    "ast_hash": "8624e06c007d92388b626456ef1e6108",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/StatusChip.jsx": {
+    "mtime": 1786436068.3962681,
+    "ast_hash": "be776d097a271dfc41ac4d5c315d8731",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/Timeline.jsx": {
+    "mtime": 1786436070.684635,
+    "ast_hash": "187182180187cfd1afd10744dfb826a1",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/index.js": {
+    "mtime": 1786436071.333918,
+    "ast_hash": "50e2d7474311500fbbdadde3426d05a4",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/ui.test.jsx": {
+    "mtime": 1786436385.7821789,
+    "ast_hash": "c48a55d3347829b2ffc3fb194725e174",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/utils.js": {
+    "mtime": 1786436067.0043228,
+    "ast_hash": "4aed29175ced15ba7f9bc5b3d0f1b8b9",
     "semantic_hash": ""
   }
 }

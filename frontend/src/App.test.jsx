@@ -440,8 +440,8 @@ describe('authenticated application flows', () => {
       const url = String(input);
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
-      if (url.endsWith('/alerts?page=1&limit=100')) return jsonResponse({ total:1, alerts:[{
-        id:'elastic:credential-1',
+      if (url.includes('/alert-groups?page=1&limit=100&from=')) return jsonResponse({ total:1, groups:[{
+        representative_alert_id:'elastic:credential-1', group_key:'credential-group', occurrence_count:1,
         rule_desc:'Critical Security Event Detected', event_action:'credential-dumping',
         source_severity:'high', rule_level:12, hostname:'DEV-WS002', event_dataset:'edr.endpoint',
         timestamp:new Date().toISOString(), triage_status:'pending',
@@ -467,8 +467,9 @@ describe('authenticated application flows', () => {
       const url = String(input);
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'degraded', source:'elastic' });
-      if (url.endsWith('/alerts?page=1&limit=100')) return jsonResponse({ total:1, alerts:[{
-        id:'elastic:live-1', rule_desc:'Credential dumping detected', source_severity:'critical',
+      if (url.includes('/alert-groups?page=1&limit=100&from=')) return jsonResponse({ total:1, groups:[{
+        representative_alert_id:'elastic:live-1', group_key:'live-group', occurrence_count:1,
+        rule_desc:'Credential dumping detected', source_severity:'critical',
         hostname:'FIN-WS001', event_dataset:'edr.endpoint', timestamp:new Date().toISOString(),
       }] });
       if (url.endsWith('/collector/status')) return jsonResponse({ error:'Collector status timed out' }, 503);

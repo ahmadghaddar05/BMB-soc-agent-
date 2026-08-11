@@ -140,7 +140,7 @@
   "138": "Phase 2 - Establish Hermes as the shared AI boundary",
   "139": "DeepDiveDrawer.jsx",
   "140": "Phase 4 - Move automated alert triage to Hermes",
-  "141": "Phase 5 - Correlate alerts into incidents",
+  "141": "Phase 1 - Secure and stabilize the foundation",
   "142": "Phase 6 - Make investigations and cases durable",
   "143": "routes/actions.js",
   "144": "responses.js",
@@ -198,6 +198,5 @@
   "196": "UsersAccess.jsx",
   "197": "020_managed_connectors.sql",
   "198": "DataRetention.jsx",
-  "199": "Phase 8 - Add the proactive autonomous SOC worker",
-  "200": "pages/Reports.jsx"
+  "199": "Phase 8 - Add the proactive autonomous SOC worker"
 }

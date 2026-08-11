@@ -795,8 +795,8 @@
     "semantic_hash": "c764ab9de843df52615a306d3cfca560"
   },
   "frontend/src/pages/LiveMonitoring.jsx": {
-    "mtime": 1786433756.8442605,
-    "ast_hash": "9ea5bb5218de6488b8e641cc4e6b2fd5",
+    "mtime": 1786433863.4907508,
+    "ast_hash": "ae73734592289094fa01a04a84254201",
     "semantic_hash": ""
   },
   "frontend/src/pages/Pivot.jsx": {

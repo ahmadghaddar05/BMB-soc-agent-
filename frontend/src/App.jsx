@@ -2,11 +2,11 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, LogOut, Menu, Moon, Search, Sun, UserRound } from 'lucide-react';
 import ChatWidget from './components/ChatWidget';
-import DataTrustBanner from './components/DataTrustBanner';
 import LoginPage from './components/LoginPage';
 import PermissionGuard from './components/PermissionGuard';
 import RoleAwareSidebar from './components/RoleAwareSidebar';
 import SelectionAssistant from './components/SelectionAssistant';
+import { HeaderStatusChip, SkeletonLoader } from './components/ui';
 import { api, setCsrfToken } from './lib/api';
 import { getRoleLanding, normalizeRole, ROLE_LABELS, ROLES } from './lib/roles';
 import './index.css';
@@ -36,27 +36,27 @@ const DataRetention = lazy(() => import('./pages/DataRetention'));
 
 const PAGE_META = {
   '/dashboard': ['Security Overview', 'Business risk, response performance, and source trust'],
-  '/live-monitoring': ['Live Monitoring', 'Newest-first Elastic security activity'],
-  '/security-analytics': ['Security Analytics', 'Evidence-backed attack and telemetry patterns'],
-  '/alerts': ['Technical Triage', 'Prioritize and review security activity'],
-  '/incidents': ['Incident Command', 'Correlated attack story and containment'],
-  '/ai-triage': ['AI-assisted Triage', 'Evidence-grounded alert prioritization'],
-  '/threat-intelligence': ['Entity Intelligence', 'Indicator and entity context'],
-  '/assets': ['Asset Intelligence', 'Observed hosts, users, and services'],
+  '/live-monitoring': ['Live Monitoring', 'Security activity from connected sources'],
+  '/security-analytics': ['Security Analytics', 'Attack patterns and telemetry trends'],
+  '/alerts': ['Technical Triage', 'Prioritized security activity for analyst review'],
+  '/incidents': ['Incident Command', 'Correlated attack evidence and containment'],
+  '/ai-triage': ['AI-assisted Triage', 'Evidence-grounded prioritization'],
+  '/threat-intelligence': ['Entity Intelligence', 'Relationships across observed entities'],
+  '/assets': ['Asset Intelligence', 'Observed hosts, identities, and services'],
   '/vulnerabilities': ['Vulnerabilities', 'Exposure and affected-asset context'],
-  '/investigations': ['Investigations', 'Search, select, and document evidence'],
-  '/reports': ['Reports', 'Security intelligence and evidence'],
-  '/cases': ['Cases', 'Analyst-owned incident workflows'],
-  '/approvals': ['Approval Queue', 'Human review for proposed workflow actions'],
-  '/responses': ['Safe Response Simulation', 'Non-production response verification and rollback'],
+  '/investigations': ['Investigations', 'Build and document evidence'],
+  '/reports': ['Reports', 'Durable security evidence'],
+  '/cases': ['Cases', 'Owned investigation workflows'],
+  '/approvals': ['Approval Queue', 'Human review for proposed actions'],
+  '/responses': ['Safe Response Simulation', 'Non-production response validation'],
   '/playbooks': ['Playbooks', 'Recommended response procedures'],
-  '/integrations': ['Integrations', 'Collector and enrichment connections'],
-  '/collector-health': ['Collector Health', 'Collection state, ingestion position, and cycle history'],
-  '/ai-configuration': ['AI Configuration', 'Hermes health and evidence-grounded workflow policies'],
-  '/users-access': ['Users & Access', 'Authentication mode and role boundaries'],
-  '/audit-governance': ['Audit & Governance', 'Durable administrative and workflow activity'],
-  '/data-retention': ['Data Retention', 'Stored coverage and lifecycle ownership'],
-  '/settings': ['Settings', 'Advanced platform configuration'],
+  '/integrations': ['Integrations', 'Telemetry and enrichment connections'],
+  '/collector-health': ['Collector Health', 'Ingestion state and collection history'],
+  '/ai-configuration': ['AI Configuration', 'Model routing and workflow policies'],
+  '/users-access': ['Users & Access', 'Authentication and role boundaries'],
+  '/audit-governance': ['Audit & Governance', 'Administrative and workflow activity'],
+  '/data-retention': ['Data Retention', 'Coverage and lifecycle policy'],
+  '/settings': ['Settings', 'Platform configuration'],
 };
 
 function BmbLogo({ compact = false }) {
@@ -165,6 +165,7 @@ function Shell({ session, onLogout }) {
             </form>
           )}
           <div className="topbar-actions">
+            <HeaderStatusChip health={platformHealth} />
             <button type="button" className="theme-toggle" onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
               {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
             </button>
@@ -195,8 +196,7 @@ function Shell({ session, onLogout }) {
         </header>
 
         <main className="workspace-scroll">
-          <DataTrustBanner health={platformHealth} />
-          <Suspense fallback={<div className="auth-loading" role="status"><span /><p>Loading workspace…</p></div>}>
+          <Suspense fallback={<div className="workspace-loading"><SkeletonLoader lines={6} /></div>}>
             <Routes>
               <Route path="/" element={<Navigate to={landing} replace />} />
               <Route path="/dashboard" element={protect(<Dashboard />)} />
