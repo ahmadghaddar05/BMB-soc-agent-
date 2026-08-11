@@ -848,7 +848,8 @@ describe('authenticated application flows', () => {
     const requests = [];
     const item = {
       id:7, title:'Credential attack', severity:'high', status:'open', owner:null,
-      alert_ids:['alert-1'], first_seen:new Date().toISOString(), notes:[], note_count:0,
+      alert_ids:['alert-1'], first_seen:new Date().toISOString(), last_seen:new Date().toISOString(),
+      updated_at:new Date().toISOString(), narrative:'Credential activity linked across stored evidence.', notes:[], note_count:0,
     };
     globalThis.fetch = vi.fn(async (input, options = {}) => {
       const url = String(input);
@@ -874,6 +875,8 @@ describe('authenticated application flows', () => {
     expect(JSON.parse(patch.options.body)).toEqual({ owner:'SOC Analyst' });
     expect(patch.options.headers['X-CSRF-Token']).toBe('csrf-token');
     expect(document.body.textContent).toContain('Durable ownership');
+    expect(document.body.textContent).toContain('Analyst timeline');
+    expect(document.body.textContent).toContain('1 linked alerts');
   });
 
   it('reviews and approves a sensitive Hermes action through the protected approval queue', async () => {

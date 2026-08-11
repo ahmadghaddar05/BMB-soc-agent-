@@ -23,8 +23,9 @@ describe('BMB shared product components', () => {
 
   it('renders accessible controls and restrained empty/loading states', () => {
     const onChange = vi.fn();
-    const html = renderToStaticMarkup(<><Button variant="primary">Review</Button><SegmentedControl label="Range" value="24h" onChange={onChange} options={[{ value:'24h', label:'24 hours' }]} /><EmptyState icon={ShieldAlert} message="No data in this range" action={<a href="#filters">Adjust filters</a>} /><SkeletonLoader lines={2} /></>);
+    const html = renderToStaticMarkup(<><Button variant="primary">Review</Button><Button as="a" href="/report">Report</Button><SegmentedControl label="Range" value="24h" onChange={onChange} options={[{ value:'24h', label:'24 hours' }]} /><EmptyState icon={ShieldAlert} message="No data in this range" action={<a href="#filters">Adjust filters</a>} /><SkeletonLoader lines={2} /></>);
     expect(html).toContain('ui-button-primary');
+    expect(html).toContain('<a class="ui-button ui-button-secondary" href="/report">Report</a>');
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('No data in this range');
     expect(html.match(/class="ui-skeleton"/g)).toHaveLength(2);
