@@ -570,6 +570,7 @@ describe('authenticated application flows', () => {
 
     await renderAt('/alerts?time_range=all');
 
+    expect(document.querySelector('.triage-queue .ui-status-chip')?.textContent).toContain('Triaged');
     expect(document.body.textContent).toContain('Why this assessment?');
     expect(document.body.textContent).toContain('PowerShell behavior and identity context require analyst validation.');
     expect(document.body.textContent).toContain('meta-llama/llama-3.3-70b-instruct');
@@ -685,12 +686,12 @@ describe('authenticated application flows', () => {
     });
 
     await renderAt('/incidents');
-    expect(document.body.textContent).toContain('Select an incident to enter its command workspace');
+    expect(document.body.textContent).toContain('Select a security story to review its evidence, ownership, and containment plan.');
     expect(document.body.textContent).toContain('Credential attack');
-    expect(document.body.textContent).toContain('Correlated alert membership');
-    expect(document.body.textContent).toContain('Auto-refreshes every 30 seconds');
-    expect(document.querySelector('.incident-queue-severity')?.textContent).toContain('Critical');
-    expect(document.querySelector('.incident-queue-severity')?.textContent).not.toContain('Low');
+    expect(document.body.textContent).toContain('Correlated alerts');
+    expect(document.body.textContent).toContain('Updated');
+    expect(document.querySelector('.incident-list-v2 .ui-severity-badge')?.textContent).toContain('critical');
+    expect(document.querySelector('.incident-list-v2 .ui-severity-badge')?.textContent).not.toContain('low');
     expect(document.body.textContent).not.toContain('Close incident record');
 
     const openButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Open incident'));

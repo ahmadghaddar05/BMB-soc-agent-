@@ -39,6 +39,14 @@ function sourceLabel(alert) {
   return String(source).split('.')[0];
 }
 
+function queueAiState(alert) {
+  const state = String(alert?.triage_status || (json(alert?.verdict) ? 'triaged' : 'pending')).toLowerCase();
+  if (state === 'triaged') return { label:'Triaged', tone:'active' };
+  if (state === 'triage_failed') return { label:'Failed', tone:'error' };
+  if (state === 'skipped') return { label:'Skipped', tone:'neutral' };
+  return { label:'Pending', tone:'neutral' };
+}
+
 function timeOnly(timestamp) {
   if (!timestamp) return '—';
   return new Date(timestamp).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
@@ -322,7 +330,8 @@ export default function Alerts({ workspace = 'alerts' }) {
               <ol className="triage-queue">{alerts.map(alert => {
                 const severity = sourceSeverity(alert);
                 const active = selected?.id === alert.id;
-                return <li key={alert.group_key || alert.id}><button type="button" className={active ? 'is-selected' : ''} aria-pressed={active} aria-label={`Open ${activityTitle(alert)}`} onClick={() => setSelected(alert)} onKeyDown={event => selectRowWithKeyboard(event, alert)}><div className="triage-queue-meta"><code>{shortId(alert)}</code><span>{sourceLabel(alert)}{alert.occurrence_count > 1 ? ` · ${alert.occurrence_count} events` : ''}</span></div><strong>{activityTitle(alert)}</strong><div className="triage-queue-footer"><SeverityBadge severity={severity} /><time title={fmtTs(alert.timestamp)}>{timeOnly(alert.timestamp)}</time></div></button></li>;
+                const aiState = queueAiState(alert);
+                return <li key={alert.group_key || alert.id}><button type="button" className={active ? 'is-selected' : ''} aria-pressed={active} aria-label={`Open ${activityTitle(alert)}; AI status ${aiState.label}`} onClick={() => setSelected(alert)} onKeyDown={event => selectRowWithKeyboard(event, alert)}><div className="triage-queue-meta"><code>{shortId(alert)}</code><span>{sourceLabel(alert)}{alert.occurrence_count > 1 ? ` · ${alert.occurrence_count} events` : ''}</span></div><strong>{activityTitle(alert)}</strong><div className="triage-queue-footer"><SeverityBadge severity={severity} /><span className="triage-queue-state"><StatusChip status={aiState.tone}>AI · {aiState.label}</StatusChip><time title={fmtTs(alert.timestamp)}>{timeOnly(alert.timestamp)}</time></span></div></button></li>;
               })}</ol>
             ) : <EmptyState icon={AlertTriangle} message="No alerts match these filters" action={<button type="button" onClick={clearFilters}>Clear filters</button>} />}
           </div>
