@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "api/src/routes/index.js": {
-    "mtime": 1786433604.763716,
-    "ast_hash": "910f509b5d1769932078e2dd607b6e47",
+    "mtime": 1786440077.6172924,
+    "ast_hash": "7b71e2ccbe988a4a1f0085dc796c77f3",
     "semantic_hash": ""
   },
   "api/src/routes/responses.js": {
@@ -440,8 +440,8 @@
     "semantic_hash": "b44658cc6ba65776586d60358275772b"
   },
   "api/test/routes.test.js": {
-    "mtime": 1786433317.137104,
-    "ast_hash": "2b0c1ac6b0e913daf9ccf1537d35e046",
+    "mtime": 1786440077.9318235,
+    "ast_hash": "46a109dd71ff46e5cbc6795b1aabeaa9",
     "semantic_hash": ""
   },
   "api/test/soc-tools.test.js": {
@@ -545,8 +545,8 @@
     "semantic_hash": ""
   },
   "frontend/src/App.test.jsx": {
-    "mtime": 1786436633.0634372,
-    "ast_hash": "1c6265024e48faa2acd309f1ed5f8007",
+    "mtime": 1786440214.853109,
+    "ast_hash": "6ba1fb12d59620731afc42223e03aefc",
     "semantic_hash": ""
   },
   "frontend/src/Reports.jsx": {
@@ -790,8 +790,8 @@
     "semantic_hash": "c764ab9de843df52615a306d3cfca560"
   },
   "frontend/src/pages/LiveMonitoring.jsx": {
-    "mtime": 1786433863.4907508,
-    "ast_hash": "ae73734592289094fa01a04a84254201",
+    "mtime": 1786439267.9934926,
+    "ast_hash": "55e1b009b5c9d79f26f12ed7c2648a67",
     "semantic_hash": ""
   },
   "frontend/src/pages/Pivot.jsx": {
@@ -815,9 +815,9 @@
     "semantic_hash": "bf3ad13635b894ed936c2c91d1ccc79d"
   },
   "frontend/src/pages/SOCAnalytics.jsx": {
-    "mtime": 1785321169.2322063,
-    "ast_hash": "c4e85c0f569bc1b732a445869c3c1dc7",
-    "semantic_hash": "c4e85c0f569bc1b732a445869c3c1dc7"
+    "mtime": 1786440226.380555,
+    "ast_hash": "dd92742579e41e7fc560b780a8580f1a",
+    "semantic_hash": ""
   },
   "frontend/src/pages/Settings.jsx": {
     "mtime": 1786358770.9125254,
@@ -1350,13 +1350,13 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ui/index.js": {
-    "mtime": 1786437395.369295,
-    "ast_hash": "6db601b75e779f027ef464a75e778451",
+    "mtime": 1786440047.826371,
+    "ast_hash": "6690511dfb3f5f181bf46c0281347f4b",
     "semantic_hash": ""
   },
   "frontend/src/components/ui/ui.test.jsx": {
-    "mtime": 1786437396.0842996,
-    "ast_hash": "a2646d219df31b60964efc7dae1ff9f5",
+    "mtime": 1786440048.2270653,
+    "ast_hash": "84a562794a144051785f6df0c45b64a2",
     "semantic_hash": ""
   },
   "frontend/src/components/ui/utils.js": {
@@ -1372,6 +1372,11 @@
   "frontend/src/components/ui/UnderlineTabs.jsx": {
     "mtime": 1786437395.0305364,
     "ast_hash": "c8c8832e052d31e5a15460d04c933a4a",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ui/RankedBarList.jsx": {
+    "mtime": 1786440047.3059478,
+    "ast_hash": "5540ab1d458ca0e8014d995eabd284f3",
     "semantic_hash": ""
   }
 }

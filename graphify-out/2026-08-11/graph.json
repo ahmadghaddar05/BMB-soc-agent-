@@ -1924,8 +1924,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "api_src_config_auth_roles",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "auth_roles"
     },
     {
@@ -1979,7 +1979,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_db_index",
-      "community": 68,
+      "community": 55,
       "community_name": "src/db/index.js",
       "norm_label": "src/db/index.js"
     },
@@ -1990,7 +1990,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "api_src_db_index_pool",
-      "community": 68,
+      "community": 55,
       "community_name": "src/db/index.js",
       "norm_label": "{ pool }"
     },
@@ -2001,7 +2001,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "api_src_db_index_db",
-      "community": 68,
+      "community": 55,
       "community_name": "src/db/index.js",
       "norm_label": "db"
     },
@@ -3959,8 +3959,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "api_src_routes_index_numericcount",
-      "community": 3,
-      "community_name": "src/routes/index.js",
+      "community": 52,
+      "community_name": "executiveAssetViews",
       "norm_label": "numericcount()"
     },
     {
@@ -4003,8 +4003,8 @@
       "source_location": "L327",
       "_origin": "ast",
       "id": "api_src_routes_index_executiveimpact",
-      "community": 3,
-      "community_name": "src/routes/index.js",
+      "community": 52,
+      "community_name": "executiveAssetViews",
       "norm_label": "executiveimpact()"
     },
     {
@@ -4014,8 +4014,8 @@
       "source_location": "L334",
       "_origin": "ast",
       "id": "api_src_routes_index_executivedecision",
-      "community": 3,
-      "community_name": "src/routes/index.js",
+      "community": 52,
+      "community_name": "executiveAssetViews",
       "norm_label": "executivedecision()"
     },
     {
@@ -4025,8 +4025,8 @@
       "source_location": "L342",
       "_origin": "ast",
       "id": "api_src_routes_index_executiveincidentview",
-      "community": 3,
-      "community_name": "src/routes/index.js",
+      "community": 52,
+      "community_name": "executiveAssetViews",
       "norm_label": "executiveincidentview()"
     },
     {
@@ -4036,8 +4036,8 @@
       "source_location": "L382",
       "_origin": "ast",
       "id": "api_src_routes_index_executiveassetcategory",
-      "community": 3,
-      "community_name": "src/routes/index.js",
+      "community": 52,
+      "community_name": "executiveAssetViews",
       "norm_label": "executiveassetcategory()"
     },
     {
@@ -4047,8 +4047,8 @@
       "source_location": "L398",
       "_origin": "ast",
       "id": "api_src_routes_index_executiveassetviews",
-      "community": 3,
-      "community_name": "src/routes/index.js",
+      "community": 52,
+      "community_name": "executiveAssetViews",
       "norm_label": "executiveassetviews()"
     },
     {
@@ -4124,8 +4124,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_routes_responses",
-      "community": 144,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "responses.js"
     },
     {
@@ -4135,8 +4135,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_routes_responses_router",
-      "community": 144,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "{ router }"
     },
     {
@@ -4146,8 +4146,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_src_routes_responses_requireroles",
-      "community": 144,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "{ requireroles }"
     },
     {
@@ -4157,8 +4157,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_routes_responses_db",
-      "community": 144,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "db"
     },
     {
@@ -4168,8 +4168,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_src_routes_responses_actionerror_createactionservice",
-      "community": 144,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "{ actionerror, createactionservice }"
     },
     {
@@ -4179,8 +4179,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "api_src_routes_responses_actions",
-      "community": 144,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "actions"
     },
     {
@@ -4190,8 +4190,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "api_src_routes_responses_response_types",
-      "community": 144,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "response_types"
     },
     {
@@ -4201,8 +4201,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "api_src_routes_responses_states",
-      "community": 144,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "states"
     },
     {
@@ -4212,8 +4212,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "api_src_routes_responses_handle",
-      "community": 144,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "handle()"
     },
     {
@@ -4311,8 +4311,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "api_src_routes_workflows_text",
-      "community": 186,
-      "community_name": "hermes-store.test.js",
+      "community": 60,
+      "community_name": "errors.js",
       "norm_label": "text()"
     },
     {
@@ -4388,8 +4388,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_scripts_backfill_group_keys",
-      "community": 34,
-      "community_name": "buildGroupKey",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "backfill-group-keys.js"
     },
     {
@@ -4399,8 +4399,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_scripts_backfill_group_keys_db",
-      "community": 34,
-      "community_name": "buildGroupKey",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "db"
     },
     {
@@ -4410,8 +4410,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_scripts_backfill_group_keys_buildgroupkey",
-      "community": 34,
-      "community_name": "buildGroupKey",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "{\n  buildgroupkey,\n}"
     },
     {
@@ -4421,8 +4421,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "api_src_scripts_backfill_group_keys_main",
-      "community": 34,
-      "community_name": "buildGroupKey",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "main()"
     },
     {
@@ -4784,8 +4784,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "ai-model-profiles.js"
     },
     {
@@ -4795,8 +4795,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_runtimeconfig",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "{ runtimeconfig }"
     },
     {
@@ -4806,8 +4806,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_profile_definitions",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "profile_definitions"
     },
     {
@@ -4817,8 +4817,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_profiledefinition",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "profiledefinition()"
     },
     {
@@ -4828,8 +4828,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_resolveaimodelprofile",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "resolveaimodelprofile()"
     },
     {
@@ -4839,8 +4839,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_publicprofile",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "publicprofile()"
     },
     {
@@ -4850,8 +4850,8 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_listaimodelprofiles",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "listaimodelprofiles()"
     },
     {
@@ -4861,8 +4861,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_modelidentity",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "modelidentity()"
     },
     {
@@ -4872,8 +4872,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_routingoptions",
-      "community": 9,
-      "community_name": "hermes/correlation.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "routingoptions()"
     },
     {
@@ -5246,8 +5246,8 @@
       "source_location": "L137",
       "_origin": "ast",
       "id": "api_src_services_connectors_connectionfromrow",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "connectionfromrow()"
     },
     {
@@ -5279,8 +5279,8 @@
       "source_location": "L216",
       "_origin": "ast",
       "id": "api_src_services_connectors_activeconnector",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "activeconnector()"
     },
     {
@@ -5290,8 +5290,8 @@
       "source_location": "L222",
       "_origin": "ast",
       "id": "api_src_services_connectors_confighash",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "confighash()"
     },
     {
@@ -5301,8 +5301,8 @@
       "source_location": "L229",
       "_origin": "ast",
       "id": "api_src_services_connectors_testconnection",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "testconnection()"
     },
     {
@@ -5324,7 +5324,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "src/services/dbtools.js"
     },
     {
@@ -5335,7 +5335,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_db",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "db"
     },
     {
@@ -5346,7 +5346,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_chat_tools",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "chat_tools"
     },
     {
@@ -5357,7 +5357,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_search_alerts",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "search_alerts()"
     },
     {
@@ -5368,7 +5368,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_get_alert",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "get_alert()"
     },
     {
@@ -5379,7 +5379,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_top_critical_alerts",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "top_critical_alerts()"
     },
     {
@@ -5390,7 +5390,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_list_incidents",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "list_incidents()"
     },
     {
@@ -5401,7 +5401,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_get_incident",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "get_incident()"
     },
     {
@@ -5412,7 +5412,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_pivot_indicator",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "pivot_indicator()"
     },
     {
@@ -5423,7 +5423,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_get_stats",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "get_stats()"
     },
     {
@@ -5434,7 +5434,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_handlers",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "handlers"
     },
     {
@@ -5445,7 +5445,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_dispatch",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "dispatch()"
     },
     {
@@ -5620,8 +5620,8 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "api_src_services_elastic_checkhealth",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "checkhealth()"
     },
     {
@@ -5664,8 +5664,8 @@
       "source_location": "L891",
       "_origin": "ast",
       "id": "api_src_services_elastic_fetchalerts",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "fetchalerts()"
     },
     {
@@ -5708,8 +5708,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_grouping",
-      "community": 34,
-      "community_name": "buildGroupKey",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "grouping.js"
     },
     {
@@ -5719,8 +5719,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_grouping_crypto",
-      "community": 34,
-      "community_name": "buildGroupKey",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "crypto"
     },
     {
@@ -5730,8 +5730,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_services_grouping_normalizevalue",
-      "community": 34,
-      "community_name": "buildGroupKey",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "normalizevalue()"
     },
     {
@@ -5741,8 +5741,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "api_src_services_grouping_gettimebucket",
-      "community": 34,
-      "community_name": "buildGroupKey",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "gettimebucket()"
     },
     {
@@ -5752,8 +5752,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "api_src_services_grouping_buildgroupkey",
-      "community": 34,
-      "community_name": "buildGroupKey",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "buildgroupkey()"
     },
     {
@@ -5763,8 +5763,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_health",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "health.js"
     },
     {
@@ -5774,8 +5774,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_health_db",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "db"
     },
     {
@@ -5785,8 +5785,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_src_services_health_checkhermeshealth",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "{ checkhermeshealth }"
     },
     {
@@ -5796,8 +5796,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_services_health_elastic",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "elastic"
     },
     {
@@ -5807,8 +5807,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_src_services_health_splunk",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "splunk"
     },
     {
@@ -5818,8 +5818,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "api_src_services_health_wazuh",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "wazuh"
     },
     {
@@ -5829,8 +5829,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "api_src_services_health_activeconnector",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "{ activeconnector }"
     },
     {
@@ -5840,8 +5840,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "api_src_services_health_timedcheck",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "timedcheck()"
     },
     {
@@ -5851,8 +5851,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "api_src_services_health_dependencyhealth",
-      "community": 191,
-      "community_name": "health.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "dependencyhealth()"
     },
     {
@@ -6126,8 +6126,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "api_src_services_hermes_chat_combinedsignal",
-      "community": 32,
-      "community_name": "chat.js",
+      "community": 6,
+      "community_name": "triage.js",
       "norm_label": "combinedsignal()"
     },
     {
@@ -6808,8 +6808,8 @@
       "source_location": "L314",
       "_origin": "ast",
       "id": "api_src_services_hermes_schemas_validatecitations",
-      "community": 32,
-      "community_name": "chat.js",
+      "community": 6,
+      "community_name": "triage.js",
       "norm_label": "validatecitations()"
     },
     {
@@ -6973,8 +6973,8 @@
       "source_location": "L304",
       "_origin": "ast",
       "id": "api_src_services_hermes_soc_tools_sanitize",
-      "community": 32,
-      "community_name": "chat.js",
+      "community": 6,
+      "community_name": "triage.js",
       "norm_label": "sanitize()"
     },
     {
@@ -6984,8 +6984,8 @@
       "source_location": "L320",
       "_origin": "ast",
       "id": "api_src_services_hermes_soc_tools_publicalert",
-      "community": 9,
-      "community_name": "hermes/correlation.js",
+      "community": 6,
+      "community_name": "triage.js",
       "norm_label": "publicalert()"
     },
     {
@@ -8040,8 +8040,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_user_directory",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "user-directory.js"
     },
     {
@@ -8051,8 +8051,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_user_directory_crypto",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "crypto"
     },
     {
@@ -8062,8 +8062,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_src_services_user_directory_promisify",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "{ promisify }"
     },
     {
@@ -8073,8 +8073,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_services_user_directory_db",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "db"
     },
     {
@@ -8084,8 +8084,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_src_services_user_directory_auth_roles_runtimeconfig",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "{ auth_roles, runtimeconfig }"
     },
     {
@@ -8095,8 +8095,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "api_src_services_user_directory_scrypt",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "scrypt"
     },
     {
@@ -8106,8 +8106,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "api_src_services_user_directory_passworderror",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "passworderror()"
     },
     {
@@ -8117,8 +8117,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "api_src_services_user_directory_usernameerror",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "usernameerror()"
     },
     {
@@ -8128,8 +8128,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "api_src_services_user_directory_displaynameerror",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "displaynameerror()"
     },
     {
@@ -8139,8 +8139,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "api_src_services_user_directory_roleerror",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "roleerror()"
     },
     {
@@ -8150,8 +8150,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "api_src_services_user_directory_hashpassword",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "hashpassword()"
     },
     {
@@ -8161,8 +8161,8 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "api_src_services_user_directory_verifypassword",
-      "community": 49,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "verifypassword()"
     },
     {
@@ -8216,8 +8216,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_wazuh",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "src/services/wazuh.js"
     },
     {
@@ -8227,8 +8227,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "api_src_services_wazuh_https",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "https"
     },
     {
@@ -8238,8 +8238,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_wazuh_http",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "http"
     },
     {
@@ -8249,8 +8249,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_src_services_wazuh_fs",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "fs"
     },
     {
@@ -8260,8 +8260,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_src_services_wazuh_requestjson",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "requestjson()"
     },
     {
@@ -8271,8 +8271,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "api_src_services_wazuh_extractentities",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "extractentities()"
     },
     {
@@ -8282,8 +8282,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "api_src_services_wazuh_normalizealert",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "normalizealert()"
     },
     {
@@ -8293,8 +8293,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "api_src_services_wazuh_technique_tactic",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "technique_tactic"
     },
     {
@@ -8304,8 +8304,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "api_src_services_wazuh_group_technique",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "group_technique"
     },
     {
@@ -8315,8 +8315,8 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "api_src_services_wazuh_extractmitre",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "extractmitre()"
     },
     {
@@ -8326,8 +8326,8 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "api_src_services_wazuh_connectionconfig",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "connectionconfig()"
     },
     {
@@ -8337,8 +8337,8 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "api_src_services_wazuh_fetchfromwazuh",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "fetchfromwazuh()"
     },
     {
@@ -8348,8 +8348,8 @@
       "source_location": "L206",
       "_origin": "ast",
       "id": "api_src_services_wazuh_checkhealth",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "checkhealth()"
     },
     {
@@ -8359,8 +8359,8 @@
       "source_location": "L227",
       "_origin": "ast",
       "id": "api_src_services_wazuh_makemock",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "makemock()"
     },
     {
@@ -8370,8 +8370,8 @@
       "source_location": "L257",
       "_origin": "ast",
       "id": "api_src_services_wazuh_fetchalerts",
-      "community": 52,
-      "community_name": "src/services/wazuh.js",
+      "community": 70,
+      "community_name": "services/connectors.js",
       "norm_label": "fetchalerts()"
     },
     {
@@ -8381,8 +8381,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_workers_autonomous",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "autonomous.js"
     },
     {
@@ -8392,8 +8392,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_crypto",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "crypto"
     },
     {
@@ -8403,8 +8403,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_db",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "db"
     },
     {
@@ -8414,8 +8414,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_createactionservice",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "{ createactionservice }"
     },
     {
@@ -8425,8 +8425,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_qualifying_verdicts",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "qualifying_verdicts"
     },
     {
@@ -8436,8 +8436,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_boundedint",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "boundedint()"
     },
     {
@@ -8447,8 +8447,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_boundedconfidence",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "boundedconfidence()"
     },
     {
@@ -8458,8 +8458,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_compact",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "compact()"
     },
     {
@@ -8469,8 +8469,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_operationkey",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "operationkey()"
     },
     {
@@ -8480,8 +8480,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_actionsummary",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "actionsummary()"
     },
     {
@@ -8491,8 +8491,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_simulatedresponseproposal",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "simulatedresponseproposal()"
     },
     {
@@ -8502,8 +8502,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_startoperation",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "startoperation()"
     },
     {
@@ -8513,8 +8513,8 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_executeoperation",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "executeoperation()"
     },
     {
@@ -8524,8 +8524,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_incidentnote",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "incidentnote()"
     },
     {
@@ -8535,8 +8535,8 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_alertnote",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "alertnote()"
     },
     {
@@ -8546,8 +8546,8 @@
       "source_location": "L133",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_loadcandidates",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "loadcandidates()"
     },
     {
@@ -8557,8 +8557,8 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "api_src_workers_autonomous_runautonomousagent",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "runautonomousagent()"
     },
     {
@@ -8569,7 +8569,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "src/workers/correlation.js"
     },
     {
@@ -8580,7 +8580,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_crypto",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "crypto"
     },
     {
@@ -8591,7 +8591,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_db",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "db"
     },
     {
@@ -8602,7 +8602,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_correlatehermes_hasstrongrelation_relationscore",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "{\n  correlatehermes, hasstrongrelation, relationscore,\n}"
     },
     {
@@ -8613,7 +8613,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_hermeserror",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "{ hermeserror }"
     },
     {
@@ -8624,7 +8624,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_sev_order",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "sev_order"
     },
     {
@@ -8635,7 +8635,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_maxseverity",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "maxseverity()"
     },
     {
@@ -8646,7 +8646,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_incidentkey",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "incidentkey()"
     },
     {
@@ -8657,7 +8657,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_upsertincident",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "upsertincident()"
     },
     {
@@ -8668,7 +8668,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_boundedint",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "boundedint()"
     },
     {
@@ -8679,7 +8679,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_meaningful",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "meaningful()"
     },
     {
@@ -8690,7 +8690,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_withinhours",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "withinhours()"
     },
     {
@@ -8701,7 +8701,7 @@
       "_origin": "ast",
       "id": "api_src_workers_correlation_correlatepending",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "correlatepending()"
     },
     {
@@ -9173,8 +9173,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_test_ai_model_profiles_test",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "ai-model-profiles.test.js"
     },
     {
@@ -9184,8 +9184,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_test_ai_model_profiles_test_test",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "test"
     },
     {
@@ -9195,8 +9195,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_test_ai_model_profiles_test_assert",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "assert"
     },
     {
@@ -9206,8 +9206,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_test_ai_model_profiles_test_default_profile_id_listaimodelprofiles_modelidentity_resolveaimodelprofile_routingoptions",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "{\n  default_profile_id,\n  listaimodelprofiles,\n  modelidentity,\n  resolveaimodelprofile,\n  routingoptions,\n}"
     },
     {
@@ -9217,8 +9217,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "api_test_ai_model_profiles_test_config",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 34,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "config"
     },
     {
@@ -9448,8 +9448,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_test_autonomous_test",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "autonomous.test.js"
     },
     {
@@ -9459,8 +9459,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_test_autonomous_test_test",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "test"
     },
     {
@@ -9470,8 +9470,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_test_autonomous_test_assert",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "assert"
     },
     {
@@ -9481,8 +9481,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_test_autonomous_test_policy_version_incidentnote_operationkey_runautonomousagent",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "{\n  policy_version, incidentnote, operationkey, runautonomousagent,\n}"
     },
     {
@@ -9492,8 +9492,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "api_test_autonomous_test_fakedatabase",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "fakedatabase()"
     },
     {
@@ -9503,8 +9503,8 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "api_test_autonomous_test_submit",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 5,
+      "community_name": "elastic.js",
       "norm_label": "submit()"
     },
     {
@@ -9625,7 +9625,7 @@
       "_origin": "ast",
       "id": "api_test_correlation_worker_test",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "correlation-worker.test.js"
     },
     {
@@ -9636,7 +9636,7 @@
       "_origin": "ast",
       "id": "api_test_correlation_worker_test_test",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "test"
     },
     {
@@ -9647,7 +9647,7 @@
       "_origin": "ast",
       "id": "api_test_correlation_worker_test_assert",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "assert"
     },
     {
@@ -9658,7 +9658,7 @@
       "_origin": "ast",
       "id": "api_test_correlation_worker_test_db",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "db"
     },
     {
@@ -9669,7 +9669,7 @@
       "_origin": "ast",
       "id": "api_test_correlation_worker_test_correlatepending_incidentkey_upsertincident",
       "community": 23,
-      "community_name": "autonomous.js",
+      "community_name": "src/workers/correlation.js",
       "norm_label": "{ correlatepending, incidentkey, upsertincident }"
     },
     {
@@ -9679,8 +9679,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "api_test_correlation_worker_test_incident",
-      "community": 23,
-      "community_name": "autonomous.js",
+      "community": 51,
+      "community_name": "Incidents.jsx",
       "norm_label": "incident()"
     },
     {
@@ -9877,8 +9877,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_test_hermes_store_test",
-      "community": 186,
-      "community_name": "hermes-store.test.js",
+      "community": 60,
+      "community_name": "errors.js",
       "norm_label": "hermes-store.test.js"
     },
     {
@@ -9888,8 +9888,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_test",
-      "community": 186,
-      "community_name": "hermes-store.test.js",
+      "community": 60,
+      "community_name": "errors.js",
       "norm_label": "test"
     },
     {
@@ -9899,8 +9899,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_assert",
-      "community": 186,
-      "community_name": "hermes-store.test.js",
+      "community": 60,
+      "community_name": "errors.js",
       "norm_label": "assert"
     },
     {
@@ -9910,8 +9910,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_createagentstore",
-      "community": 186,
-      "community_name": "hermes-store.test.js",
+      "community": 60,
+      "community_name": "errors.js",
       "norm_label": "{ createagentstore }"
     },
     {
@@ -9921,8 +9921,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_query",
-      "community": 186,
-      "community_name": "hermes-store.test.js",
+      "community": 60,
+      "community_name": "errors.js",
       "norm_label": "query()"
     },
     {
@@ -9932,8 +9932,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_release",
-      "community": 186,
-      "community_name": "hermes-store.test.js",
+      "community": 60,
+      "community_name": "errors.js",
       "norm_label": "release()"
     },
     {
@@ -9943,8 +9943,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_connect",
-      "community": 186,
-      "community_name": "hermes-store.test.js",
+      "community": 60,
+      "community_name": "errors.js",
       "norm_label": "connect()"
     },
     {
@@ -10504,8 +10504,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_test_routes_test",
-      "community": 68,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "routes.test.js"
     },
     {
@@ -10515,8 +10515,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_test_routes_test_test",
-      "community": 68,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "test"
     },
     {
@@ -10526,8 +10526,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_test_routes_test_assert",
-      "community": 68,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "assert"
     },
     {
@@ -10537,8 +10537,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_test_routes_test_request",
-      "community": 68,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "request"
     },
     {
@@ -10548,8 +10548,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "api_test_routes_test_db",
-      "community": 68,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "db"
     },
     {
@@ -10559,8 +10559,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "api_test_routes_test_createapp",
-      "community": 68,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "{ createapp }"
     },
     {
@@ -10570,8 +10570,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "api_test_routes_test_routeapp",
-      "community": 68,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "routeapp()"
     },
     {
@@ -10581,8 +10581,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "api_test_routes_test_highestplaceholder",
-      "community": 68,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "highestplaceholder()"
     },
     {
@@ -12297,7 +12297,7 @@
       "source_location": "L257",
       "_origin": "ast",
       "id": "frontend_src_app_authenticatedapp",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "authenticatedapp()"
     },
@@ -12429,41 +12429,41 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_analystdecisionreview",
-      "community": 51,
-      "community_name": "Incidents.jsx",
+      "community": 188,
+      "community_name": "api",
       "norm_label": "analystdecisionreview.jsx"
     },
     {
       "label": "OPTIONS",
       "file_type": "code",
       "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
-      "source_location": "L5",
+      "source_location": "L6",
       "_origin": "ast",
       "id": "frontend_src_components_analystdecisionreview_options",
-      "community": 51,
-      "community_name": "Incidents.jsx",
+      "community": 188,
+      "community_name": "api",
       "norm_label": "options"
     },
     {
       "label": "decisionLabel()",
       "file_type": "code",
       "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
-      "source_location": "L11",
+      "source_location": "L12",
       "_origin": "ast",
       "id": "frontend_src_components_analystdecisionreview_decisionlabel",
-      "community": 51,
-      "community_name": "Incidents.jsx",
+      "community": 188,
+      "community_name": "api",
       "norm_label": "decisionlabel()"
     },
     {
       "label": "AnalystDecisionReview()",
       "file_type": "code",
       "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "_origin": "ast",
       "id": "frontend_src_components_analystdecisionreview_analystdecisionreview",
-      "community": 51,
-      "community_name": "Incidents.jsx",
+      "community": 188,
+      "community_name": "api",
       "norm_label": "analystdecisionreview()"
     },
     {
@@ -12638,7 +12638,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_decisionqualitypanel",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "decisionqualitypanel.jsx"
     },
@@ -12649,7 +12649,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "frontend_src_components_decisionqualitypanel_decision_labels",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "decision_labels"
     },
@@ -12660,7 +12660,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_src_components_decisionqualitypanel_metric",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "metric()"
     },
@@ -12671,7 +12671,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "frontend_src_components_decisionqualitypanel_decisionqualitypanel",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "decisionqualitypanel()"
     },
@@ -12759,8 +12759,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_incidentcorrelationtrace",
-      "community": 82,
-      "community_name": "IncidentCorrelationTrace.jsx",
+      "community": 51,
+      "community_name": "Incidents.jsx",
       "norm_label": "incidentcorrelationtrace.jsx"
     },
     {
@@ -12770,8 +12770,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "frontend_src_components_incidentcorrelationtrace_object",
-      "community": 82,
-      "community_name": "IncidentCorrelationTrace.jsx",
+      "community": 51,
+      "community_name": "Incidents.jsx",
       "norm_label": "object()"
     },
     {
@@ -12781,8 +12781,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "frontend_src_components_incidentcorrelationtrace_latest",
-      "community": 82,
-      "community_name": "IncidentCorrelationTrace.jsx",
+      "community": 51,
+      "community_name": "Incidents.jsx",
       "norm_label": "latest()"
     },
     {
@@ -12792,8 +12792,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "frontend_src_components_incidentcorrelationtrace_label",
-      "community": 82,
-      "community_name": "IncidentCorrelationTrace.jsx",
+      "community": 51,
+      "community_name": "Incidents.jsx",
       "norm_label": "label()"
     },
     {
@@ -12803,8 +12803,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "frontend_src_components_incidentcorrelationtrace_outcomelabel",
-      "community": 82,
-      "community_name": "IncidentCorrelationTrace.jsx",
+      "community": 51,
+      "community_name": "Incidents.jsx",
       "norm_label": "outcomelabel()"
     },
     {
@@ -12814,8 +12814,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "frontend_src_components_incidentcorrelationtrace_sharedlinks",
-      "community": 82,
-      "community_name": "IncidentCorrelationTrace.jsx",
+      "community": 51,
+      "community_name": "Incidents.jsx",
       "norm_label": "sharedlinks()"
     },
     {
@@ -12825,8 +12825,8 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "frontend_src_components_incidentcorrelationtrace_confidence",
-      "community": 82,
-      "community_name": "IncidentCorrelationTrace.jsx",
+      "community": 51,
+      "community_name": "Incidents.jsx",
       "norm_label": "confidence()"
     },
     {
@@ -12836,8 +12836,8 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "frontend_src_components_incidentcorrelationtrace_incidentcorrelationtrace",
-      "community": 82,
-      "community_name": "IncidentCorrelationTrace.jsx",
+      "community": 51,
+      "community_name": "Incidents.jsx",
       "norm_label": "incidentcorrelationtrace()"
     },
     {
@@ -12913,8 +12913,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_roleawaresidebar",
-      "community": 29,
-      "community_name": "roles.js",
+      "community": 85,
+      "community_name": "RoleAwareSidebar.jsx",
       "norm_label": "roleawaresidebar.jsx"
     },
     {
@@ -12924,8 +12924,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "frontend_src_components_roleawaresidebar_icons",
-      "community": 29,
-      "community_name": "roles.js",
+      "community": 85,
+      "community_name": "RoleAwareSidebar.jsx",
       "norm_label": "icons"
     },
     {
@@ -12935,8 +12935,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "frontend_src_components_roleawaresidebar_roleawaresidebar",
-      "community": 29,
-      "community_name": "roles.js",
+      "community": 85,
+      "community_name": "RoleAwareSidebar.jsx",
       "norm_label": "roleawaresidebar()"
     },
     {
@@ -12979,8 +12979,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_statusbadge",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "statusbadge.jsx"
     },
     {
@@ -12990,8 +12990,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_statusbadge_statusbadge",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "statusbadge()"
     },
     {
@@ -13001,7 +13001,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_triagedecisiontrace",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "triagedecisiontrace.jsx"
     },
@@ -13009,10 +13009,10 @@
       "label": "STAGES",
       "file_type": "code",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L7",
+      "source_location": "L8",
       "_origin": "ast",
       "id": "frontend_src_components_triagedecisiontrace_stages",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "stages"
     },
@@ -13020,10 +13020,10 @@
       "label": "STATUS_ICON",
       "file_type": "code",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L16",
+      "source_location": "L17",
       "_origin": "ast",
       "id": "frontend_src_components_triagedecisiontrace_status_icon",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "status_icon"
     },
@@ -13031,10 +13031,10 @@
       "label": "object()",
       "file_type": "code",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L25",
+      "source_location": "L26",
       "_origin": "ast",
       "id": "frontend_src_components_triagedecisiontrace_object",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "object()"
     },
@@ -13042,10 +13042,10 @@
       "label": "list()",
       "file_type": "code",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L36",
+      "source_location": "L37",
       "_origin": "ast",
       "id": "frontend_src_components_triagedecisiontrace_list",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "list()"
     },
@@ -13053,10 +13053,10 @@
       "label": "displayExecutor()",
       "file_type": "code",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L46",
+      "source_location": "L47",
       "_origin": "ast",
       "id": "frontend_src_components_triagedecisiontrace_displayexecutor",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "displayexecutor()"
     },
@@ -13064,10 +13064,10 @@
       "label": "confidence()",
       "file_type": "code",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L54",
+      "source_location": "L55",
       "_origin": "ast",
       "id": "frontend_src_components_triagedecisiontrace_confidence",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "confidence()"
     },
@@ -13075,43 +13075,65 @@
       "label": "latestByStage()",
       "file_type": "code",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L59",
+      "source_location": "L60",
       "_origin": "ast",
       "id": "frontend_src_components_triagedecisiontrace_latestbystage",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "latestbystage()"
+    },
+    {
+      "label": "displayValue()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L66",
+      "_origin": "ast",
+      "id": "frontend_src_components_triagedecisiontrace_displayvalue",
+      "community": 35,
+      "community_name": "Alerts.jsx",
+      "norm_label": "displayvalue()"
+    },
+    {
+      "label": "RecordedDetails()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L72",
+      "_origin": "ast",
+      "id": "frontend_src_components_triagedecisiontrace_recordeddetails",
+      "community": 35,
+      "community_name": "Alerts.jsx",
+      "norm_label": "recordeddetails()"
+    },
+    {
+      "label": "traceItems()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L98",
+      "_origin": "ast",
+      "id": "frontend_src_components_triagedecisiontrace_traceitems",
+      "community": 35,
+      "community_name": "Alerts.jsx",
+      "norm_label": "traceitems()"
     },
     {
       "label": "TriageDecisionSummary()",
       "file_type": "code",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L65",
+      "source_location": "L117",
       "_origin": "ast",
       "id": "frontend_src_components_triagedecisiontrace_triagedecisionsummary",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "triagedecisionsummary()"
-    },
-    {
-      "label": "StageDetails()",
-      "file_type": "code",
-      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L110",
-      "_origin": "ast",
-      "id": "frontend_src_components_triagedecisiontrace_stagedetails",
-      "community": 85,
-      "community_name": "Alerts.jsx",
-      "norm_label": "stagedetails()"
     },
     {
       "label": "TriageWorkflow()",
       "file_type": "code",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L142",
+      "source_location": "L157",
       "_origin": "ast",
       "id": "frontend_src_components_triagedecisiontrace_triageworkflow",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "triageworkflow()"
     },
@@ -13123,7 +13145,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager",
       "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community_name": "api",
       "norm_label": "connectormanager.jsx"
     },
     {
@@ -13134,7 +13156,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager_platforms",
       "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community_name": "api",
       "norm_label": "platforms"
     },
     {
@@ -13145,7 +13167,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager_initialform",
       "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community_name": "api",
       "norm_label": "initialform()"
     },
     {
@@ -13156,7 +13178,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager_connectortone",
       "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community_name": "api",
       "norm_label": "connectortone()"
     },
     {
@@ -13167,7 +13189,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager_connectorwizard",
       "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community_name": "api",
       "norm_label": "connectorwizard()"
     },
     {
@@ -13178,7 +13200,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager_connectormanager",
       "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community_name": "api",
       "norm_label": "connectormanager()"
     },
     {
@@ -13189,7 +13211,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_agentperformancehub",
       "community": 13,
-      "community_name": "executive.js",
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "agentperformancehub.jsx"
     },
     {
@@ -13200,7 +13222,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_agentperformancehub_stages",
       "community": 13,
-      "community_name": "executive.js",
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "stages"
     },
     {
@@ -13211,7 +13233,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_agentperformancehub_sourcelabel",
       "community": 13,
-      "community_name": "executive.js",
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "sourcelabel()"
     },
     {
@@ -13222,7 +13244,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_agentperformancehub_agentperformancehub",
       "community": 13,
-      "community_name": "executive.js",
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "agentperformancehub()"
     },
     {
@@ -13232,8 +13254,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_executive_businessassetlist",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "businessassetlist.jsx"
     },
     {
@@ -13243,8 +13265,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "frontend_src_components_executive_businessassetlist_businessassetlist",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "businessassetlist()"
     },
     {
@@ -13255,7 +13277,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer",
       "community": 139,
-      "community_name": "relativeTime",
+      "community_name": "DeepDiveDrawer.jsx",
       "norm_label": "deepdivedrawer.jsx"
     },
     {
@@ -13266,7 +13288,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_impacttone",
       "community": 139,
-      "community_name": "relativeTime",
+      "community_name": "DeepDiveDrawer.jsx",
       "norm_label": "impacttone()"
     },
     {
@@ -13277,7 +13299,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_impactof",
       "community": 139,
-      "community_name": "relativeTime",
+      "community_name": "DeepDiveDrawer.jsx",
       "norm_label": "impactof()"
     },
     {
@@ -13288,7 +13310,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_drawercopy",
       "community": 139,
-      "community_name": "relativeTime",
+      "community_name": "DeepDiveDrawer.jsx",
       "norm_label": "drawercopy()"
     },
     {
@@ -13299,7 +13321,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_risksummary",
       "community": 139,
-      "community_name": "relativeTime",
+      "community_name": "DeepDiveDrawer.jsx",
       "norm_label": "risksummary()"
     },
     {
@@ -13310,7 +13332,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_metricbrief",
       "community": 139,
-      "community_name": "relativeTime",
+      "community_name": "DeepDiveDrawer.jsx",
       "norm_label": "metricbrief()"
     },
     {
@@ -13321,7 +13343,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_riskdirectory",
       "community": 139,
-      "community_name": "relativeTime",
+      "community_name": "DeepDiveDrawer.jsx",
       "norm_label": "riskdirectory()"
     },
     {
@@ -13332,7 +13354,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_incidentbrief",
       "community": 139,
-      "community_name": "relativeTime",
+      "community_name": "DeepDiveDrawer.jsx",
       "norm_label": "incidentbrief()"
     },
     {
@@ -13343,7 +13365,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_assetbrief",
       "community": 139,
-      "community_name": "relativeTime",
+      "community_name": "DeepDiveDrawer.jsx",
       "norm_label": "assetbrief()"
     },
     {
@@ -13354,7 +13376,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_deepdivedrawer",
       "community": 139,
-      "community_name": "relativeTime",
+      "community_name": "DeepDiveDrawer.jsx",
       "norm_label": "deepdivedrawer()"
     },
     {
@@ -13596,7 +13618,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_button",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "button.jsx"
     },
     {
@@ -13607,7 +13629,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_button_button",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "button()"
     },
     {
@@ -13618,7 +13640,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_card",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "card.jsx"
     },
     {
@@ -13629,8 +13651,41 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_card_card",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "card()"
+    },
+    {
+      "label": "ConfidenceGauge.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/components/ui/ConfidenceGauge.jsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "frontend_src_components_ui_confidencegauge",
+      "community": 35,
+      "community_name": "Alerts.jsx",
+      "norm_label": "confidencegauge.jsx"
+    },
+    {
+      "label": "clamp()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/ui/ConfidenceGauge.jsx",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "frontend_src_components_ui_confidencegauge_clamp",
+      "community": 35,
+      "community_name": "Alerts.jsx",
+      "norm_label": "clamp()"
+    },
+    {
+      "label": "ConfidenceGauge()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/ui/ConfidenceGauge.jsx",
+      "source_location": "L8",
+      "_origin": "ast",
+      "id": "frontend_src_components_ui_confidencegauge_confidencegauge",
+      "community": 35,
+      "community_name": "Alerts.jsx",
+      "norm_label": "confidencegauge()"
     },
     {
       "label": "EmptyState.jsx",
@@ -13640,7 +13695,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_emptystate",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "emptystate.jsx"
     },
     {
@@ -13651,7 +13706,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_emptystate_emptystate",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "emptystate()"
     },
     {
@@ -13661,8 +13716,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_ui_headerstatuschip",
-      "community": 35,
-      "community_name": "cx",
+      "community": 12,
+      "community_name": "App.jsx",
       "norm_label": "headerstatuschip.jsx"
     },
     {
@@ -13672,8 +13727,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "frontend_src_components_ui_headerstatuschip_headerstatuschip",
-      "community": 35,
-      "community_name": "cx",
+      "community": 12,
+      "community_name": "App.jsx",
       "norm_label": "headerstatuschip()"
     },
     {
@@ -13684,7 +13739,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_kpitile",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "kpitile.jsx"
     },
     {
@@ -13695,7 +13750,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_kpitile_usecountup",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "usecountup()"
     },
     {
@@ -13706,7 +13761,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_kpitile_sparkline",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "sparkline()"
     },
     {
@@ -13717,7 +13772,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_kpitile_kpitile",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "kpitile()"
     },
     {
@@ -13728,7 +13783,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_liveindicator",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "liveindicator.jsx"
     },
     {
@@ -13739,7 +13794,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_liveindicator_liveindicator",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "liveindicator()"
     },
     {
@@ -13750,7 +13805,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_segmentedcontrol",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "segmentedcontrol.jsx"
     },
     {
@@ -13761,7 +13816,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_segmentedcontrol_segmentedcontrol",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "segmentedcontrol()"
     },
     {
@@ -13772,7 +13827,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_select",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "select.jsx"
     },
     {
@@ -13783,7 +13838,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_select_select",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "select()"
     },
     {
@@ -13794,7 +13849,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_severitybadge",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "severitybadge.jsx"
     },
     {
@@ -13805,7 +13860,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_severitybadge_levels",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "levels"
     },
     {
@@ -13816,7 +13871,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_severitybadge_severitybadge",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "severitybadge()"
     },
     {
@@ -13827,7 +13882,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_skeletonloader",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "skeletonloader.jsx"
     },
     {
@@ -13838,7 +13893,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_skeletonloader_skeletonloader",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "skeletonloader()"
     },
     {
@@ -13849,7 +13904,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_statuschip",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "statuschip.jsx"
     },
     {
@@ -13860,7 +13915,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_statuschip_statuschip",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "statuschip()"
     },
     {
@@ -13871,7 +13926,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_timeline",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "timeline.jsx"
     },
     {
@@ -13882,8 +13937,30 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_timeline_timeline",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "timeline()"
+    },
+    {
+      "label": "UnderlineTabs.jsx",
+      "file_type": "code",
+      "source_file": "frontend/src/components/ui/UnderlineTabs.jsx",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "frontend_src_components_ui_underlinetabs",
+      "community": 35,
+      "community_name": "Alerts.jsx",
+      "norm_label": "underlinetabs.jsx"
+    },
+    {
+      "label": "UnderlineTabs()",
+      "file_type": "code",
+      "source_file": "frontend/src/components/ui/UnderlineTabs.jsx",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "frontend_src_components_ui_underlinetabs_underlinetabs",
+      "community": 35,
+      "community_name": "Alerts.jsx",
+      "norm_label": "underlinetabs()"
     },
     {
       "label": "ui/index.js",
@@ -13893,7 +13970,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_index",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "ui/index.js"
     },
     {
@@ -13904,7 +13981,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_ui_test",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "ui.test.jsx"
     },
     {
@@ -13915,7 +13992,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_utils",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "utils.js"
     },
     {
@@ -13926,7 +14003,7 @@
       "_origin": "ast",
       "id": "frontend_src_components_ui_utils_cx",
       "community": 35,
-      "community_name": "cx",
+      "community_name": "Alerts.jsx",
       "norm_label": "cx()"
     },
     {
@@ -14002,8 +14079,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "analyst.js"
     },
     {
@@ -14013,8 +14090,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_alert_view_storage_key",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "alert_view_storage_key"
     },
     {
@@ -14024,8 +14101,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_default_alert_filters",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "default_alert_filters"
     },
     {
@@ -14035,8 +14112,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_valid_severities",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "valid_severities"
     },
     {
@@ -14046,8 +14123,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_valid_triage_states",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "valid_triage_states"
     },
     {
@@ -14057,8 +14134,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_valid_time_ranges",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "valid_time_ranges"
     },
     {
@@ -14068,8 +14145,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_text",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "text()"
     },
     {
@@ -14079,8 +14156,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_sanitizefilters",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "sanitizefilters()"
     },
     {
@@ -14090,8 +14167,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_readbrowseralertview",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "readbrowseralertview()"
     },
     {
@@ -14101,8 +14178,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_createinitialalertview",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "createinitialalertview()"
     },
     {
@@ -14112,8 +14189,8 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_writebrowseralertview",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "writebrowseralertview()"
     },
     {
@@ -14123,8 +14200,8 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_normalizecitations",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "normalizecitations()"
     },
     {
@@ -14134,8 +14211,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_normalizetextlist",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "normalizetextlist()"
     },
     {
@@ -14145,8 +14222,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_test",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "analyst.test.js"
     },
     {
@@ -14156,8 +14233,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "frontend_src_lib_analyst_test_memorystorage",
-      "community": 7,
-      "community_name": "analyst.js",
+      "community": 35,
+      "community_name": "Alerts.jsx",
       "norm_label": "memorystorage()"
     },
     {
@@ -14167,7 +14244,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_lib_api",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "api.js"
     },
@@ -14178,7 +14255,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "frontend_src_lib_api_setcsrftoken",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "setcsrftoken()"
     },
@@ -14189,7 +14266,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "frontend_src_lib_api_api",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "api()"
     },
@@ -14200,7 +14277,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "frontend_src_lib_api_apistream",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "apistream()"
     },
@@ -14211,8 +14288,8 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "frontend_src_lib_api_sevclass",
-      "community": 11,
-      "community_name": "api",
+      "community": 19,
+      "community_name": "activityTitle",
       "norm_label": "sevclass()"
     },
     {
@@ -14222,7 +14299,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "frontend_src_lib_api_verdictclass",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "verdictclass()"
     },
@@ -14233,8 +14310,8 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "frontend_src_lib_api_verdictlabel",
-      "community": 85,
-      "community_name": "Alerts.jsx",
+      "community": 19,
+      "community_name": "activityTitle",
       "norm_label": "verdictlabel()"
     },
     {
@@ -14244,7 +14321,7 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "frontend_src_lib_api_statusclass",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "statusclass()"
     },
@@ -14255,7 +14332,7 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "frontend_src_lib_api_fmtts",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "fmtts()"
     },
@@ -14277,7 +14354,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_lib_api_test",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "api.test.js"
     },
@@ -14288,7 +14365,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_lib_executive",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "executive.js"
     },
@@ -14299,7 +14376,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_generic_detection_names",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "generic_detection_names"
     },
@@ -14310,7 +14387,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_action_labels",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "action_labels"
     },
@@ -14321,8 +14398,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_asnumber",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "asnumber()"
     },
     {
@@ -14332,8 +14409,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_severityof",
-      "community": 51,
-      "community_name": "Incidents.jsx",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "severityof()"
     },
     {
@@ -14343,8 +14420,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_humanize",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "humanize()"
     },
     {
@@ -14354,7 +14431,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_stablehash",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "stablehash()"
     },
@@ -14365,7 +14442,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_displayreference",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "displayreference()"
     },
@@ -14387,7 +14464,7 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_investigationreference",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "investigationreference()"
     },
@@ -14398,7 +14475,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_casereference",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "casereference()"
     },
@@ -14409,7 +14486,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_actionreference",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "actionreference()"
     },
@@ -14420,7 +14497,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_friendlyevidencetext",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "friendlyevidencetext()"
     },
@@ -14431,7 +14508,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_isgenerictitle",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "isgenerictitle()"
     },
@@ -14442,7 +14519,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_mappedactionlabel",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "mappedactionlabel()"
     },
@@ -14464,8 +14541,8 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_businessassetlabel",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "businessassetlabel()"
     },
     {
@@ -14475,8 +14552,8 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_businessassettype",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "businessassettype()"
     },
     {
@@ -14487,7 +14564,7 @@
       "_origin": "ast",
       "id": "frontend_src_lib_executive_affectedentity",
       "community": 13,
-      "community_name": "executive.js",
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "affectedentity()"
     },
     {
@@ -14497,7 +14574,7 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_impacttone",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "impacttone()"
     },
@@ -14509,7 +14586,7 @@
       "_origin": "ast",
       "id": "frontend_src_lib_executive_operationwin",
       "community": 13,
-      "community_name": "executive.js",
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "operationwin()"
     },
     {
@@ -14520,7 +14597,7 @@
       "_origin": "ast",
       "id": "frontend_src_lib_executive_pipelinestate",
       "community": 13,
-      "community_name": "executive.js",
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "pipelinestate()"
     },
     {
@@ -14531,7 +14608,7 @@
       "_origin": "ast",
       "id": "frontend_src_lib_executive_test",
       "community": 13,
-      "community_name": "executive.js",
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "executive.test.js"
     },
     {
@@ -14640,8 +14717,8 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "frontend_src_lib_roles_getrolenavigation",
-      "community": 29,
-      "community_name": "roles.js",
+      "community": 85,
+      "community_name": "RoleAwareSidebar.jsx",
       "norm_label": "getrolenavigation()"
     },
     {
@@ -14717,8 +14794,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "frontend_src_lib_soc_relativetime",
-      "community": 139,
-      "community_name": "relativeTime",
+      "community": 19,
+      "community_name": "activityTitle",
       "norm_label": "relativetime()"
     },
     {
@@ -15014,7 +15091,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_alerts",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "alerts.jsx"
     },
@@ -15022,10 +15099,10 @@
       "label": "json()",
       "file_type": "code",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L16",
+      "source_location": "L19",
       "_origin": "ast",
       "id": "frontend_src_pages_alerts_json",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "json()"
     },
@@ -15033,10 +15110,10 @@
       "label": "sourceSeverity()",
       "file_type": "code",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L22",
+      "source_location": "L25",
       "_origin": "ast",
       "id": "frontend_src_pages_alerts_sourceseverity",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "sourceseverity()"
     },
@@ -15044,10 +15121,10 @@
       "label": "shortId()",
       "file_type": "code",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L26",
+      "source_location": "L29",
       "_origin": "ast",
       "id": "frontend_src_pages_alerts_shortid",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "shortid()"
     },
@@ -15055,21 +15132,32 @@
       "label": "entity()",
       "file_type": "code",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L30",
+      "source_location": "L33",
       "_origin": "ast",
       "id": "frontend_src_pages_alerts_entity",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "entity()"
+    },
+    {
+      "label": "sourceLabel()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L37",
+      "_origin": "ast",
+      "id": "frontend_src_pages_alerts_sourcelabel",
+      "community": 35,
+      "community_name": "Alerts.jsx",
+      "norm_label": "sourcelabel()"
     },
     {
       "label": "timeOnly()",
       "file_type": "code",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L34",
+      "source_location": "L42",
       "_origin": "ast",
       "id": "frontend_src_pages_alerts_timeonly",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "timeonly()"
     },
@@ -15077,32 +15165,21 @@
       "label": "readableRuleReference()",
       "file_type": "code",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L39",
+      "source_location": "L47",
       "_origin": "ast",
       "id": "frontend_src_pages_alerts_readablerulereference",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "readablerulereference()"
-    },
-    {
-      "label": "SourceBadge()",
-      "file_type": "code",
-      "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L45",
-      "_origin": "ast",
-      "id": "frontend_src_pages_alerts_sourcebadge",
-      "community": 85,
-      "community_name": "Alerts.jsx",
-      "norm_label": "sourcebadge()"
     },
     {
       "label": "StructuredEvent()",
       "file_type": "code",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L50",
+      "source_location": "L53",
       "_origin": "ast",
       "id": "frontend_src_pages_alerts_structuredevent",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "structuredevent()"
     },
@@ -15110,10 +15187,10 @@
       "label": "AlertDetail()",
       "file_type": "code",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L91",
+      "source_location": "L94",
       "_origin": "ast",
       "id": "frontend_src_pages_alerts_alertdetail",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "alertdetail()"
     },
@@ -15121,10 +15198,10 @@
       "label": "Alerts()",
       "file_type": "code",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L177",
+      "source_location": "L189",
       "_origin": "ast",
       "id": "frontend_src_pages_alerts_alerts",
-      "community": 85,
+      "community": 35,
       "community_name": "Alerts.jsx",
       "norm_label": "alerts()"
     },
@@ -15135,7 +15212,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_approvals",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "approvals.jsx"
     },
@@ -15146,7 +15223,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "frontend_src_pages_approvals_labels",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "labels"
     },
@@ -15157,7 +15234,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "frontend_src_pages_approvals_statustone",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "statustone()"
     },
@@ -15168,7 +15245,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "frontend_src_pages_approvals_statuslabel",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "statuslabel()"
     },
@@ -15179,7 +15256,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "frontend_src_pages_approvals_approvals",
-      "community": 13,
+      "community": 11,
       "community_name": "executive.js",
       "norm_label": "approvals()"
     },
@@ -15223,8 +15300,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_auditgovernance",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "auditgovernance.jsx"
     },
     {
@@ -15234,8 +15311,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "frontend_src_pages_auditgovernance_empty_filters",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "empty_filters"
     },
     {
@@ -15245,8 +15322,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "frontend_src_pages_auditgovernance_outcomes",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "outcomes"
     },
     {
@@ -15256,8 +15333,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "frontend_src_pages_auditgovernance_timestamp",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "timestamp()"
     },
     {
@@ -15267,8 +15344,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_src_pages_auditgovernance_outcometone",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "outcometone()"
     },
     {
@@ -15278,8 +15355,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "frontend_src_pages_auditgovernance_metadatatext",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "metadatatext()"
     },
     {
@@ -15289,8 +15366,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_src_pages_auditgovernance_auditgovernance",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "auditgovernance()"
     },
     {
@@ -15301,7 +15378,7 @@
       "_origin": "ast",
       "id": "frontend_src_pages_cases",
       "community": 11,
-      "community_name": "api",
+      "community_name": "executive.js",
       "norm_label": "cases.jsx"
     },
     {
@@ -15312,7 +15389,7 @@
       "_origin": "ast",
       "id": "frontend_src_pages_cases_cases",
       "community": 11,
-      "community_name": "api",
+      "community_name": "executive.js",
       "norm_label": "cases()"
     },
     {
@@ -15531,8 +15608,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_dataretention",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "dataretention.jsx"
     },
     {
@@ -15542,8 +15619,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "frontend_src_pages_dataretention_timestamp",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "timestamp()"
     },
     {
@@ -15553,8 +15630,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_src_pages_dataretention_count",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "count()"
     },
     {
@@ -15564,8 +15641,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "frontend_src_pages_dataretention_countstrip",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "countstrip()"
     },
     {
@@ -15575,8 +15652,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "frontend_src_pages_dataretention_dataretention",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "dataretention()"
     },
     {
@@ -15718,7 +15795,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_integrations",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "integrations.jsx"
     },
@@ -15729,7 +15806,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "frontend_src_pages_integrations_connectorstate",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "connectorstate()"
     },
@@ -15740,7 +15817,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "frontend_src_pages_integrations_connectioncard",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "connectioncard()"
     },
@@ -15751,7 +15828,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "frontend_src_pages_integrations_integrations",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "integrations()"
     },
@@ -15762,8 +15839,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_investigations",
-      "community": 13,
-      "community_name": "executive.js",
+      "community": 19,
+      "community_name": "activityTitle",
       "norm_label": "investigations.jsx"
     },
     {
@@ -15773,8 +15850,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "frontend_src_pages_investigations_investigations",
-      "community": 13,
-      "community_name": "executive.js",
+      "community": 19,
+      "community_name": "activityTitle",
       "norm_label": "investigations()"
     },
     {
@@ -15784,151 +15861,162 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "livemonitoring.jsx"
-    },
-    {
-      "label": "SEVERITY_STYLES",
-      "file_type": "code",
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L12",
-      "_origin": "ast",
-      "id": "frontend_src_pages_livemonitoring_severity_styles",
-      "community": 26,
-      "community_name": "humanize",
-      "norm_label": "severity_styles"
     },
     {
       "label": "TIME_RANGES",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L19",
+      "source_location": "L18",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring_time_ranges",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "time_ranges"
     },
     {
       "label": "activityId()",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L25",
+      "source_location": "L24",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring_activityid",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "activityid()"
     },
     {
       "label": "representativeId()",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L29",
+      "source_location": "L28",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring_representativeid",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "representativeid()"
     },
     {
       "label": "activityTimestamp()",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L33",
+      "source_location": "L32",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring_activitytimestamp",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "activitytimestamp()"
     },
     {
       "label": "activitySignature()",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L37",
+      "source_location": "L36",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring_activitysignature",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "activitysignature()"
     },
     {
       "label": "sourceLabel()",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L41",
+      "source_location": "L40",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring_sourcelabel",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "sourcelabel()"
+    },
+    {
+      "label": "datasetLabel()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L44",
+      "_origin": "ast",
+      "id": "frontend_src_pages_livemonitoring_datasetlabel",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
+      "norm_label": "datasetlabel()"
     },
     {
       "label": "formatTimestamp()",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L45",
+      "source_location": "L48",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring_formattimestamp",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "formattimestamp()"
+    },
+    {
+      "label": "relativeTimestamp()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L57",
+      "_origin": "ast",
+      "id": "frontend_src_pages_livemonitoring_relativetimestamp",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
+      "norm_label": "relativetimestamp()"
+    },
+    {
+      "label": "aiState()",
+      "file_type": "code",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L68",
+      "_origin": "ast",
+      "id": "frontend_src_pages_livemonitoring_aistate",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
+      "norm_label": "aistate()"
     },
     {
       "label": "buildSignatureMap()",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L54",
+      "source_location": "L83",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring_buildsignaturemap",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "buildsignaturemap()"
     },
     {
       "label": "LiveMonitoring()",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L58",
+      "source_location": "L87",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring_livemonitoring",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "livemonitoring()"
     },
     {
-      "label": "ActivityCard()",
+      "label": "ActivityItem()",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L486",
+      "source_location": "L390",
       "_origin": "ast",
-      "id": "frontend_src_pages_livemonitoring_activitycard",
-      "community": 26,
-      "community_name": "humanize",
-      "norm_label": "activitycard()"
-    },
-    {
-      "label": "ActivityRows()",
-      "file_type": "code",
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L503",
-      "_origin": "ast",
-      "id": "frontend_src_pages_livemonitoring_activityrows",
-      "community": 26,
-      "community_name": "humanize",
-      "norm_label": "activityrows()"
+      "id": "frontend_src_pages_livemonitoring_activityitem",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
+      "norm_label": "activityitem()"
     },
     {
       "label": "Detail()",
       "file_type": "code",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L580",
+      "source_location": "L462",
       "_origin": "ast",
       "id": "frontend_src_pages_livemonitoring_detail",
-      "community": 26,
-      "community_name": "humanize",
+      "community": 13,
+      "community_name": "LiveMonitoring.jsx",
       "norm_label": "detail()"
     },
     {
@@ -15938,7 +16026,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_pivot",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "pivot.jsx"
     },
@@ -15949,7 +16037,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "frontend_src_pages_pivot_pivot",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "pivot()"
     },
@@ -16015,7 +16103,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_responses",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "responses.jsx"
     },
@@ -16026,7 +16114,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "frontend_src_pages_responses_type_meta",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "type_meta"
     },
@@ -16037,7 +16125,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "frontend_src_pages_responses_unknown_type_meta",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "unknown_type_meta"
     },
@@ -16048,7 +16136,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "frontend_src_pages_responses_statelabel",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "statelabel()"
     },
@@ -16059,7 +16147,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "frontend_src_pages_responses_detailloading",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "detailloading()"
     },
@@ -16070,7 +16158,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "frontend_src_pages_responses_responses",
-      "community": 11,
+      "community": 188,
       "community_name": "api",
       "norm_label": "responses()"
     },
@@ -16159,7 +16247,7 @@
       "_origin": "ast",
       "id": "frontend_src_pages_settings",
       "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community_name": "api",
       "norm_label": "settings.jsx"
     },
     {
@@ -16170,7 +16258,7 @@
       "_origin": "ast",
       "id": "frontend_src_pages_settings_yesno",
       "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community_name": "api",
       "norm_label": "yesno()"
     },
     {
@@ -16181,7 +16269,7 @@
       "_origin": "ast",
       "id": "frontend_src_pages_settings_boundary",
       "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community_name": "api",
       "norm_label": "boundary()"
     },
     {
@@ -16192,7 +16280,7 @@
       "_origin": "ast",
       "id": "frontend_src_pages_settings_settings",
       "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community_name": "api",
       "norm_label": "settings()"
     },
     {
@@ -16235,8 +16323,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_usersaccess",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "usersaccess.jsx"
     },
     {
@@ -16246,8 +16334,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "frontend_src_pages_usersaccess_role_options",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "role_options"
     },
     {
@@ -16257,8 +16345,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_src_pages_usersaccess_timestamp",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "timestamp()"
     },
     {
@@ -16268,8 +16356,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "frontend_src_pages_usersaccess_rolelabel",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "rolelabel()"
     },
     {
@@ -16279,8 +16367,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "frontend_src_pages_usersaccess_initialform",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "initialform()"
     },
     {
@@ -16290,8 +16378,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "frontend_src_pages_usersaccess_usersaccess",
-      "community": 188,
-      "community_name": "ConnectorManager.jsx",
+      "community": 1,
+      "community_name": "AIConfiguration.jsx",
       "norm_label": "usersaccess()"
     },
     {
@@ -16697,8 +16785,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "generators_common_inventory",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "common_inventory.py"
     },
     {
@@ -16708,8 +16796,8 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "generators_common_inventory_laptop",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "laptop()"
     },
     {
@@ -16719,8 +16807,8 @@
       "source_location": "L204",
       "_origin": "ast",
       "id": "generators_common_inventory_mobile",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "mobile()"
     },
     {
@@ -16774,8 +16862,8 @@
       "source_location": "L2282",
       "_origin": "ast",
       "id": "generators_common_inventory_server_host_doc",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "server_host_doc()"
     },
     {
@@ -16785,8 +16873,8 @@
       "source_location": "L2317",
       "_origin": "ast",
       "id": "generators_common_inventory_workstation_host_doc",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "workstation_host_doc()"
     },
     {
@@ -16796,8 +16884,8 @@
       "source_location": "L2345",
       "_origin": "ast",
       "id": "generators_common_inventory_related_for_user_host",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "related_for_user_host()"
     },
     {
@@ -17808,8 +17896,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "generators_scenario_engine",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "scenario_engine.py"
     },
     {
@@ -17830,8 +17918,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "generators_scenario_engine_iso",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "_iso()"
     },
     {
@@ -17841,8 +17929,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "generators_scenario_engine_correlate",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "_correlate()"
     },
     {
@@ -17852,8 +17940,8 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "generators_scenario_engine_record",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "_record()"
     },
     {
@@ -17863,8 +17951,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "generators_scenario_engine_policy_record",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "_policy_record()"
     },
     {
@@ -17896,8 +17984,8 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "generators_scenario_engine_rationale_56",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "apply common pivots while preserving every source builder's schema."
     },
     {
@@ -18160,8 +18248,8 @@
       "source_location": "L255",
       "_origin": "ast",
       "id": "generators_simulation_engine_normal_events_required",
-      "community": 0,
-      "community_name": "enrich_event_evidence",
+      "community": 14,
+      "community_name": "simulation_engine.py",
       "norm_label": "normal_events_required()"
     },
     {
@@ -18270,8 +18358,8 @@
       "source_location": "L256",
       "_origin": "ast",
       "id": "generators_simulation_engine_rationale_256",
-      "community": 0,
-      "community_name": "enrich_event_evidence",
+      "community": 14,
+      "community_name": "simulation_engine.py",
       "norm_label": "return the padding needed to keep a finite scenario at ``target_ratio``. the..."
     },
     {
@@ -18292,8 +18380,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "generators_test_generators",
-      "community": 18,
-      "community_name": "ad_generator.py",
+      "community": 49,
+      "community_name": "common_inventory.py",
       "norm_label": "test_generators.py"
     },
     {
@@ -20569,8 +20657,8 @@
       "source_location": "L377",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_phase_7_add_controlled_ai_workflow_actions",
-      "community": 137,
-      "community_name": "Phase 7 - Add controlled AI workflow actions",
+      "community": 92,
+      "community_name": "7. Phase-by-phase evolution",
       "norm_label": "phase 7 - add controlled ai workflow actions"
     },
     {
@@ -20580,8 +20668,8 @@
       "source_location": "L379",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_problem_379",
-      "community": 137,
-      "community_name": "Phase 7 - Add controlled AI workflow actions",
+      "community": 92,
+      "community_name": "7. Phase-by-phase evolution",
       "norm_label": "problem"
     },
     {
@@ -20591,8 +20679,8 @@
       "source_location": "L383",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_what_the_phase_did_383",
-      "community": 137,
-      "community_name": "Phase 7 - Add controlled AI workflow actions",
+      "community": 92,
+      "community_name": "7. Phase-by-phase evolution",
       "norm_label": "what the phase did"
     },
     {
@@ -20602,8 +20690,8 @@
       "source_location": "L391",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_why_it_mattered_391",
-      "community": 137,
-      "community_name": "Phase 7 - Add controlled AI workflow actions",
+      "community": 92,
+      "community_name": "7. Phase-by-phase evolution",
       "norm_label": "why it mattered"
     },
     {
@@ -20657,8 +20745,8 @@
       "source_location": "L417",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_phase_9_add_approval_gated_response_simulation",
-      "community": 92,
-      "community_name": "7. Phase-by-phase evolution",
+      "community": 68,
+      "community_name": "Phase 9 - Add approval-gated response simulation",
       "norm_label": "phase 9 - add approval-gated response simulation"
     },
     {
@@ -20668,8 +20756,8 @@
       "source_location": "L419",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_problem_419",
-      "community": 92,
-      "community_name": "7. Phase-by-phase evolution",
+      "community": 68,
+      "community_name": "Phase 9 - Add approval-gated response simulation",
       "norm_label": "problem"
     },
     {
@@ -20679,8 +20767,8 @@
       "source_location": "L423",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_what_the_phase_did_423",
-      "community": 92,
-      "community_name": "7. Phase-by-phase evolution",
+      "community": 68,
+      "community_name": "Phase 9 - Add approval-gated response simulation",
       "norm_label": "what the phase did"
     },
     {
@@ -20690,8 +20778,8 @@
       "source_location": "L431",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_why_it_mattered_431",
-      "community": 92,
-      "community_name": "7. Phase-by-phase evolution",
+      "community": 68,
+      "community_name": "Phase 9 - Add approval-gated response simulation",
       "norm_label": "why it mattered"
     },
     {
@@ -48080,7 +48168,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
-      "source_location": "L15",
+      "source_location": "L16",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_analystdecisionreview",
@@ -48091,7 +48179,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
-      "source_location": "L11",
+      "source_location": "L12",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_analystdecisionreview",
@@ -48102,11 +48190,47 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
-      "source_location": "L5",
+      "source_location": "L6",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_analystdecisionreview",
       "target": "frontend_src_components_analystdecisionreview_options",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_analystdecisionreview",
+      "target": "frontend_src_components_ui_button_button",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_analystdecisionreview",
+      "target": "frontend_src_components_ui_index",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_analystdecisionreview",
+      "target": "frontend_src_components_ui_statuschip_statuschip",
       "confidence_score": 1.0
     },
     {
@@ -48150,7 +48274,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L13",
+      "source_location": "L12",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -48175,7 +48299,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_analystdecisionreview_decisionlabel",
@@ -48186,7 +48310,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
-      "source_location": "L54",
+      "source_location": "L61",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_analystdecisionreview_analystdecisionreview",
@@ -48199,7 +48323,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/components/AnalystDecisionReview.jsx",
-      "source_location": "L58",
+      "source_location": "L65",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_analystdecisionreview_analystdecisionreview",
@@ -48210,7 +48334,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L13",
+      "source_location": "L12",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -48578,7 +48702,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L14",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -48638,7 +48762,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L14",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -49163,36 +49287,12 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L11",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_alerts",
-      "target": "frontend_src_components_infotip",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Incidents.jsx",
       "source_location": "L11",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_incidents",
       "target": "frontend_src_components_infotip",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L11",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_alerts",
-      "target": "frontend_src_components_infotip_infotip",
       "confidence_score": 1.0
     },
     {
@@ -49588,7 +49688,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L54",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace",
@@ -49599,7 +49699,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L46",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace",
@@ -49610,7 +49710,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L59",
+      "source_location": "L66",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace",
+      "target": "frontend_src_components_triagedecisiontrace_displayvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace",
@@ -49621,7 +49732,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace",
@@ -49632,7 +49743,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L25",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace",
@@ -49643,18 +49754,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L110",
+      "source_location": "L72",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace",
-      "target": "frontend_src_components_triagedecisiontrace_stagedetails",
+      "target": "frontend_src_components_triagedecisiontrace_recordeddetails",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L7",
+      "source_location": "L8",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace",
@@ -49665,7 +49776,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L16",
+      "source_location": "L17",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace",
@@ -49676,7 +49787,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L65",
+      "source_location": "L98",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace",
+      "target": "frontend_src_components_triagedecisiontrace_traceitems",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L117",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace",
@@ -49687,11 +49809,83 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L142",
+      "source_location": "L157",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace",
       "target": "frontend_src_components_triagedecisiontrace_triageworkflow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace",
+      "target": "frontend_src_components_ui_button_button",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace",
+      "target": "frontend_src_components_ui_emptystate_emptystate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace",
+      "target": "frontend_src_components_ui_index",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace",
+      "target": "frontend_src_components_ui_skeletonloader_skeletonloader",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace",
+      "target": "frontend_src_components_ui_statuschip_statuschip",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace",
+      "target": "frontend_src_components_ui_timeline_timeline",
       "confidence_score": 1.0
     },
     {
@@ -49735,7 +49929,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L12",
+      "source_location": "L11",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -49747,10 +49941,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L111",
+      "source_location": "L73",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_components_triagedecisiontrace_stagedetails",
+      "source": "frontend_src_components_triagedecisiontrace_recordeddetails",
       "target": "frontend_src_components_triagedecisiontrace_object",
       "confidence_score": 1.0
     },
@@ -49759,7 +49953,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L68",
+      "source_location": "L120",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace_triagedecisionsummary",
@@ -49771,10 +49965,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L122",
+      "source_location": "L79",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_components_triagedecisiontrace_stagedetails",
+      "source": "frontend_src_components_triagedecisiontrace_recordeddetails",
       "target": "frontend_src_components_triagedecisiontrace_displayexecutor",
       "confidence_score": 1.0
     },
@@ -49783,7 +49977,19 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L92",
+      "source_location": "L109",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace_traceitems",
+      "target": "frontend_src_components_triagedecisiontrace_displayexecutor",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace_triagedecisionsummary",
@@ -49795,10 +50001,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L126",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_components_triagedecisiontrace_stagedetails",
+      "source": "frontend_src_components_triagedecisiontrace_recordeddetails",
       "target": "frontend_src_components_triagedecisiontrace_confidence",
       "confidence_score": 1.0
     },
@@ -49807,7 +50013,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L91",
+      "source_location": "L140",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace_triagedecisionsummary",
@@ -49819,7 +50025,19 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L144",
+      "source_location": "L99",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace_traceitems",
+      "target": "frontend_src_components_triagedecisiontrace_latestbystage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L159",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace_triageworkflow",
@@ -49830,9 +50048,45 @@
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L88",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace_recordeddetails",
+      "target": "frontend_src_components_triagedecisiontrace_displayvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L84",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace_recordeddetails",
+      "target": "frontend_src_lib_api_fmtts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
+      "source_location": "L122",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_triagedecisiontrace_triagedecisionsummary",
+      "target": "frontend_src_components_triagedecisiontrace_traceitems",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L90",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_triagedecisiontrace_triagedecisionsummary",
@@ -49843,7 +50097,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L12",
+      "source_location": "L11",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -49851,23 +50105,11 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/components/TriageDecisionTrace.jsx",
-      "source_location": "L127",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_components_triagedecisiontrace_stagedetails",
-      "target": "frontend_src_lib_api_fmtts",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L12",
+      "source_location": "L11",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -51150,6 +51392,30 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts",
+      "target": "frontend_src_components_ui_button_button",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_components_ui_button_button",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/Card.jsx",
@@ -51247,6 +51513,112 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/ConfidenceGauge.jsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_confidencegauge",
+      "target": "frontend_src_components_ui_confidencegauge_clamp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/ConfidenceGauge.jsx",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_confidencegauge",
+      "target": "frontend_src_components_ui_confidencegauge_confidencegauge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/ConfidenceGauge.jsx",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_confidencegauge",
+      "target": "frontend_src_components_ui_utils",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/ConfidenceGauge.jsx",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_confidencegauge",
+      "target": "frontend_src_components_ui_utils_cx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "re_exports",
+      "context": "export",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/index.js",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_index",
+      "target": "frontend_src_components_ui_confidencegauge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/ConfidenceGauge.jsx",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_confidencegauge_confidencegauge",
+      "target": "frontend_src_components_ui_confidencegauge_clamp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/src/components/ui/ConfidenceGauge.jsx",
+      "source_location": "L17",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_confidencegauge_confidencegauge",
+      "target": "frontend_src_components_ui_utils_cx"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/ui.test.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_ui_test",
+      "target": "frontend_src_components_ui_confidencegauge_confidencegauge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts",
+      "target": "frontend_src_components_ui_confidencegauge_confidencegauge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/EmptyState.jsx",
       "source_location": "L1",
       "weight": 1.0,
@@ -51260,7 +51632,7 @@
       "context": "export",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/index.js",
-      "source_location": "L3",
+      "source_location": "L4",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_index",
@@ -51280,6 +51652,30 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts",
+      "target": "frontend_src_components_ui_emptystate_emptystate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_components_ui_emptystate_emptystate",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/HeaderStatusChip.jsx",
@@ -51295,7 +51691,7 @@
       "context": "export",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/index.js",
-      "source_location": "L4",
+      "source_location": "L5",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_index",
@@ -51307,7 +51703,7 @@
       "context": "export",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/index.js",
-      "source_location": "L5",
+      "source_location": "L6",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_index",
@@ -51400,7 +51796,7 @@
       "context": "export",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/index.js",
-      "source_location": "L6",
+      "source_location": "L7",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_index",
@@ -51431,11 +51827,23 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_components_ui_liveindicator_liveindicator",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "re_exports",
       "context": "export",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/index.js",
-      "source_location": "L7",
+      "source_location": "L8",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_index",
@@ -51502,11 +51910,35 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts",
+      "target": "frontend_src_components_ui_segmentedcontrol_segmentedcontrol",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_components_ui_segmentedcontrol_segmentedcontrol",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "re_exports",
       "context": "export",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/index.js",
-      "source_location": "L8",
+      "source_location": "L9",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_index",
@@ -51561,11 +51993,35 @@
       "target": "frontend_src_components_ui_utils_cx"
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts",
+      "target": "frontend_src_components_ui_select_select",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_components_ui_select_select",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "re_exports",
       "context": "export",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/index.js",
-      "source_location": "L9",
+      "source_location": "L10",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_index",
@@ -51655,11 +52111,35 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts",
+      "target": "frontend_src_components_ui_severitybadge_severitybadge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_components_ui_severitybadge_severitybadge",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "re_exports",
       "context": "export",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/index.js",
-      "source_location": "L10",
+      "source_location": "L11",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_index",
@@ -51726,11 +52206,35 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts",
+      "target": "frontend_src_components_ui_skeletonloader_skeletonloader",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_components_ui_skeletonloader_skeletonloader",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "re_exports",
       "context": "export",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/index.js",
-      "source_location": "L11",
+      "source_location": "L12",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_index",
@@ -51797,11 +52301,35 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts",
+      "target": "frontend_src_components_ui_statuschip_statuschip",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_components_ui_statuschip_statuschip",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "re_exports",
       "context": "export",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/ui/index.js",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_index",
@@ -51868,6 +52396,89 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "re_exports",
+      "context": "export",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/index.js",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_index",
+      "target": "frontend_src_components_ui_underlinetabs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/UnderlineTabs.jsx",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_underlinetabs",
+      "target": "frontend_src_components_ui_underlinetabs_underlinetabs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/UnderlineTabs.jsx",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_underlinetabs",
+      "target": "frontend_src_components_ui_utils",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/UnderlineTabs.jsx",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_underlinetabs",
+      "target": "frontend_src_components_ui_utils_cx",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/components/ui/ui.test.jsx",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_ui_test",
+      "target": "frontend_src_components_ui_underlinetabs_underlinetabs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/src/components/ui/UnderlineTabs.jsx",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_components_ui_underlinetabs_underlinetabs",
+      "target": "frontend_src_components_ui_utils_cx"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts",
+      "target": "frontend_src_components_ui_underlinetabs_underlinetabs",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -51876,6 +52487,30 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_ui_ui_test",
+      "target": "frontend_src_components_ui_index",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts",
+      "target": "frontend_src_components_ui_index",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
       "target": "frontend_src_components_ui_index",
       "confidence_score": 1.0
     },
@@ -52383,7 +53018,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L180",
+      "source_location": "L192",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alerts",
@@ -52442,7 +53077,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L108",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alertdetail",
@@ -52478,7 +53113,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L99",
+      "source_location": "L105",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alertdetail",
@@ -52961,7 +53596,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L218",
+      "source_location": "L226",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alerts",
@@ -53213,7 +53848,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L103",
+      "source_location": "L133",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring_livemonitoring",
@@ -53415,42 +54050,6 @@
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L8",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_alerts",
-      "target": "frontend_src_lib_api_sevclass",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L129",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_alerts_alertdetail",
-      "target": "frontend_src_lib_api_sevclass",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L319",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_alerts_alerts",
-      "target": "frontend_src_lib_api_sevclass"
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Assets.jsx",
       "source_location": "L4",
       "weight": 1.0,
@@ -53644,24 +54243,12 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L147",
+      "source_location": "L121",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alertdetail",
       "target": "frontend_src_lib_api_verdictlabel",
       "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L319",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_alerts_alerts",
-      "target": "frontend_src_lib_api_verdictlabel"
     },
     {
       "relation": "imports",
@@ -53703,8 +54290,20 @@
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L84",
+      "source_location": "L325",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_alerts_alerts",
+      "target": "frontend_src_lib_api_fmtts"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/Alerts.jsx",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_structuredevent",
@@ -54427,7 +55026,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L23",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_sourceseverity",
@@ -54510,9 +55109,21 @@
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L393",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
+      "target": "frontend_src_lib_executive_severityof",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L170",
+      "source_location": "L201",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring_livemonitoring",
@@ -54619,10 +55230,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L496",
+      "source_location": "L425",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activitycard",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
       "target": "frontend_src_lib_executive_humanize",
       "confidence_score": 1.0
     },
@@ -54631,12 +55242,24 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L546",
+      "source_location": "L74",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activityrows",
+      "source": "frontend_src_pages_livemonitoring_aistate",
       "target": "frontend_src_lib_executive_humanize",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L213",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring_livemonitoring",
+      "target": "frontend_src_lib_executive_humanize"
     },
     {
       "relation": "calls",
@@ -54751,7 +55374,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L27",
+      "source_location": "L30",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_shortid",
@@ -54799,22 +55422,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L493",
+      "source_location": "L398",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activitycard",
-      "target": "frontend_src_lib_executive_alertreference",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L532",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activityrows",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
       "target": "frontend_src_lib_executive_alertreference",
       "confidence_score": 1.0
     },
@@ -55087,7 +55698,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L120",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alertdetail",
@@ -55100,7 +55711,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L319",
+      "source_location": "L325",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alerts",
@@ -55111,7 +55722,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L84",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_structuredevent",
@@ -55207,36 +55818,12 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L487",
+      "source_location": "L391",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activitycard",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
       "target": "frontend_src_lib_executive_activitytitle",
       "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L504",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activityrows",
-      "target": "frontend_src_lib_executive_activitytitle",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L179",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_livemonitoring",
-      "target": "frontend_src_lib_executive_activitytitle"
     },
     {
       "relation": "imports",
@@ -55291,36 +55878,12 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L496",
+      "source_location": "L422",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activitycard",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
       "target": "frontend_src_lib_executive_businessassetlabel",
       "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L505",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activityrows",
-      "target": "frontend_src_lib_executive_businessassetlabel",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L179",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_livemonitoring",
-      "target": "frontend_src_lib_executive_businessassetlabel"
     },
     {
       "relation": "imports",
@@ -56621,7 +57184,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L91",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -56632,7 +57195,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L177",
+      "source_location": "L189",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -56643,7 +57206,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L30",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -56654,7 +57217,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L16",
+      "source_location": "L19",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -56665,7 +57228,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L39",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -56676,7 +57239,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L26",
+      "source_location": "L29",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -56687,18 +57250,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L45",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
-      "target": "frontend_src_pages_alerts_sourcebadge",
+      "target": "frontend_src_pages_alerts_sourcelabel",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L22",
+      "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -56709,7 +57272,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L50",
+      "source_location": "L53",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -56720,7 +57283,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L34",
+      "source_location": "L42",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts",
@@ -56732,7 +57295,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L95",
+      "source_location": "L101",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alertdetail",
@@ -56744,19 +57307,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L318",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_alerts_alerts",
-      "target": "frontend_src_pages_alerts_json",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L51",
+      "source_location": "L54",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_structuredevent",
@@ -56768,7 +57319,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L97",
+      "source_location": "L103",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alertdetail",
@@ -56780,7 +57331,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L318",
+      "source_location": "L323",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alerts",
@@ -56792,7 +57343,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L129",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alertdetail",
@@ -56804,7 +57355,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L319",
+      "source_location": "L325",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alerts",
@@ -56816,7 +57367,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L319",
+      "source_location": "L332",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alerts",
@@ -56828,11 +57379,11 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L163",
+      "source_location": "L325",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_pages_alerts_alertdetail",
-      "target": "frontend_src_pages_alerts_timeonly",
+      "source": "frontend_src_pages_alerts_alerts",
+      "target": "frontend_src_pages_alerts_sourcelabel",
       "confidence_score": 1.0
     },
     {
@@ -56840,7 +57391,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L319",
+      "source_location": "L325",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_alerts",
@@ -56852,7 +57403,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/Alerts.jsx",
-      "source_location": "L86",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_alerts_structuredevent",
@@ -57702,18 +58253,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L486",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring",
-      "target": "frontend_src_pages_livemonitoring_activitycard",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L25",
+      "source_location": "L24",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
@@ -57724,18 +58264,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L503",
+      "source_location": "L390",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
-      "target": "frontend_src_pages_livemonitoring_activityrows",
+      "target": "frontend_src_pages_livemonitoring_activityitem",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L37",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
@@ -57746,7 +58286,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L33",
+      "source_location": "L32",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
@@ -57757,7 +58297,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L54",
+      "source_location": "L68",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_pages_livemonitoring_aistate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L83",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
@@ -57768,7 +58319,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L580",
+      "source_location": "L44",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_pages_livemonitoring_datasetlabel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L462",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
@@ -57779,7 +58341,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L45",
+      "source_location": "L48",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
@@ -57790,7 +58352,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L58",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
@@ -57801,7 +58363,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L29",
+      "source_location": "L57",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring",
+      "target": "frontend_src_pages_livemonitoring_relativetimestamp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L28",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
@@ -57812,18 +58385,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L12",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring",
-      "target": "frontend_src_pages_livemonitoring_severity_styles",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L41",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
@@ -57834,7 +58396,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L19",
+      "source_location": "L18",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring",
@@ -57846,7 +58408,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L55",
+      "source_location": "L84",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring_buildsignaturemap",
@@ -57858,7 +58420,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L126",
+      "source_location": "L156",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring_livemonitoring",
@@ -57870,7 +58432,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L179",
+      "source_location": "L359",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring_livemonitoring",
@@ -57882,10 +58444,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L497",
+      "source_location": "L392",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activitycard",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
       "target": "frontend_src_pages_livemonitoring_activitytimestamp",
       "confidence_score": 1.0
     },
@@ -57894,19 +58456,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L545",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activityrows",
-      "target": "frontend_src_pages_livemonitoring_activitytimestamp",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L38",
+      "source_location": "L37",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring_activitysignature",
@@ -57918,7 +58468,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L174",
+      "source_location": "L204",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring_livemonitoring",
@@ -57930,7 +58480,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L55",
+      "source_location": "L84",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring_buildsignaturemap",
@@ -57942,7 +58492,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L127",
+      "source_location": "L157",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring_livemonitoring",
@@ -57954,22 +58504,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L497",
+      "source_location": "L425",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activitycard",
-      "target": "frontend_src_pages_livemonitoring_sourcelabel",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L544",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activityrows",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
       "target": "frontend_src_pages_livemonitoring_sourcelabel",
       "confidence_score": 1.0
     },
@@ -57978,7 +58516,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L163",
+      "source_location": "L193",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_pages_livemonitoring_livemonitoring",
@@ -57990,10 +58528,22 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L497",
+      "source_location": "L448",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activitycard",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
+      "target": "frontend_src_pages_livemonitoring_datasetlabel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L426",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
       "target": "frontend_src_pages_livemonitoring_formattimestamp",
       "confidence_score": 1.0
     },
@@ -58002,11 +58552,23 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/pages/LiveMonitoring.jsx",
-      "source_location": "L545",
+      "source_location": "L426",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "frontend_src_pages_livemonitoring_activityrows",
-      "target": "frontend_src_pages_livemonitoring_formattimestamp",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
+      "target": "frontend_src_pages_livemonitoring_relativetimestamp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/pages/LiveMonitoring.jsx",
+      "source_location": "L394",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "frontend_src_pages_livemonitoring_activityitem",
+      "target": "frontend_src_pages_livemonitoring_aistate",
       "confidence_score": 1.0
     },
     {
@@ -71649,5 +72211,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "cb3ec1672c83c492a187a2ccd76ca4d5e965825d"
+  "built_at_commit": "456ccafd17dd9ec5b478578ee3f82dd9c8d44d25"
 }

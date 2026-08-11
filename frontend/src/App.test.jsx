@@ -162,7 +162,7 @@ describe('authenticated application flows', () => {
       if (url.endsWith('/analytics/security?hours=24')) return jsonResponse({
         generated_at:new Date().toISOString(), window_hours:24, source:'stored_bmb_alerts',
         summary:{ total_alerts:120, critical:12, high:28, triaged:90, unique_source_ips:14, unique_targets:9, correlation_decisions:44 },
-        trend:[{ bucket:'2026-07-29T08:00:00Z', total:20, critical:2, high:5, other:13 }],
+        trend:[{ bucket:'2026-07-29T08:00:00Z', total:20, critical:2, high:5, other:13, unique_sources:4 }],
         severity:[{ name:'critical', count:12 },{ name:'high', count:28 }],
         top_source_ips:[{ name:'198.51.100.24', count:18, high_risk:7 }],
         top_destinations:[{ name:'WEBAPP01', count:22, high_risk:9 }],
@@ -181,7 +181,10 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('198.51.100.24');
     expect(document.body.textContent).toContain('Most targeted destinations');
     expect(document.body.textContent).toContain('ATT&CK tactic coverage');
-    expect(document.body.textContent).toContain('Correlation decisions');
+    expect(document.body.textContent).toContain('Stored Alerts');
+    expect(document.body.textContent).toContain('Critical & High');
+    expect(document.body.textContent).toContain('Unique Sources');
+    expect(document.body.textContent).not.toContain('Correlation decisions');
     expect(document.body.textContent).toContain('Analytics');
   });
 

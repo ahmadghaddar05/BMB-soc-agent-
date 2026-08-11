@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ShieldAlert } from 'lucide-react';
 import {
   Button, Card, ConfidenceGauge, EmptyState, LiveIndicator, SegmentedControl,
-  SeverityBadge, SkeletonLoader, StatusChip, Timeline, UnderlineTabs,
+  RankedBarList, SeverityBadge, SkeletonLoader, StatusChip, Timeline, UnderlineTabs,
 } from './index';
 
 describe('BMB shared product components', () => {
@@ -44,5 +44,12 @@ describe('BMB shared product components', () => {
     expect(html).toContain('84%');
     expect(html).toContain('role="tablist"');
     expect(html).toContain('aria-selected="true"');
+  });
+
+  it('renders one reusable ranked-bar pattern for analytics evidence', () => {
+    const html = renderToStaticMarkup(<RankedBarList data={[{ name:'198.51.100.24', count:18, high_risk:7 }]} ariaLabel="Top source IPs" />);
+    expect(html).toContain('ui-ranked-list');
+    expect(html).toContain('198.51.100.24');
+    expect(html).toContain('7 high risk');
   });
 });

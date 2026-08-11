@@ -1856,7 +1856,8 @@ r.get('/analytics/security', async (req, res) => {
                 COUNT(*)::int AS total,
                 COUNT(*) FILTER (WHERE ${severity}='critical')::int AS critical,
                 COUNT(*) FILTER (WHERE ${severity}='high')::int AS high,
-                COUNT(*) FILTER (WHERE ${severity} NOT IN ('critical','high'))::int AS other
+                COUNT(*) FILTER (WHERE ${severity} NOT IN ('critical','high'))::int AS other,
+                COUNT(DISTINCT NULLIF(a.src_ip,''))::int AS unique_sources
          FROM alerts a WHERE ${scoped}
          GROUP BY 1 ORDER BY 1`,
         [hours, bucket]

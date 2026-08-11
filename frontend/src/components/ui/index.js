@@ -5,6 +5,7 @@ export { default as EmptyState } from './EmptyState';
 export { default as HeaderStatusChip } from './HeaderStatusChip';
 export { default as KpiTile } from './KpiTile';
 export { default as LiveIndicator } from './LiveIndicator';
+export { default as RankedBarList } from './RankedBarList';
 export { default as SegmentedControl } from './SegmentedControl';
 export { default as Select } from './Select';
 export { default as SeverityBadge } from './SeverityBadge';

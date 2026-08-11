@@ -446,7 +446,7 @@ test('SOC analytics returns bounded evidence-backed security aggregations', asyn
       unique_source_ips:14, unique_targets:9, correlation_decisions:44,
     }] };
     if (text.includes('analytics_trend')) return { rows:[{
-      bucket:'2026-07-29T08:00:00.000Z', total:20, critical:2, high:5, other:13,
+      bucket:'2026-07-29T08:00:00.000Z', total:20, critical:2, high:5, other:13, unique_sources:4,
     }] };
     if (text.includes('analytics_severity')) return { rows:[{ name:'critical', count:12 }] };
     if (text.includes('analytics_sources')) return { rows:[{ name:'198.51.100.24', count:18, high_risk:7 }] };
@@ -465,6 +465,7 @@ test('SOC analytics returns bounded evidence-backed security aggregations', asyn
   assert.equal(response.body.top_source_ips[0].name, '198.51.100.24');
   assert.equal(response.body.top_destinations[0].name, 'WEBAPP01');
   assert.equal(response.body.mitre_tactics[0].name, 'initial_access');
+  assert.equal(response.body.trend[0].unique_sources, 4);
   assert.equal(observed.length, 9);
   assert.ok(observed.every(item => item.params[0] === 24));
 
