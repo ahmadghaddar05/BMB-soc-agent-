@@ -50,10 +50,10 @@ Use port `8089`, the management REST API, with a dedicated read-only JWT bearer 
 
 The connector supports two collection methods:
 
-- **Triggered alerts and their search results** reads Splunk's `alerts/fired_alerts` REST resource, takes the SID recorded for each fired saved search, and retrieves the evidence rows from `search/jobs/{sid}/results`. This matches the Triggered Alerts view without scraping Splunk Web. Configure the owner/app namespace that contains the saved searches; `-`/`search` reads every accessible owner in the Search app.
+- **Triggered alerts and their search results** first runs the configured bounded base search (for this deployment, `search index=alerts`) to identify the alert names and SIDs that are allowed into BMB. It then reads Splunk's `alerts/fired_alerts` REST resource and retrieves `search/jobs/{sid}/results` only for matching alerts. The owner/app namespace controls where BMB looks for matching jobs; it does not expand collection beyond the configured `alerts` index. Unrelated entries visible on Splunk's Triggered Alerts page are ignored.
 - **Index search** runs the configured bounded SPL base search through `search/jobs/export`. It remains useful for notable-event indexes, custom alert indexes, fallback collection, and analyst evidence pivots.
 
-Triggered-result access is read-only and bounded by the BMB collection lookback, per-cycle alert limit, fired-alert pagination ceiling, and four concurrent job-result requests. The Splunk role must be allowed to list fired alerts and read the associated search jobs. If fired alerts are visible but every referenced job is unreadable, connector testing fails visibly rather than ingesting context-free placeholders.
+Triggered-result access is read-only and bounded by the configured `alerts` index, BMB collection lookback, per-cycle alert limit, fired-alert pagination ceiling, and four concurrent job-result requests. The Splunk role must be allowed to search `index=alerts`, list fired alerts, and read the associated matching search jobs. If matching fired alerts are visible but every referenced job is unreadable, connector testing fails visibly rather than ingesting context-free placeholders.
 
 ### Wazuh
 

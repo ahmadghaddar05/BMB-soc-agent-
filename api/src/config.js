@@ -58,7 +58,7 @@ function runtimeConfig(env = process.env) {
     elasticCaCert: env.ELASTIC_CA_CERT || '',
     splunkUrl: env.SPLUNK_URL || '',
     splunkToken: env.SPLUNK_TOKEN || '',
-    splunkIndex: env.SPLUNK_INDEX || 'main',
+    splunkIndex: env.SPLUNK_INDEX || 'alerts',
     splunkSearch: env.SPLUNK_SEARCH || '',
     splunkCollectionMode: env.SPLUNK_COLLECTION_MODE || 'index',
     splunkNamespaceOwner: env.SPLUNK_NAMESPACE_OWNER || '-',

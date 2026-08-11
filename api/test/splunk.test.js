@@ -173,22 +173,56 @@ test('Splunk collection uses the export API, token auth, and request-level time 
   }));
 });
 
-test('Splunk triggered-alert collection follows each fired alert SID to its evidence rows', async () => {
+test('Splunk triggered-alert collection only follows fired alerts represented in the configured alerts index', async () => {
   const requests = [];
+  let scopeBody = '';
   const triggerTime = String(Math.floor(Date.now() / 1000));
+  const earlierTriggerTime = String(Number(triggerTime) - (15 * 60));
   await testServer((req, res) => {
     requests.push(req.url);
     assert.equal(req.headers.authorization, 'Bearer test-token');
+    if (req.url === '/services/search/jobs/export') {
+      req.setEncoding('utf8');
+      req.on('data', chunk => { scopeBody += chunk; });
+      req.on('end', () => {
+        res.writeHead(200, { 'Content-Type':'application/json' });
+        res.end(`${JSON.stringify({ result:{
+          _time:new Date(Number(triggerTime) * 1000).toISOString(),
+          _cd:'alerts~1~A', index:'alerts',
+          source:'alert:Automation - Network - Potential C2 Beaconing Detected',
+          sourcetype:'generic_single_line', _raw:'Alert triggered! Raw log:',
+        } })}\n`);
+      });
+      return;
+    }
     res.writeHead(200, { 'Content-Type':'application/json' });
     if (req.url.startsWith('/servicesNS/-/search/alerts/fired_alerts/-?')) {
-      res.end(JSON.stringify({ entry:[{
-        name:'fired-instance-1', author:'cybersec',
-        content:{
-          sid:'scheduler_sid_1', savedsearch_name:'Automation - Network - Potential C2 Beaconing Detected',
-          severity:'4', trigger_time:triggerTime, triggered_alerts:'1',
-          'eai:acl':{ app:'search', owner:'cybersec' },
+      res.end(JSON.stringify({ entry:[
+        {
+          name:'fired-instance-1', author:'cybersec',
+          content:{
+            sid:'scheduler_sid_1', savedsearch_name:'Automation - Network - Potential C2 Beaconing Detected',
+            severity:'4', trigger_time:triggerTime, triggered_alerts:'1',
+            'eai:acl':{ app:'search', owner:'cybersec' },
+          },
         },
-      }] }));
+        {
+          name:'fired-instance-2', author:'cybersec',
+          content:{
+            sid:'scheduler_sid_2', savedsearch_name:'Automation - Network - Potential C2 Beaconing Detected',
+            severity:'4', trigger_time:earlierTriggerTime, triggered_alerts:'1',
+            'eai:acl':{ app:'search', owner:'cybersec' },
+          },
+        },
+        {
+          name:'fired-instance-3', author:'cybersec',
+          content:{
+            sid:'scheduler_sid_3', savedsearch_name:'Unrelated Alert Outside Configured Index',
+            severity:'5', trigger_time:triggerTime, triggered_alerts:'1',
+            'eai:acl':{ app:'search', owner:'cybersec' },
+          },
+        },
+      ] }));
       return;
     }
     if (req.url.startsWith('/services/search/jobs/scheduler_sid_1/results?')) {
@@ -199,9 +233,15 @@ test('Splunk triggered-alert collection follows each fired alert SID to its evid
       }] }));
       return;
     }
+    if (req.url.startsWith('/services/search/jobs/scheduler_sid_2/') ||
+        req.url.startsWith('/services/search/jobs/scheduler_sid_3/')) {
+      assert.fail('collector must not retrieve job results for alerts outside index=alerts');
+    }
     res.end(JSON.stringify({ results:[] }));
   }, url => withSplunkEnvironment(url, async () => {
     process.env.SPLUNK_COLLECTION_MODE = 'triggered_alerts';
+    process.env.SPLUNK_INDEX = 'alerts';
+    process.env.SPLUNK_SEARCH = 'search index=alerts';
     const alerts = await fetchAlerts({ minutes:30, limit:10 });
     assert.equal(alerts.length, 1);
     assert.equal(alerts[0].rule_desc, 'Automation - Network - Potential C2 Beaconing Detected');
@@ -213,8 +253,12 @@ test('Splunk triggered-alert collection follows each fired alert SID to its evid
     assert.equal(alerts[0].event_action, 'alert_fired');
     assert.equal(alerts[0].event_dataset, 'splunk.alert');
     assert.match(alerts[0].full_log, /Outbound beacon/);
+    const scopeForm = new URLSearchParams(scopeBody);
+    assert.equal(scopeForm.get('search'), 'search index=alerts | head 100');
     assert.equal(requests.some(path => path.includes('/alerts/fired_alerts/-?')), true);
     assert.equal(requests.some(path => path.includes('/search/jobs/scheduler_sid_1/results?')), true);
+    assert.equal(requests.some(path => path.includes('/search/jobs/scheduler_sid_2/')), false);
+    assert.equal(requests.some(path => path.includes('/search/jobs/scheduler_sid_3/')), false);
   }));
 });
 

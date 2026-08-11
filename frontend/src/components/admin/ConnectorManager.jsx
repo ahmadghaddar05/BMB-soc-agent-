@@ -18,8 +18,8 @@ function initialForm(type = 'elastic') {
     connector_type:type, name:'', protocol:'https', host:'', port:platform.port,
     verify_tls:true, ca_certificate:'', api_key:'', token:'', password:'',
     alert_alias:'.alerts-security.alerts-default', event_indices:'logs-*',
-    index:type === 'splunk' ? 'main' : 'wazuh-alerts-*',
-    search:type === 'splunk' ? 'search index=main' : '', auth_scheme:'Bearer', username:'admin',
+    index:type === 'splunk' ? 'alerts' : 'wazuh-alerts-*',
+    search:type === 'splunk' ? 'search index=alerts' : '', auth_scheme:'Bearer', username:'admin',
     collection_mode:type === 'splunk' ? 'triggered_alerts' : '', namespace_owner:'-', namespace_app:'search',
   };
 }
@@ -116,6 +116,7 @@ function ConnectorWizard({ connector, onClose, onSaved }) {
               <label>Index<input value={form.index} onChange={event => { set('index', event.target.value); if (form.search === `search index=${form.index}`) set('search', `search index=${event.target.value}`); }} required /></label>
               <label>Base search<input value={form.search} onChange={event => set('search', event.target.value)} required /></label>
             </> : <>
+              <label className="span-2">Alert scope index<input value={form.index} onChange={event => { set('index', event.target.value); set('search', `search index=${event.target.value}`); }} required /><small>Only alert notifications in this index are collected.</small></label>
               <label>Alert owner namespace<input value={form.namespace_owner} onChange={event => set('namespace_owner', event.target.value)} required placeholder="-" /><small>Use - for every accessible owner.</small></label>
               <label>Splunk app namespace<input value={form.namespace_app} onChange={event => set('namespace_app', event.target.value)} required placeholder="search" /><small>The screenshot uses the search app.</small></label>
             </>}
@@ -137,7 +138,7 @@ function ConnectorWizard({ connector, onClose, onSaved }) {
           <div><small>Endpoint</small><strong>{form.protocol}://{form.host}:{form.port}</strong></div>
           <div><small>Credentials</small><strong>{editing && !credentialProvided ? 'Keep encrypted credential' : 'Replace with supplied credential'}</strong></div>
           <div><small>TLS verification</small><strong>{form.verify_tls ? 'Enabled' : 'Disabled — lab use only'}</strong></div>
-          {form.connector_type === 'splunk' && <div><small>Collection</small><strong>{form.collection_mode === 'triggered_alerts' ? `Triggered results · ${form.namespace_owner}/${form.namespace_app}` : form.search}</strong></div>}
+          {form.connector_type === 'splunk' && <div><small>Collection</small><strong>{form.collection_mode === 'triggered_alerts' ? `Triggered results · index=${form.index} · ${form.namespace_owner}/${form.namespace_app}` : form.search}</strong></div>}
         </div>
         <div className="module-notice"><ShieldCheck /><span>Saving encrypts credentials on the API server and immediately performs a bounded read-only connection and search test. Activation remains a separate administrator decision.</span></div>
         {error && <div className="module-notice danger" role="alert">{error}</div>}
@@ -186,7 +187,7 @@ export default function ConnectorManager() {
 
     <div className="connector-list">
       {connectors.map(connector => <article className={`connector-card ${connector.active ? 'active' : ''}`} key={connector.id}>
-        <div className="connector-card-main"><span className="connector-icon"><Server /></span><div><div className="connector-title"><h3>{connector.name}</h3>{connector.active && <StatusBadge tone="success">Active source</StatusBadge>}<StatusBadge tone={connectorTone(connector)}>{connector.last_test_status === 'success' ? 'Tested' : connector.last_test_status === 'failure' ? 'Test failed' : connector.enabled ? 'Needs test' : 'Disabled'}</StatusBadge></div><p>{PLATFORMS[connector.connector_type]?.label} · {connector.endpoint}</p><div className="connector-facts"><span>{connector.connector_type === 'splunk' && connector.collection_mode === 'triggered_alerts' ? 'Collection' : 'Index'} <b>{connector.connector_type === 'splunk' && connector.collection_mode === 'triggered_alerts' ? 'Triggered results' : connector.index || 'Default'}</b></span><span>TLS <b>{connector.verify_tls ? 'Verified' : 'Disabled'}</b></span><span>Credential <b>Encrypted</b></span><span>Last test <b>{fmtTs(connector.last_tested_at)}</b></span></div>{connector.last_test_error && <small className="connector-error">{connector.last_test_error}</small>}</div></div>
+        <div className="connector-card-main"><span className="connector-icon"><Server /></span><div><div className="connector-title"><h3>{connector.name}</h3>{connector.active && <StatusBadge tone="success">Active source</StatusBadge>}<StatusBadge tone={connectorTone(connector)}>{connector.last_test_status === 'success' ? 'Tested' : connector.last_test_status === 'failure' ? 'Test failed' : connector.enabled ? 'Needs test' : 'Disabled'}</StatusBadge></div><p>{PLATFORMS[connector.connector_type]?.label} · {connector.endpoint}</p><div className="connector-facts"><span>{connector.connector_type === 'splunk' && connector.collection_mode === 'triggered_alerts' ? 'Alert scope' : 'Index'} <b>{connector.index || 'Default'}</b></span><span>TLS <b>{connector.verify_tls ? 'Verified' : 'Disabled'}</b></span><span>Credential <b>Encrypted</b></span><span>Last test <b>{fmtTs(connector.last_tested_at)}</b></span></div>{connector.last_test_error && <small className="connector-error">{connector.last_test_error}</small>}</div></div>
         <div className="connector-card-actions">
           <button type="button" onClick={() => action(connector, 'test')} disabled={Boolean(busy)}><RefreshCw className={busy === `${connector.id}:test` ? 'animate-spin' : ''} />Test</button>
           {!connector.active && <button type="button" onClick={() => action(connector, 'activate')} disabled={Boolean(busy) || connector.last_test_status !== 'success'}><Power />{connector.enabled ? 'Activate' : 'Enable & activate'}</button>}

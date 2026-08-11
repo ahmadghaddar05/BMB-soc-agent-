@@ -1924,8 +1924,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "api_src_config_auth_roles",
-      "community": 16,
-      "community_name": "runtimeConfig",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "auth_roles"
     },
     {
@@ -1954,7 +1954,7 @@
       "label": "validHttpUrl()",
       "file_type": "code",
       "source_file": "api/src/config.js",
-      "source_location": "L94",
+      "source_location": "L97",
       "_origin": "ast",
       "id": "api_src_config_validhttpurl",
       "community": 16,
@@ -1965,7 +1965,7 @@
       "label": "validateStartupConfig()",
       "file_type": "code",
       "source_file": "api/src/config.js",
-      "source_location": "L99",
+      "source_location": "L102",
       "_origin": "ast",
       "id": "api_src_config_validatestartupconfig",
       "community": 16,
@@ -1979,7 +1979,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_db_index",
-      "community": 26,
+      "community": 55,
       "community_name": "src/db/index.js",
       "norm_label": "src/db/index.js"
     },
@@ -1990,7 +1990,7 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "api_src_db_index_pool",
-      "community": 26,
+      "community": 55,
       "community_name": "src/db/index.js",
       "norm_label": "{ pool }"
     },
@@ -2001,7 +2001,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "api_src_db_index_db",
-      "community": 26,
+      "community": 55,
       "community_name": "src/db/index.js",
       "norm_label": "db"
     },
@@ -2980,8 +2980,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "api_src_index_waitfordb",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "waitfordb()"
     },
     {
@@ -2991,8 +2991,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "api_src_index_main",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "main()"
     },
     {
@@ -3167,8 +3167,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "api_src_middleware_auth_requireauth",
-      "community": 10,
-      "community_name": "api/src/index.js",
+      "community": 31,
+      "community_name": "auth.js",
       "norm_label": "requireauth()"
     },
     {
@@ -3178,8 +3178,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "api_src_middleware_auth_requirecsrf",
-      "community": 10,
-      "community_name": "api/src/index.js",
+      "community": 31,
+      "community_name": "auth.js",
       "norm_label": "requirecsrf()"
     },
     {
@@ -3959,8 +3959,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "api_src_routes_index_numericcount",
-      "community": 144,
-      "community_name": "executiveAssetViews",
+      "community": 3,
+      "community_name": "src/routes/index.js",
       "norm_label": "numericcount()"
     },
     {
@@ -4003,8 +4003,8 @@
       "source_location": "L327",
       "_origin": "ast",
       "id": "api_src_routes_index_executiveimpact",
-      "community": 144,
-      "community_name": "executiveAssetViews",
+      "community": 3,
+      "community_name": "src/routes/index.js",
       "norm_label": "executiveimpact()"
     },
     {
@@ -4014,8 +4014,8 @@
       "source_location": "L334",
       "_origin": "ast",
       "id": "api_src_routes_index_executivedecision",
-      "community": 144,
-      "community_name": "executiveAssetViews",
+      "community": 3,
+      "community_name": "src/routes/index.js",
       "norm_label": "executivedecision()"
     },
     {
@@ -4025,8 +4025,8 @@
       "source_location": "L342",
       "_origin": "ast",
       "id": "api_src_routes_index_executiveincidentview",
-      "community": 144,
-      "community_name": "executiveAssetViews",
+      "community": 3,
+      "community_name": "src/routes/index.js",
       "norm_label": "executiveincidentview()"
     },
     {
@@ -4036,8 +4036,8 @@
       "source_location": "L382",
       "_origin": "ast",
       "id": "api_src_routes_index_executiveassetcategory",
-      "community": 144,
-      "community_name": "executiveAssetViews",
+      "community": 3,
+      "community_name": "src/routes/index.js",
       "norm_label": "executiveassetcategory()"
     },
     {
@@ -4047,8 +4047,8 @@
       "source_location": "L398",
       "_origin": "ast",
       "id": "api_src_routes_index_executiveassetviews",
-      "community": 144,
-      "community_name": "executiveAssetViews",
+      "community": 3,
+      "community_name": "src/routes/index.js",
       "norm_label": "executiveassetviews()"
     },
     {
@@ -4124,8 +4124,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_routes_responses",
-      "community": 49,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "responses.js"
     },
     {
@@ -4135,8 +4135,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_routes_responses_router",
-      "community": 49,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "{ router }"
     },
     {
@@ -4146,8 +4146,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_src_routes_responses_requireroles",
-      "community": 49,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "{ requireroles }"
     },
     {
@@ -4157,8 +4157,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_routes_responses_db",
-      "community": 49,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "db"
     },
     {
@@ -4168,8 +4168,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_src_routes_responses_actionerror_createactionservice",
-      "community": 49,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "{ actionerror, createactionservice }"
     },
     {
@@ -4179,8 +4179,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "api_src_routes_responses_actions",
-      "community": 49,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "actions"
     },
     {
@@ -4190,8 +4190,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "api_src_routes_responses_response_types",
-      "community": 49,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "response_types"
     },
     {
@@ -4201,8 +4201,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "api_src_routes_responses_states",
-      "community": 49,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "states"
     },
     {
@@ -4212,8 +4212,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "api_src_routes_responses_handle",
-      "community": 49,
-      "community_name": "responses.js",
+      "community": 33,
+      "community_name": "services/actions.js",
       "norm_label": "handle()"
     },
     {
@@ -4311,8 +4311,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "api_src_routes_workflows_text",
-      "community": 59,
-      "community_name": "workflows.js",
+      "community": 144,
+      "community_name": "hermes-store.test.js",
       "norm_label": "text()"
     },
     {
@@ -4388,8 +4388,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_scripts_backfill_group_keys",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 186,
+      "community_name": "buildGroupKey",
       "norm_label": "backfill-group-keys.js"
     },
     {
@@ -4399,8 +4399,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_scripts_backfill_group_keys_db",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 186,
+      "community_name": "buildGroupKey",
       "norm_label": "db"
     },
     {
@@ -4410,8 +4410,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_scripts_backfill_group_keys_buildgroupkey",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 186,
+      "community_name": "buildGroupKey",
       "norm_label": "{\n  buildgroupkey,\n}"
     },
     {
@@ -4421,8 +4421,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "api_src_scripts_backfill_group_keys_main",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 186,
+      "community_name": "buildGroupKey",
       "norm_label": "main()"
     },
     {
@@ -4564,7 +4564,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_scripts_test_elastic",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "test-elastic.js"
     },
@@ -4575,7 +4575,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_scripts_test_elastic_searchalerts",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "{\n  searchalerts,\n}"
     },
@@ -4586,7 +4586,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "api_src_scripts_test_elastic_main",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "main()"
     },
@@ -4784,8 +4784,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "ai-model-profiles.js"
     },
     {
@@ -4795,8 +4795,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_runtimeconfig",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "{ runtimeconfig }"
     },
     {
@@ -4806,8 +4806,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_profile_definitions",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "profile_definitions"
     },
     {
@@ -4817,8 +4817,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_profiledefinition",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "profiledefinition()"
     },
     {
@@ -4828,8 +4828,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_resolveaimodelprofile",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "resolveaimodelprofile()"
     },
     {
@@ -4839,8 +4839,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_publicprofile",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "publicprofile()"
     },
     {
@@ -4850,8 +4850,8 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_listaimodelprofiles",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "listaimodelprofiles()"
     },
     {
@@ -4861,8 +4861,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_modelidentity",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "modelidentity()"
     },
     {
@@ -4872,8 +4872,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "api_src_services_ai_model_profiles_routingoptions",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "routingoptions()"
     },
     {
@@ -5232,7 +5232,7 @@
       "label": "endpoint()",
       "file_type": "code",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L133",
+      "source_location": "L142",
       "_origin": "ast",
       "id": "api_src_services_connectors_endpoint",
       "community": 70,
@@ -5243,7 +5243,7 @@
       "label": "connectionFromRow()",
       "file_type": "code",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L137",
+      "source_location": "L146",
       "_origin": "ast",
       "id": "api_src_services_connectors_connectionfromrow",
       "community": 70,
@@ -5254,7 +5254,7 @@
       "label": "publicConnector()",
       "file_type": "code",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L169",
+      "source_location": "L181",
       "_origin": "ast",
       "id": "api_src_services_connectors_publicconnector",
       "community": 70,
@@ -5265,7 +5265,7 @@
       "label": "listConnectors()",
       "file_type": "code",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L206",
+      "source_location": "L221",
       "_origin": "ast",
       "id": "api_src_services_connectors_listconnectors",
       "community": 70,
@@ -5276,7 +5276,7 @@
       "label": "activeConnector()",
       "file_type": "code",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L216",
+      "source_location": "L231",
       "_origin": "ast",
       "id": "api_src_services_connectors_activeconnector",
       "community": 70,
@@ -5287,7 +5287,7 @@
       "label": "configHash()",
       "file_type": "code",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L222",
+      "source_location": "L237",
       "_origin": "ast",
       "id": "api_src_services_connectors_confighash",
       "community": 70,
@@ -5298,7 +5298,7 @@
       "label": "testConnection()",
       "file_type": "code",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L229",
+      "source_location": "L244",
       "_origin": "ast",
       "id": "api_src_services_connectors_testconnection",
       "community": 70,
@@ -5309,7 +5309,7 @@
       "label": "safeConnectorError()",
       "file_type": "code",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L259",
+      "source_location": "L274",
       "_origin": "ast",
       "id": "api_src_services_connectors_safeconnectorerror",
       "community": 70,
@@ -5324,7 +5324,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "src/services/dbtools.js"
     },
     {
@@ -5335,7 +5335,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_db",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "db"
     },
     {
@@ -5346,7 +5346,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_chat_tools",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "chat_tools"
     },
     {
@@ -5357,7 +5357,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_search_alerts",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "search_alerts()"
     },
     {
@@ -5368,7 +5368,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_get_alert",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "get_alert()"
     },
     {
@@ -5379,7 +5379,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_top_critical_alerts",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "top_critical_alerts()"
     },
     {
@@ -5390,7 +5390,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_list_incidents",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "list_incidents()"
     },
     {
@@ -5401,7 +5401,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_get_incident",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "get_incident()"
     },
     {
@@ -5412,7 +5412,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_pivot_indicator",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "pivot_indicator()"
     },
     {
@@ -5423,7 +5423,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_get_stats",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "get_stats()"
     },
     {
@@ -5434,7 +5434,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_handlers",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "handlers"
     },
     {
@@ -5445,7 +5445,7 @@
       "_origin": "ast",
       "id": "api_src_services_dbtools_dispatch",
       "community": 55,
-      "community_name": "src/services/dbtools.js",
+      "community_name": "src/db/index.js",
       "norm_label": "dispatch()"
     },
     {
@@ -5455,7 +5455,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_elastic",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "elastic.js"
     },
@@ -5466,7 +5466,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_elastic_fs",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "fs"
     },
@@ -5477,7 +5477,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_src_services_elastic_http",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "http"
     },
@@ -5488,7 +5488,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_services_elastic_https",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "https"
     },
@@ -5499,7 +5499,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_src_services_elastic_url",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "{ url }"
     },
@@ -5510,7 +5510,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "api_src_services_elastic_buildgroupkey",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "{\r\n  buildgroupkey,\r\n}"
     },
@@ -5521,7 +5521,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "api_src_services_elastic_first",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "first()"
     },
@@ -5533,7 +5533,7 @@
       "_origin": "ast",
       "id": "api_src_services_elastic_values",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "values()"
     },
     {
@@ -5543,7 +5543,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "api_src_services_elastic_normalizetactic",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "normalizetactic()"
     },
@@ -5554,7 +5554,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "api_src_services_elastic_severitytolegacylevel",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "severitytolegacylevel()"
     },
@@ -5565,7 +5565,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "api_src_services_elastic_connectionconfig",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "connectionconfig()"
     },
@@ -5576,7 +5576,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "api_src_services_elastic_readcacertificate",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "readcacertificate()"
     },
@@ -5587,7 +5587,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "api_src_services_elastic_requestjson",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "requestjson()"
     },
@@ -5598,7 +5598,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "api_src_services_elastic_normalizealert",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "normalizealert()"
     },
@@ -5609,7 +5609,7 @@
       "source_location": "L310",
       "_origin": "ast",
       "id": "api_src_services_elastic_validateconfiguration",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "validateconfiguration()"
     },
@@ -5620,8 +5620,8 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "api_src_services_elastic_checkhealth",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 141,
+      "community_name": "health.js",
       "norm_label": "checkhealth()"
     },
     {
@@ -5631,7 +5631,7 @@
       "source_location": "L330",
       "_origin": "ast",
       "id": "api_src_services_elastic_searchalerts",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "searchalerts()"
     },
@@ -5642,7 +5642,7 @@
       "source_location": "L603",
       "_origin": "ast",
       "id": "api_src_services_elastic_validatecursor",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "validatecursor()"
     },
@@ -5653,7 +5653,7 @@
       "source_location": "L629",
       "_origin": "ast",
       "id": "api_src_services_elastic_searchalertscursor",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "searchalertscursor()"
     },
@@ -5675,7 +5675,7 @@
       "source_location": "L896",
       "_origin": "ast",
       "id": "api_src_services_elastic_raw_event_fields",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "raw_event_fields"
     },
@@ -5686,7 +5686,7 @@
       "source_location": "L928",
       "_origin": "ast",
       "id": "api_src_services_elastic_normalizerawevent",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "normalizerawevent()"
     },
@@ -5697,7 +5697,7 @@
       "source_location": "L980",
       "_origin": "ast",
       "id": "api_src_services_elastic_searchevents",
-      "community": 5,
+      "community": 44,
       "community_name": "elastic.js",
       "norm_label": "searchevents()"
     },
@@ -5708,8 +5708,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_grouping",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 186,
+      "community_name": "buildGroupKey",
       "norm_label": "grouping.js"
     },
     {
@@ -5719,8 +5719,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_grouping_crypto",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 186,
+      "community_name": "buildGroupKey",
       "norm_label": "crypto"
     },
     {
@@ -5730,8 +5730,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_services_grouping_normalizevalue",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 186,
+      "community_name": "buildGroupKey",
       "norm_label": "normalizevalue()"
     },
     {
@@ -5741,8 +5741,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "api_src_services_grouping_gettimebucket",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 186,
+      "community_name": "buildGroupKey",
       "norm_label": "gettimebucket()"
     },
     {
@@ -5752,8 +5752,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "api_src_services_grouping_buildgroupkey",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 186,
+      "community_name": "buildGroupKey",
       "norm_label": "buildgroupkey()"
     },
     {
@@ -5763,8 +5763,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_health",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 141,
+      "community_name": "health.js",
       "norm_label": "health.js"
     },
     {
@@ -5774,8 +5774,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_health_db",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 141,
+      "community_name": "health.js",
       "norm_label": "db"
     },
     {
@@ -5785,8 +5785,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_src_services_health_checkhermeshealth",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 141,
+      "community_name": "health.js",
       "norm_label": "{ checkhermeshealth }"
     },
     {
@@ -5796,8 +5796,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_services_health_elastic",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 141,
+      "community_name": "health.js",
       "norm_label": "elastic"
     },
     {
@@ -5807,8 +5807,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_src_services_health_splunk",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 141,
+      "community_name": "health.js",
       "norm_label": "splunk"
     },
     {
@@ -5818,8 +5818,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "api_src_services_health_wazuh",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 141,
+      "community_name": "health.js",
       "norm_label": "wazuh"
     },
     {
@@ -5829,8 +5829,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "api_src_services_health_activeconnector",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 141,
+      "community_name": "health.js",
       "norm_label": "{ activeconnector }"
     },
     {
@@ -5840,8 +5840,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "api_src_services_health_timedcheck",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 141,
+      "community_name": "health.js",
       "norm_label": "timedcheck()"
     },
     {
@@ -5851,8 +5851,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "api_src_services_health_dependencyhealth",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 141,
+      "community_name": "health.js",
       "norm_label": "dependencyhealth()"
     },
     {
@@ -5928,8 +5928,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "api_src_services_hermes_checkhermeshealth",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 16,
+      "community_name": "runtimeConfig",
       "norm_label": "checkhermeshealth()"
     },
     {
@@ -6126,8 +6126,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "api_src_services_hermes_chat_combinedsignal",
-      "community": 6,
-      "community_name": "triage.js",
+      "community": 32,
+      "community_name": "chat.js",
       "norm_label": "combinedsignal()"
     },
     {
@@ -7696,7 +7696,7 @@
       "label": "SEVERITY_LEVELS",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L12",
+      "source_location": "L14",
       "_origin": "ast",
       "id": "api_src_services_splunk_severity_levels",
       "community": 37,
@@ -7707,7 +7707,7 @@
       "label": "booleanValue()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L22",
+      "source_location": "L24",
       "_origin": "ast",
       "id": "api_src_services_splunk_booleanvalue",
       "community": 37,
@@ -7718,7 +7718,7 @@
       "label": "validateConfiguration()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L27",
+      "source_location": "L29",
       "_origin": "ast",
       "id": "api_src_services_splunk_validateconfiguration",
       "community": 37,
@@ -7729,7 +7729,7 @@
       "label": "safeLiteral()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L68",
+      "source_location": "L89",
       "_origin": "ast",
       "id": "api_src_services_splunk_safeliteral",
       "community": 37,
@@ -7740,7 +7740,7 @@
       "label": "valueAt()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L73",
+      "source_location": "L94",
       "_origin": "ast",
       "id": "api_src_services_splunk_valueat",
       "community": 37,
@@ -7751,7 +7751,7 @@
       "label": "stringValue()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L81",
+      "source_location": "L102",
       "_origin": "ast",
       "id": "api_src_services_splunk_stringvalue",
       "community": 37,
@@ -7762,7 +7762,7 @@
       "label": "listValue()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L88",
+      "source_location": "L109",
       "_origin": "ast",
       "id": "api_src_services_splunk_listvalue",
       "community": 37,
@@ -7773,7 +7773,7 @@
       "label": "parseRawKeyValueFields()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L94",
+      "source_location": "L115",
       "_origin": "ast",
       "id": "api_src_services_splunk_parserawkeyvaluefields",
       "community": 37,
@@ -7784,7 +7784,7 @@
       "label": "enrichedResult()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L106",
+      "source_location": "L127",
       "_origin": "ast",
       "id": "api_src_services_splunk_enrichedresult",
       "community": 37,
@@ -7795,7 +7795,7 @@
       "label": "readableAlertName()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L111",
+      "source_location": "L132",
       "_origin": "ast",
       "id": "api_src_services_splunk_readablealertname",
       "community": 37,
@@ -7803,10 +7803,43 @@
       "norm_label": "readablealertname()"
     },
     {
+      "label": "alertNameFromSource()",
+      "file_type": "code",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L140",
+      "_origin": "ast",
+      "id": "api_src_services_splunk_alertnamefromsource",
+      "community": 37,
+      "community_name": "splunk.js",
+      "norm_label": "alertnamefromsource()"
+    },
+    {
+      "label": "stableAlertName()",
+      "file_type": "code",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L146",
+      "_origin": "ast",
+      "id": "api_src_services_splunk_stablealertname",
+      "community": 37,
+      "community_name": "splunk.js",
+      "norm_label": "stablealertname()"
+    },
+    {
+      "label": "alertNameKey()",
+      "file_type": "code",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L153",
+      "_origin": "ast",
+      "id": "api_src_services_splunk_alertnamekey",
+      "community": 37,
+      "community_name": "splunk.js",
+      "norm_label": "alertnamekey()"
+    },
+    {
       "label": "normalizeTimestamp()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L119",
+      "source_location": "L157",
       "_origin": "ast",
       "id": "api_src_services_splunk_normalizetimestamp",
       "community": 37,
@@ -7817,7 +7850,7 @@
       "label": "normalizeSeverity()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L130",
+      "source_location": "L168",
       "_origin": "ast",
       "id": "api_src_services_splunk_normalizeseverity",
       "community": 37,
@@ -7828,7 +7861,7 @@
       "label": "sourceSeverity()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L148",
+      "source_location": "L186",
       "_origin": "ast",
       "id": "api_src_services_splunk_sourceseverity",
       "community": 37,
@@ -7839,7 +7872,7 @@
       "label": "stableEventId()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L158",
+      "source_location": "L196",
       "_origin": "ast",
       "id": "api_src_services_splunk_stableeventid",
       "community": 37,
@@ -7850,7 +7883,7 @@
       "label": "normalizeAlert()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L172",
+      "source_location": "L210",
       "_origin": "ast",
       "id": "api_src_services_splunk_normalizealert",
       "community": 37,
@@ -7861,7 +7894,7 @@
       "label": "normalizeRawEvent()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L242",
+      "source_location": "L278",
       "_origin": "ast",
       "id": "api_src_services_splunk_normalizerawevent",
       "community": 37,
@@ -7872,7 +7905,7 @@
       "label": "requestOptions()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L294",
+      "source_location": "L330",
       "_origin": "ast",
       "id": "api_src_services_splunk_requestoptions",
       "community": 37,
@@ -7883,7 +7916,7 @@
       "label": "requestSplunk()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L312",
+      "source_location": "L348",
       "_origin": "ast",
       "id": "api_src_services_splunk_requestsplunk",
       "community": 37,
@@ -7894,7 +7927,7 @@
       "label": "parseExportResponse()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L352",
+      "source_location": "L388",
       "_origin": "ast",
       "id": "api_src_services_splunk_parseexportresponse",
       "community": 37,
@@ -7902,10 +7935,87 @@
       "norm_label": "parseexportresponse()"
     },
     {
+      "label": "parseJsonResponse()",
+      "file_type": "code",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L409",
+      "_origin": "ast",
+      "id": "api_src_services_splunk_parsejsonresponse",
+      "community": 37,
+      "community_name": "splunk.js",
+      "norm_label": "parsejsonresponse()"
+    },
+    {
+      "label": "firedAlertTimestamp()",
+      "file_type": "code",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L418",
+      "_origin": "ast",
+      "id": "api_src_services_splunk_firedalerttimestamp",
+      "community": 37,
+      "community_name": "splunk.js",
+      "norm_label": "firedalerttimestamp()"
+    },
+    {
+      "label": "firedAlertMetadata()",
+      "file_type": "code",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L426",
+      "_origin": "ast",
+      "id": "api_src_services_splunk_firedalertmetadata",
+      "community": 37,
+      "community_name": "splunk.js",
+      "norm_label": "firedalertmetadata()"
+    },
+    {
+      "label": "mergeFiredAlertResult()",
+      "file_type": "code",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L452",
+      "_origin": "ast",
+      "id": "api_src_services_splunk_mergefiredalertresult",
+      "community": 37,
+      "community_name": "splunk.js",
+      "norm_label": "mergefiredalertresult()"
+    },
+    {
+      "label": "fetchSearchJobRows()",
+      "file_type": "code",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L469",
+      "_origin": "ast",
+      "id": "api_src_services_splunk_fetchsearchjobrows",
+      "community": 37,
+      "community_name": "splunk.js",
+      "norm_label": "fetchsearchjobrows()"
+    },
+    {
+      "label": "fetchConfiguredAlertScope()",
+      "file_type": "code",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L487",
+      "_origin": "ast",
+      "id": "api_src_services_splunk_fetchconfiguredalertscope",
+      "community": 37,
+      "community_name": "splunk.js",
+      "norm_label": "fetchconfiguredalertscope()"
+    },
+    {
+      "label": "fetchTriggeredAlerts()",
+      "file_type": "code",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L507",
+      "_origin": "ast",
+      "id": "api_src_services_splunk_fetchtriggeredalerts",
+      "community": 37,
+      "community_name": "splunk.js",
+      "norm_label": "fetchtriggeredalerts()"
+    },
+    {
       "label": "normalizedBaseSearch()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L373",
+      "source_location": "L564",
       "_origin": "ast",
       "id": "api_src_services_splunk_normalizedbasesearch",
       "community": 37,
@@ -7916,7 +8026,7 @@
       "label": "exportBody()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L378",
+      "source_location": "L569",
       "_origin": "ast",
       "id": "api_src_services_splunk_exportbody",
       "community": 37,
@@ -7927,7 +8037,7 @@
       "label": "fetchAlerts()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L388",
+      "source_location": "L579",
       "_origin": "ast",
       "id": "api_src_services_splunk_fetchalerts",
       "community": 37,
@@ -7938,7 +8048,7 @@
       "label": "buildSearchClauses()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L398",
+      "source_location": "L592",
       "_origin": "ast",
       "id": "api_src_services_splunk_buildsearchclauses",
       "community": 37,
@@ -7949,7 +8059,7 @@
       "label": "searchEvents()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L416",
+      "source_location": "L610",
       "_origin": "ast",
       "id": "api_src_services_splunk_searchevents",
       "community": 37,
@@ -7960,7 +8070,7 @@
       "label": "checkHealth()",
       "file_type": "code",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L429",
+      "source_location": "L623",
       "_origin": "ast",
       "id": "api_src_services_splunk_checkhealth",
       "community": 37,
@@ -8040,8 +8150,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_user_directory",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "user-directory.js"
     },
     {
@@ -8051,8 +8161,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_user_directory_crypto",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "crypto"
     },
     {
@@ -8062,8 +8172,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_src_services_user_directory_promisify",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "{ promisify }"
     },
     {
@@ -8073,8 +8183,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_src_services_user_directory_db",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "db"
     },
     {
@@ -8084,8 +8194,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_src_services_user_directory_auth_roles_runtimeconfig",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "{ auth_roles, runtimeconfig }"
     },
     {
@@ -8095,8 +8205,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "api_src_services_user_directory_scrypt",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "scrypt"
     },
     {
@@ -8106,8 +8216,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "api_src_services_user_directory_passworderror",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "passworderror()"
     },
     {
@@ -8117,8 +8227,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "api_src_services_user_directory_usernameerror",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "usernameerror()"
     },
     {
@@ -8128,8 +8238,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "api_src_services_user_directory_displaynameerror",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "displaynameerror()"
     },
     {
@@ -8139,8 +8249,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "api_src_services_user_directory_roleerror",
-      "community": 16,
-      "community_name": "runtimeConfig",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "roleerror()"
     },
     {
@@ -8150,8 +8260,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "api_src_services_user_directory_hashpassword",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "hashpassword()"
     },
     {
@@ -8161,8 +8271,8 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "api_src_services_user_directory_verifypassword",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 17,
+      "community_name": "admin.js",
       "norm_label": "verifypassword()"
     },
     {
@@ -8205,8 +8315,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "api_src_services_user_directory_bootstrapuserdirectory",
-      "community": 44,
-      "community_name": "user-directory.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "bootstrapuserdirectory()"
     },
     {
@@ -8216,8 +8326,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_src_services_wazuh",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "src/services/wazuh.js"
     },
     {
@@ -8227,8 +8337,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "api_src_services_wazuh_https",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "https"
     },
     {
@@ -8238,8 +8348,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_src_services_wazuh_http",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "http"
     },
     {
@@ -8249,8 +8359,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_src_services_wazuh_fs",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "fs"
     },
     {
@@ -8260,8 +8370,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_src_services_wazuh_requestjson",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "requestjson()"
     },
     {
@@ -8271,8 +8381,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "api_src_services_wazuh_extractentities",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "extractentities()"
     },
     {
@@ -8282,8 +8392,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "api_src_services_wazuh_normalizealert",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "normalizealert()"
     },
     {
@@ -8293,8 +8403,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "api_src_services_wazuh_technique_tactic",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "technique_tactic"
     },
     {
@@ -8304,8 +8414,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "api_src_services_wazuh_group_technique",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "group_technique"
     },
     {
@@ -8315,8 +8425,8 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "api_src_services_wazuh_extractmitre",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "extractmitre()"
     },
     {
@@ -8326,8 +8436,8 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "api_src_services_wazuh_connectionconfig",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "connectionconfig()"
     },
     {
@@ -8337,8 +8447,8 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "api_src_services_wazuh_fetchfromwazuh",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "fetchfromwazuh()"
     },
     {
@@ -8348,8 +8458,8 @@
       "source_location": "L206",
       "_origin": "ast",
       "id": "api_src_services_wazuh_checkhealth",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "checkhealth()"
     },
     {
@@ -8359,8 +8469,8 @@
       "source_location": "L227",
       "_origin": "ast",
       "id": "api_src_services_wazuh_makemock",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "makemock()"
     },
     {
@@ -8370,8 +8480,8 @@
       "source_location": "L257",
       "_origin": "ast",
       "id": "api_src_services_wazuh_fetchalerts",
-      "community": 70,
-      "community_name": "services/connectors.js",
+      "community": 26,
+      "community_name": "src/services/wazuh.js",
       "norm_label": "fetchalerts()"
     },
     {
@@ -8382,7 +8492,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "autonomous.js"
     },
     {
@@ -8393,7 +8503,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_crypto",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "crypto"
     },
     {
@@ -8404,7 +8514,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_db",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "db"
     },
     {
@@ -8415,7 +8525,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_createactionservice",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "{ createactionservice }"
     },
     {
@@ -8426,7 +8536,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_qualifying_verdicts",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "qualifying_verdicts"
     },
     {
@@ -8437,7 +8547,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_boundedint",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "boundedint()"
     },
     {
@@ -8448,7 +8558,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_boundedconfidence",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "boundedconfidence()"
     },
     {
@@ -8459,7 +8569,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_compact",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "compact()"
     },
     {
@@ -8470,7 +8580,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_operationkey",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "operationkey()"
     },
     {
@@ -8481,7 +8591,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_actionsummary",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "actionsummary()"
     },
     {
@@ -8492,7 +8602,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_simulatedresponseproposal",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "simulatedresponseproposal()"
     },
     {
@@ -8503,7 +8613,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_startoperation",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "startoperation()"
     },
     {
@@ -8514,7 +8624,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_executeoperation",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "executeoperation()"
     },
     {
@@ -8525,7 +8635,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_incidentnote",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "incidentnote()"
     },
     {
@@ -8536,7 +8646,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_alertnote",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "alertnote()"
     },
     {
@@ -8547,7 +8657,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_loadcandidates",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "loadcandidates()"
     },
     {
@@ -8558,7 +8668,7 @@
       "_origin": "ast",
       "id": "api_src_workers_autonomous_runautonomousagent",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "runautonomousagent()"
     },
     {
@@ -9173,8 +9283,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_test_ai_model_profiles_test",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "ai-model-profiles.test.js"
     },
     {
@@ -9184,8 +9294,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_test_ai_model_profiles_test_test",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "test"
     },
     {
@@ -9195,8 +9305,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_test_ai_model_profiles_test_assert",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "assert"
     },
     {
@@ -9206,8 +9316,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_test_ai_model_profiles_test_default_profile_id_listaimodelprofiles_modelidentity_resolveaimodelprofile_routingoptions",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "{\n  default_profile_id,\n  listaimodelprofiles,\n  modelidentity,\n  resolveaimodelprofile,\n  routingoptions,\n}"
     },
     {
@@ -9217,8 +9327,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "api_test_ai_model_profiles_test_config",
-      "community": 17,
-      "community_name": "admin.js",
+      "community": 49,
+      "community_name": "ai-model-profiles.js",
       "norm_label": "config"
     },
     {
@@ -9449,7 +9559,7 @@
       "_origin": "ast",
       "id": "api_test_autonomous_test",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "autonomous.test.js"
     },
     {
@@ -9460,7 +9570,7 @@
       "_origin": "ast",
       "id": "api_test_autonomous_test_test",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "test"
     },
     {
@@ -9471,7 +9581,7 @@
       "_origin": "ast",
       "id": "api_test_autonomous_test_assert",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "assert"
     },
     {
@@ -9482,7 +9592,7 @@
       "_origin": "ast",
       "id": "api_test_autonomous_test_policy_version_incidentnote_operationkey_runautonomousagent",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "{\n  policy_version, incidentnote, operationkey, runautonomousagent,\n}"
     },
     {
@@ -9493,7 +9603,7 @@
       "_origin": "ast",
       "id": "api_test_autonomous_test_fakedatabase",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "fakedatabase()"
     },
     {
@@ -9504,7 +9614,7 @@
       "_origin": "ast",
       "id": "api_test_autonomous_test_submit",
       "community": 5,
-      "community_name": "elastic.js",
+      "community_name": "autonomous.js",
       "norm_label": "submit()"
     },
     {
@@ -9679,8 +9789,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "api_test_correlation_worker_test_incident",
-      "community": 51,
-      "community_name": "Incidents.jsx",
+      "community": 9,
+      "community_name": "hermes/correlation.js",
       "norm_label": "incident()"
     },
     {
@@ -9690,8 +9800,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_test_elastic_events_test",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 188,
+      "community_name": "elastic-events.test.js",
       "norm_label": "elastic-events.test.js"
     },
     {
@@ -9701,8 +9811,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_test_elastic_events_test_test",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 188,
+      "community_name": "elastic-events.test.js",
       "norm_label": "test"
     },
     {
@@ -9712,8 +9822,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_test_elastic_events_test_assert",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 188,
+      "community_name": "elastic-events.test.js",
       "norm_label": "assert"
     },
     {
@@ -9723,8 +9833,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_test_elastic_events_test_searchevents",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 188,
+      "community_name": "elastic-events.test.js",
       "norm_label": "{ searchevents }"
     },
     {
@@ -9734,8 +9844,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "api_test_elastic_events_test_publicalert",
-      "community": 5,
-      "community_name": "elastic.js",
+      "community": 188,
+      "community_name": "elastic-events.test.js",
       "norm_label": "{ publicalert }"
     },
     {
@@ -9877,8 +9987,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_test_hermes_store_test",
-      "community": 59,
-      "community_name": "workflows.js",
+      "community": 144,
+      "community_name": "hermes-store.test.js",
       "norm_label": "hermes-store.test.js"
     },
     {
@@ -9888,8 +9998,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_test",
-      "community": 59,
-      "community_name": "workflows.js",
+      "community": 144,
+      "community_name": "hermes-store.test.js",
       "norm_label": "test"
     },
     {
@@ -9899,8 +10009,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_assert",
-      "community": 59,
-      "community_name": "workflows.js",
+      "community": 144,
+      "community_name": "hermes-store.test.js",
       "norm_label": "assert"
     },
     {
@@ -9910,8 +10020,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_createagentstore",
-      "community": 59,
-      "community_name": "workflows.js",
+      "community": 144,
+      "community_name": "hermes-store.test.js",
       "norm_label": "{ createagentstore }"
     },
     {
@@ -9921,8 +10031,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_query",
-      "community": 59,
-      "community_name": "workflows.js",
+      "community": 144,
+      "community_name": "hermes-store.test.js",
       "norm_label": "query()"
     },
     {
@@ -9932,8 +10042,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_release",
-      "community": 59,
-      "community_name": "workflows.js",
+      "community": 144,
+      "community_name": "hermes-store.test.js",
       "norm_label": "release()"
     },
     {
@@ -9943,8 +10053,8 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "api_test_hermes_store_test_connect",
-      "community": 59,
-      "community_name": "workflows.js",
+      "community": 144,
+      "community_name": "hermes-store.test.js",
       "norm_label": "connect()"
     },
     {
@@ -10504,8 +10614,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "api_test_routes_test",
-      "community": 26,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "routes.test.js"
     },
     {
@@ -10515,8 +10625,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "api_test_routes_test_test",
-      "community": 26,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "test"
     },
     {
@@ -10526,8 +10636,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "api_test_routes_test_assert",
-      "community": 26,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "assert"
     },
     {
@@ -10537,8 +10647,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "api_test_routes_test_request",
-      "community": 26,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "request"
     },
     {
@@ -10548,8 +10658,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "api_test_routes_test_db",
-      "community": 26,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "db"
     },
     {
@@ -10559,8 +10669,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "api_test_routes_test_createapp",
-      "community": 26,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "{ createapp }"
     },
     {
@@ -10570,8 +10680,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "api_test_routes_test_routeapp",
-      "community": 26,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "routeapp()"
     },
     {
@@ -10581,8 +10691,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "api_test_routes_test_highestplaceholder",
-      "community": 26,
-      "community_name": "src/db/index.js",
+      "community": 10,
+      "community_name": "api/src/index.js",
       "norm_label": "highestplaceholder()"
     },
     {
@@ -10765,7 +10875,7 @@
       "label": "testServer()",
       "file_type": "code",
       "source_file": "api/test/splunk.test.js",
-      "source_location": "L40",
+      "source_location": "L44",
       "_origin": "ast",
       "id": "api_test_splunk_test_testserver",
       "community": 37,
@@ -13144,8 +13254,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager",
-      "community": 1,
-      "community_name": "AIConfiguration.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "connectormanager.jsx"
     },
     {
@@ -13155,8 +13265,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager_platforms",
-      "community": 1,
-      "community_name": "AIConfiguration.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "platforms"
     },
     {
@@ -13166,41 +13276,41 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager_initialform",
-      "community": 1,
-      "community_name": "AIConfiguration.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "initialform()"
     },
     {
       "label": "connectorTone()",
       "file_type": "code",
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L26",
+      "source_location": "L27",
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager_connectortone",
-      "community": 1,
-      "community_name": "AIConfiguration.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "connectortone()"
     },
     {
       "label": "ConnectorWizard()",
       "file_type": "code",
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L33",
+      "source_location": "L34",
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager_connectorwizard",
-      "community": 1,
-      "community_name": "AIConfiguration.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "connectorwizard()"
     },
     {
       "label": "ConnectorManager()",
       "file_type": "code",
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L142",
+      "source_location": "L151",
       "_origin": "ast",
       "id": "frontend_src_components_admin_connectormanager_connectormanager",
-      "community": 1,
-      "community_name": "AIConfiguration.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "connectormanager()"
     },
     {
@@ -13276,8 +13386,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "deepdivedrawer.jsx"
     },
     {
@@ -13287,8 +13397,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_impacttone",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "impacttone()"
     },
     {
@@ -13298,8 +13408,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_impactof",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "impactof()"
     },
     {
@@ -13309,8 +13419,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_drawercopy",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "drawercopy()"
     },
     {
@@ -13320,8 +13430,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_risksummary",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "risksummary()"
     },
     {
@@ -13331,8 +13441,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_metricbrief",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "metricbrief()"
     },
     {
@@ -13342,8 +13452,8 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_riskdirectory",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "riskdirectory()"
     },
     {
@@ -13353,8 +13463,8 @@
       "source_location": "L156",
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_incidentbrief",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "incidentbrief()"
     },
     {
@@ -13364,8 +13474,8 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_assetbrief",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "assetbrief()"
     },
     {
@@ -13375,8 +13485,8 @@
       "source_location": "L218",
       "_origin": "ast",
       "id": "frontend_src_components_executive_deepdivedrawer_deepdivedrawer",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "deepdivedrawer()"
     },
     {
@@ -13540,8 +13650,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_executive_executiveriskpanel",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 15,
+      "community_name": "Dashboard.jsx",
       "norm_label": "executiveriskpanel.jsx"
     },
     {
@@ -13551,8 +13661,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "frontend_src_components_executive_executiveriskpanel_priorityclass",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 15,
+      "community_name": "Dashboard.jsx",
       "norm_label": "priorityclass()"
     },
     {
@@ -13562,8 +13672,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "frontend_src_components_executive_executiveriskpanel_executiveriskpanel",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 15,
+      "community_name": "Dashboard.jsx",
       "norm_label": "executiveriskpanel()"
     },
     {
@@ -13694,8 +13804,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_ui_emptystate",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 19,
+      "community_name": "Assets.jsx",
       "norm_label": "emptystate.jsx"
     },
     {
@@ -13705,8 +13815,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_components_ui_emptystate_emptystate",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 19,
+      "community_name": "Assets.jsx",
       "norm_label": "emptystate()"
     },
     {
@@ -13870,8 +13980,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "frontend_src_components_ui_select_select",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "select()"
     },
     {
@@ -14442,8 +14552,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_severityof",
-      "community": 13,
-      "community_name": "LiveMonitoring.jsx",
+      "community": 51,
+      "community_name": "Incidents.jsx",
       "norm_label": "severityof()"
     },
     {
@@ -14464,8 +14574,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_stablehash",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "stablehash()"
     },
     {
@@ -14475,8 +14585,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_displayreference",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "displayreference()"
     },
     {
@@ -14486,8 +14596,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_alertreference",
-      "community": 19,
-      "community_name": "Assets.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "alertreference()"
     },
     {
@@ -14497,8 +14607,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_investigationreference",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "investigationreference()"
     },
     {
@@ -14508,8 +14618,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_casereference",
-      "community": 139,
-      "community_name": "executive.js",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "casereference()"
     },
     {
@@ -14519,8 +14629,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_actionreference",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "actionreference()"
     },
     {
@@ -14530,8 +14640,8 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "frontend_src_lib_executive_friendlyevidencetext",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "friendlyevidencetext()"
     },
     {
@@ -14827,8 +14937,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "frontend_src_lib_soc_relativetime",
-      "community": 19,
-      "community_name": "Assets.jsx",
+      "community": 11,
+      "community_name": "Cases.jsx",
       "norm_label": "relativetime()"
     },
     {
@@ -15278,8 +15388,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_approvals",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "approvals.jsx"
     },
     {
@@ -15289,8 +15399,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "frontend_src_pages_approvals_labels",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "labels"
     },
     {
@@ -15300,8 +15410,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "frontend_src_pages_approvals_statustone",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "statustone()"
     },
     {
@@ -15311,8 +15421,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "frontend_src_pages_approvals_statuslabel",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "statuslabel()"
     },
     {
@@ -15322,8 +15432,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "frontend_src_pages_approvals_approvals",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "approvals()"
     },
     {
@@ -15993,8 +16103,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_investigations",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "investigations.jsx"
     },
     {
@@ -16004,8 +16114,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_src_pages_investigations_owner_options",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "owner_options"
     },
     {
@@ -16015,8 +16125,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "frontend_src_pages_investigations_investigationstatus",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "investigationstatus()"
     },
     {
@@ -16026,8 +16136,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "frontend_src_pages_investigations_investigations",
-      "community": 11,
-      "community_name": "Cases.jsx",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "investigations()"
     },
     {
@@ -16279,8 +16389,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_responses",
-      "community": 68,
-      "community_name": "api",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "responses.jsx"
     },
     {
@@ -16290,8 +16400,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "frontend_src_pages_responses_type_meta",
-      "community": 68,
-      "community_name": "api",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "type_meta"
     },
     {
@@ -16301,8 +16411,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "frontend_src_pages_responses_unknown_type_meta",
-      "community": 68,
-      "community_name": "api",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "unknown_type_meta"
     },
     {
@@ -16312,8 +16422,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "frontend_src_pages_responses_statelabel",
-      "community": 68,
-      "community_name": "api",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "statelabel()"
     },
     {
@@ -16323,8 +16433,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "frontend_src_pages_responses_detailloading",
-      "community": 68,
-      "community_name": "api",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "detailloading()"
     },
     {
@@ -16334,8 +16444,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "frontend_src_pages_responses_responses",
-      "community": 68,
-      "community_name": "api",
+      "community": 137,
+      "community_name": "Investigations.jsx",
       "norm_label": "responses()"
     },
     {
@@ -16422,8 +16532,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_settings",
-      "community": 1,
-      "community_name": "AIConfiguration.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "settings.jsx"
     },
     {
@@ -16433,8 +16543,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "frontend_src_pages_settings_yesno",
-      "community": 1,
-      "community_name": "AIConfiguration.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "yesno()"
     },
     {
@@ -16444,8 +16554,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "frontend_src_pages_settings_boundary",
-      "community": 1,
-      "community_name": "AIConfiguration.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "boundary()"
     },
     {
@@ -16455,8 +16565,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "frontend_src_pages_settings_settings",
-      "community": 1,
-      "community_name": "AIConfiguration.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "settings()"
     },
     {
@@ -16576,8 +16686,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "frontend_src_pages_vulnerabilities",
-      "community": 19,
-      "community_name": "Assets.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "vulnerabilities.jsx"
     },
     {
@@ -16587,8 +16697,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "frontend_src_pages_vulnerabilities_scoreseverity",
-      "community": 19,
-      "community_name": "Assets.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "scoreseverity()"
     },
     {
@@ -16598,8 +16708,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "frontend_src_pages_vulnerabilities_extractfindings",
-      "community": 19,
-      "community_name": "Assets.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "extractfindings()"
     },
     {
@@ -16609,8 +16719,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "frontend_src_pages_vulnerabilities_vulnerabilities",
-      "community": 19,
-      "community_name": "Assets.jsx",
+      "community": 68,
+      "community_name": "api",
       "norm_label": "vulnerabilities()"
     },
     {
@@ -20888,7 +20998,7 @@
       "source_location": "L397",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_phase_8_add_the_proactive_autonomous_soc_worker",
-      "community": 186,
+      "community": 191,
       "community_name": "Phase 8 - Add the proactive autonomous SOC worker",
       "norm_label": "phase 8 - add the proactive autonomous soc worker"
     },
@@ -20899,7 +21009,7 @@
       "source_location": "L399",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_problem_399",
-      "community": 186,
+      "community": 191,
       "community_name": "Phase 8 - Add the proactive autonomous SOC worker",
       "norm_label": "problem"
     },
@@ -20910,7 +21020,7 @@
       "source_location": "L403",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_what_the_phase_did_403",
-      "community": 186,
+      "community": 191,
       "community_name": "Phase 8 - Add the proactive autonomous SOC worker",
       "norm_label": "what the phase did"
     },
@@ -20921,7 +21031,7 @@
       "source_location": "L411",
       "_origin": "ast",
       "id": "docs_complete_project_architecture_and_phases_why_it_mattered_411",
-      "community": 186,
+      "community": 191,
       "community_name": "Phase 8 - Add the proactive autonomous SOC worker",
       "norm_label": "why it mattered"
     },
@@ -21358,7 +21468,7 @@
       "label": "Wazuh",
       "file_type": "document",
       "source_file": "docs/MANAGED_CONNECTORS.md",
-      "source_location": "L51",
+      "source_location": "L58",
       "_origin": "ast",
       "id": "docs_managed_connectors_wazuh",
       "community": 190,
@@ -21369,7 +21479,7 @@
       "label": "TLS",
       "file_type": "document",
       "source_file": "docs/MANAGED_CONNECTORS.md",
-      "source_location": "L55",
+      "source_location": "L62",
       "_origin": "ast",
       "id": "docs_managed_connectors_tls",
       "community": 190,
@@ -21380,7 +21490,7 @@
       "label": "Environment fallback",
       "file_type": "document",
       "source_file": "docs/MANAGED_CONNECTORS.md",
-      "source_location": "L59",
+      "source_location": "L66",
       "_origin": "ast",
       "id": "docs_managed_connectors_environment_fallback",
       "community": 190,
@@ -28511,7 +28621,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/config.js",
-      "source_location": "L167",
+      "source_location": "L176",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -28523,7 +28633,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/config.js",
-      "source_location": "L167",
+      "source_location": "L176",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -28535,7 +28645,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/config.js",
-      "source_location": "L167",
+      "source_location": "L176",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -28558,7 +28668,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/config.js",
-      "source_location": "L167",
+      "source_location": "L176",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -28570,7 +28680,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/config.js",
-      "source_location": "L167",
+      "source_location": "L176",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -28582,7 +28692,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/config.js",
-      "source_location": "L94",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_config",
@@ -28774,7 +28884,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/config.js",
-      "source_location": "L73",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_config_runtimeconfig",
@@ -28787,7 +28897,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/config.js",
-      "source_location": "L118",
+      "source_location": "L121",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_config_validatestartupconfig",
@@ -29098,7 +29208,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/config.js",
-      "source_location": "L133",
+      "source_location": "L136",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_config_validatestartupconfig",
@@ -35246,7 +35356,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L269",
+      "source_location": "L284",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35302,7 +35412,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L270",
+      "source_location": "L285",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35314,7 +35424,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L137",
+      "source_location": "L146",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors",
@@ -35325,7 +35435,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L271",
+      "source_location": "L286",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35359,7 +35469,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L272",
+      "source_location": "L287",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35382,7 +35492,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L273",
+      "source_location": "L288",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35394,7 +35504,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L133",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors",
@@ -35405,7 +35515,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L274",
+      "source_location": "L289",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35417,7 +35527,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L275",
+      "source_location": "L290",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35440,7 +35550,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L276",
+      "source_location": "L291",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35452,7 +35562,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L277",
+      "source_location": "L292",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35475,7 +35585,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L278",
+      "source_location": "L293",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35498,7 +35608,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L279",
+      "source_location": "L294",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -35666,7 +35776,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L217",
+      "source_location": "L232",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_activeconnector",
@@ -35678,7 +35788,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L207",
+      "source_location": "L222",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_listconnectors",
@@ -35726,7 +35836,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L138",
+      "source_location": "L147",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_connectionfromrow",
@@ -35738,7 +35848,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L210",
+      "source_location": "L225",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_listconnectors",
@@ -35810,7 +35920,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L146",
+      "source_location": "L155",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_connectionfromrow",
@@ -35822,7 +35932,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L175",
+      "source_location": "L187",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_publicconnector",
@@ -35834,7 +35944,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L219",
+      "source_location": "L234",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_activeconnector",
@@ -35846,7 +35956,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L230",
+      "source_location": "L245",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_testconnection",
@@ -35858,7 +35968,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L211",
+      "source_location": "L226",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_listconnectors",
@@ -35942,7 +36052,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L254",
+      "source_location": "L269",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_testconnection",
@@ -35967,7 +36077,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L235",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_testconnection",
@@ -35979,7 +36089,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L236",
+      "source_location": "L251",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_testconnection",
@@ -35991,7 +36101,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L238",
+      "source_location": "L253",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_testconnection",
@@ -36003,7 +36113,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L239",
+      "source_location": "L254",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_testconnection",
@@ -36015,7 +36125,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L241",
+      "source_location": "L256",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_testconnection",
@@ -36027,7 +36137,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/services/connectors.js",
-      "source_location": "L242",
+      "source_location": "L257",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_connectors_testconnection",
@@ -36933,7 +37043,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L236",
+      "source_location": "L272",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_normalizealert",
@@ -41516,7 +41626,29 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L22",
+      "source_location": "L140",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk",
+      "target": "api_src_services_splunk_alertnamefromsource",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L153",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk",
+      "target": "api_src_services_splunk_alertnamekey",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L24",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41538,7 +41670,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L450",
+      "source_location": "L647",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -41550,7 +41682,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L451",
+      "source_location": "L648",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -41573,7 +41705,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L106",
+      "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41584,7 +41716,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L378",
+      "source_location": "L569",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41595,13 +41727,68 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L452",
+      "source_location": "L649",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
       "source": "api_src_services_splunk",
       "target": "api_src_services_splunk_fetchalerts",
       "confidence_score": 0.5
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L487",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk",
+      "target": "api_src_services_splunk_fetchconfiguredalertscope",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L469",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk",
+      "target": "api_src_services_splunk_fetchsearchjobrows",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L507",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk",
+      "target": "api_src_services_splunk_fetchtriggeredalerts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L426",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk",
+      "target": "api_src_services_splunk_firedalertmetadata",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L418",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk",
+      "target": "api_src_services_splunk_firedalerttimestamp",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -41640,7 +41827,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L88",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41648,10 +41835,21 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L452",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk",
+      "target": "api_src_services_splunk_mergefiredalertresult",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L453",
+      "source_location": "L650",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -41663,7 +41861,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L373",
+      "source_location": "L564",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41674,7 +41872,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L455",
+      "source_location": "L652",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -41686,7 +41884,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L130",
+      "source_location": "L168",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41697,7 +41895,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L119",
+      "source_location": "L157",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41708,7 +41906,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L456",
+      "source_location": "L653",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -41717,10 +41915,21 @@
       "confidence_score": 0.5
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L409",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk",
+      "target": "api_src_services_splunk_parsejsonresponse",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L454",
+      "source_location": "L651",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -41732,7 +41941,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L111",
+      "source_location": "L132",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41743,7 +41952,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L294",
+      "source_location": "L330",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41754,7 +41963,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L312",
+      "source_location": "L348",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41765,7 +41974,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L68",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41776,7 +41985,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L457",
+      "source_location": "L654",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -41788,7 +41997,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L12",
+      "source_location": "L14",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41799,7 +42008,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L148",
+      "source_location": "L186",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41810,7 +42019,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L158",
+      "source_location": "L146",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk",
+      "target": "api_src_services_splunk_stablealertname",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L196",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41821,7 +42041,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L81",
+      "source_location": "L102",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41843,7 +42063,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L458",
+      "source_location": "L655",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -41855,7 +42075,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L73",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk",
@@ -41891,7 +42111,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L51",
+      "source_location": "L53",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_validateconfiguration",
@@ -41903,7 +42123,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L431",
+      "source_location": "L625",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_checkhealth",
@@ -41915,7 +42135,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L389",
+      "source_location": "L580",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_fetchalerts",
@@ -41927,7 +42147,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L315",
+      "source_location": "L351",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_requestsplunk",
@@ -41939,7 +42159,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L417",
+      "source_location": "L611",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_searchevents",
@@ -41963,7 +42183,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L400",
+      "source_location": "L594",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_buildsearchclauses",
@@ -41975,7 +42195,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L107",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_enrichedresult",
@@ -41987,10 +42207,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L175",
+      "source_location": "L432",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "api_src_services_splunk_normalizealert",
+      "source": "api_src_services_splunk_firedalertmetadata",
       "target": "api_src_services_splunk_valueat",
       "confidence_score": 1.0
     },
@@ -41999,10 +42219,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L253",
+      "source_location": "L419",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "api_src_services_splunk_normalizerawevent",
+      "source": "api_src_services_splunk_firedalerttimestamp",
       "target": "api_src_services_splunk_valueat",
       "confidence_score": 1.0
     },
@@ -42011,155 +42231,11 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L131",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "api_src_services_splunk_normalizeseverity",
+      "source": "api_src_services_splunk_mergefiredalertresult",
       "target": "api_src_services_splunk_valueat",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L149",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_sourceseverity",
-      "target": "api_src_services_splunk_valueat",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L159",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_stableeventid",
-      "target": "api_src_services_splunk_valueat",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L82",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_stringvalue",
-      "target": "api_src_services_splunk_valueat",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L179",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_normalizealert",
-      "target": "api_src_services_splunk_stringvalue",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L248",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_normalizerawevent",
-      "target": "api_src_services_splunk_stringvalue",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L198",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_normalizealert",
-      "target": "api_src_services_splunk_listvalue",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L253",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_normalizerawevent",
-      "target": "api_src_services_splunk_listvalue",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L108",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_enrichedresult",
-      "target": "api_src_services_splunk_parserawkeyvaluefields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "api/test/splunk.test.js",
-      "source_location": "L6",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_test_splunk_test",
-      "target": "api_src_services_splunk_parserawkeyvaluefields",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L174",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_normalizealert",
-      "target": "api_src_services_splunk_enrichedresult",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L184",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_normalizealert",
-      "target": "api_src_services_splunk_readablealertname",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "api/src/services/splunk.js",
-      "source_location": "L177",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "api_src_services_splunk_normalizealert",
-      "target": "api_src_services_splunk_normalizetimestamp",
       "confidence_score": 1.0
     },
     {
@@ -42171,6 +42247,366 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_normalizealert",
+      "target": "api_src_services_splunk_valueat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L289",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizerawevent",
+      "target": "api_src_services_splunk_valueat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L169",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizeseverity",
+      "target": "api_src_services_splunk_valueat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L187",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_sourceseverity",
+      "target": "api_src_services_splunk_valueat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L197",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_stableeventid",
+      "target": "api_src_services_splunk_valueat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L103",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_stringvalue",
+      "target": "api_src_services_splunk_valueat",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L141",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_alertnamefromsource",
+      "target": "api_src_services_splunk_stringvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L500",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchconfiguredalertscope",
+      "target": "api_src_services_splunk_stringvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L524",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchtriggeredalerts",
+      "target": "api_src_services_splunk_stringvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L428",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_firedalertmetadata",
+      "target": "api_src_services_splunk_stringvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L460",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_mergefiredalertresult",
+      "target": "api_src_services_splunk_stringvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L218",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizealert",
+      "target": "api_src_services_splunk_stringvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L284",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizerawevent",
+      "target": "api_src_services_splunk_stringvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L147",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_stablealertname",
+      "target": "api_src_services_splunk_stringvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L234",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizealert",
+      "target": "api_src_services_splunk_listvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L289",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizerawevent",
+      "target": "api_src_services_splunk_listvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L129",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_enrichedresult",
+      "target": "api_src_services_splunk_parserawkeyvaluefields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "api/test/splunk.test.js",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_test_splunk_test",
+      "target": "api_src_services_splunk_parserawkeyvaluefields",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L498",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchconfiguredalertscope",
+      "target": "api_src_services_splunk_enrichedresult",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L212",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizealert",
+      "target": "api_src_services_splunk_enrichedresult",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L220",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizealert",
+      "target": "api_src_services_splunk_readablealertname",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L217",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizealert",
+      "target": "api_src_services_splunk_alertnamefromsource",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L150",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_stablealertname",
+      "target": "api_src_services_splunk_alertnamefromsource",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L499",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchconfiguredalertscope",
+      "target": "api_src_services_splunk_stablealertname",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L528",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchtriggeredalerts",
+      "target": "api_src_services_splunk_stablealertname",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L219",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizealert",
+      "target": "api_src_services_splunk_stablealertname",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L501",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchconfiguredalertscope",
+      "target": "api_src_services_splunk_alertnamekey",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L529",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchtriggeredalerts",
+      "target": "api_src_services_splunk_alertnamekey",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L421",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_firedalerttimestamp",
+      "target": "api_src_services_splunk_normalizetimestamp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L215",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizealert",
+      "target": "api_src_services_splunk_normalizetimestamp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L249",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_normalizealert",
       "target": "api_src_services_splunk_normalizeseverity",
       "confidence_score": 1.0
     },
@@ -42179,7 +42615,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L144",
+      "source_location": "L182",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_normalizeseverity",
@@ -42191,7 +42627,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L178",
+      "source_location": "L216",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_normalizealert",
@@ -42203,7 +42639,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L210",
+      "source_location": "L246",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_normalizealert",
@@ -42215,10 +42651,22 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L395",
+      "source_location": "L589",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_fetchalerts",
+      "target": "api_src_services_splunk_normalizealert",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "indirect_call",
+      "context": "argument",
+      "confidence": "INFERRED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L555",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchtriggeredalerts",
       "target": "api_src_services_splunk_normalizealert",
       "confidence_score": 0.5
     },
@@ -42227,7 +42675,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L243",
+      "source_location": "L279",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_normalizerawevent",
@@ -42251,7 +42699,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L426",
+      "source_location": "L620",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_searchevents",
@@ -42263,7 +42711,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L318",
+      "source_location": "L354",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_requestsplunk",
@@ -42275,7 +42723,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L432",
+      "source_location": "L626",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_checkhealth",
@@ -42287,7 +42735,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L394",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_fetchalerts",
@@ -42299,7 +42747,43 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L425",
+      "source_location": "L491",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchconfiguredalertscope",
+      "target": "api_src_services_splunk_requestsplunk",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L472",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchsearchjobrows",
+      "target": "api_src_services_splunk_requestsplunk",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L518",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchtriggeredalerts",
+      "target": "api_src_services_splunk_requestsplunk",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L619",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_searchevents",
@@ -42311,7 +42795,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L395",
+      "source_location": "L589",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_fetchalerts",
@@ -42323,7 +42807,19 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L426",
+      "source_location": "L494",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchconfiguredalertscope",
+      "target": "api_src_services_splunk_parseexportresponse",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L620",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_searchevents",
@@ -42347,7 +42843,127 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L392",
+      "source_location": "L476",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchsearchjobrows",
+      "target": "api_src_services_splunk_parsejsonresponse",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L522",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchtriggeredalerts",
+      "target": "api_src_services_splunk_parsejsonresponse",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L532",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchtriggeredalerts",
+      "target": "api_src_services_splunk_firedalerttimestamp",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L453",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_mergefiredalertresult",
+      "target": "api_src_services_splunk_firedalertmetadata",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L550",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchtriggeredalerts",
+      "target": "api_src_services_splunk_mergefiredalertresult",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L547",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchtriggeredalerts",
+      "target": "api_src_services_splunk_fetchsearchjobrows",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L490",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchconfiguredalertscope",
+      "target": "api_src_services_splunk_exportbody",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L489",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchconfiguredalertscope",
+      "target": "api_src_services_splunk_normalizedbasesearch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L508",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchtriggeredalerts",
+      "target": "api_src_services_splunk_fetchconfiguredalertscope",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L584",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "api_src_services_splunk_fetchalerts",
+      "target": "api_src_services_splunk_fetchtriggeredalerts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "api/src/services/splunk.js",
+      "source_location": "L586",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_fetchalerts",
@@ -42359,7 +42975,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L420",
+      "source_location": "L614",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_searchevents",
@@ -42371,7 +42987,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L393",
+      "source_location": "L587",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_fetchalerts",
@@ -42383,7 +42999,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L424",
+      "source_location": "L618",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_searchevents",
@@ -42419,7 +43035,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "api/src/services/splunk.js",
-      "source_location": "L421",
+      "source_location": "L615",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_src_services_splunk_searchevents",
@@ -46241,7 +46857,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "api/test/splunk.test.js",
-      "source_location": "L40",
+      "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast",
       "source": "api_test_splunk_test",
@@ -50367,7 +50983,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L142",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_admin_connectormanager",
@@ -50378,7 +50994,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L26",
+      "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_admin_connectormanager",
@@ -50389,7 +51005,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L33",
+      "source_location": "L34",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_admin_connectormanager",
@@ -50471,7 +51087,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L37",
+      "source_location": "L38",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_admin_connectormanager_connectorwizard",
@@ -50483,7 +51099,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L181",
+      "source_location": "L190",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_admin_connectormanager_connectormanager",
@@ -50495,7 +51111,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L68",
+      "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_admin_connectormanager_connectorwizard",
@@ -50508,7 +51124,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L151",
+      "source_location": "L160",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_admin_connectormanager_connectormanager",
@@ -50520,7 +51136,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "frontend/src/components/admin/ConnectorManager.jsx",
-      "source_location": "L181",
+      "source_location": "L190",
       "weight": 1.0,
       "_origin": "ast",
       "source": "frontend_src_components_admin_connectormanager_connectormanager",
@@ -69747,7 +70363,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MANAGED_CONNECTORS.md",
-      "source_location": "L59",
+      "source_location": "L66",
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_managed_connectors_dashboard_managed_security_connectors",
@@ -69802,7 +70418,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MANAGED_CONNECTORS.md",
-      "source_location": "L55",
+      "source_location": "L62",
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_managed_connectors_dashboard_managed_security_connectors",
@@ -69835,7 +70451,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/MANAGED_CONNECTORS.md",
-      "source_location": "L51",
+      "source_location": "L58",
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_managed_connectors_source_specific_access",
@@ -73331,5 +73947,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "1ca7c925257e7688eec9f4faf770f0444304edec"
+  "built_at_commit": "0dec3465164366944ed9b9cd2eef4f92561dde61"
 }

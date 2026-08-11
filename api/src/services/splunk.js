@@ -11,6 +11,7 @@ const DEFAULT_TIMEOUT_MS = 30000;
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
 const MAX_FIRED_ALERT_INSTANCES = 200;
 const FIRED_ALERT_CONCURRENCY = 4;
+const ALERT_SCOPE_TIME_TOLERANCE_MS = 5 * 60 * 1000;
 const SEVERITY_LEVELS = Object.freeze({
   critical: 15,
   high: 12,
@@ -40,7 +41,7 @@ function validateConfiguration(input = process.env) {
   const token = String(managed ? input.token : input.SPLUNK_TOKEN || '').trim();
   if (!token) throw new Error('SPLUNK_TOKEN is not set');
 
-  const index = String((managed ? input.index : input.SPLUNK_INDEX) || 'main').trim();
+  const index = String((managed ? input.index : input.SPLUNK_INDEX) || 'alerts').trim();
   if (!/^[A-Za-z0-9._-]{1,200}$/.test(index)) {
     throw new Error('SPLUNK_INDEX contains invalid characters');
   }
@@ -143,6 +144,17 @@ function alertNameFromSource(result) {
   return match?.[1]?.trim() || null;
 }
 
+function stableAlertName(result) {
+  return stringValue(
+    result, 'rule_desc', 'rule_title', 'alert_name', 'ss_name', 'search_name',
+    'savedsearch_name', 'signature', 'event_name', 'title', 'name'
+  ) || alertNameFromSource(result);
+}
+
+function alertNameKey(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 function normalizeTimestamp(value) {
   if (value == null || value === '') return new Date().toISOString();
   const text = String(value).trim();
@@ -205,10 +217,7 @@ function normalizeAlert(hit) {
   const severity = sourceSeverity(result);
   const sourceAlertName = alertNameFromSource(result);
   const action = stringValue(result, 'action', 'event.action') || (sourceAlertName ? 'alert_fired' : null);
-  const stableRuleName = stringValue(
-    result, 'rule_desc', 'rule_title', 'alert_name', 'ss_name', 'search_name',
-    'savedsearch_name', 'signature', 'event_name', 'title', 'name'
-  ) || sourceAlertName;
+  const stableRuleName = stableAlertName(result) || sourceAlertName;
   const ruleDescription = readableAlertName(stableRuleName) ||
     (action === 'alert_fired' ? 'Splunk alert fired' : stringValue(result, 'sourcetype')) ||
     'Splunk detection';
@@ -415,6 +424,14 @@ function firedAlertTimestamp(entry) {
   return Number.isFinite(milliseconds) ? milliseconds : null;
 }
 
+function observedTimestamp(result) {
+  const raw = valueAt(result, '_time', 'time', 'timestamp', 'trigger_time');
+  if (raw == null || raw === '') return null;
+  const text = String(raw).trim();
+  const milliseconds = /^\d+(?:\.\d+)?$/.test(text) ? Number(text) * 1000 : Date.parse(text);
+  return Number.isFinite(milliseconds) ? milliseconds : null;
+}
+
 function firedAlertMetadata(entry, config) {
   const content = entry?.content || {};
   const sid = stringValue(content, 'sid');
@@ -476,9 +493,65 @@ async function fetchSearchJobRows(sid, count, config) {
   return Array.isArray(events.results) ? events.results : [];
 }
 
+async function fetchConfiguredAlertScope({ minutes, limit }, config) {
+  const scopeLimit = Math.min(Math.max(limit * 5, 100), 5000);
+  const search = `${normalizedBaseSearch(config)} | head ${scopeLimit}`;
+  const body = exportBody({ search, earliestTime:`-${minutes}m`, limit:scopeLimit });
+  const text = await requestSplunk(
+    '/services/search/jobs/export', { method:'POST', body, timeoutMs:60000 }, config
+  );
+  const rows = parseExportResponse(text);
+  const nameTimestamps = new Map();
+  const sids = new Set();
+  for (const row of rows) {
+    const enriched = enrichedResult(row);
+    const name = stableAlertName(enriched);
+    const sid = stringValue(enriched, 'sid', 'orig_sid');
+    const timestamp = observedTimestamp(enriched);
+    if (name && timestamp != null) {
+      const key = alertNameKey(name);
+      const timestamps = nameTimestamps.get(key) || [];
+      timestamps.push(timestamp);
+      nameTimestamps.set(key, timestamps);
+    }
+    if (sid) sids.add(sid);
+  }
+  return { nameTimestamps, sids };
+}
+
+function scopedFiredAlertEntries(entries, scope) {
+  const remainingTimestamps = new Map(
+    [...scope.nameTimestamps].map(([name, timestamps]) => [name, [...timestamps]])
+  );
+  return entries.filter(entry => {
+    const content = entry?.content || {};
+    const sid = stringValue(content, 'sid');
+    const name = alertNameKey(stableAlertName(content) || entry?.name);
+    const timestamp = firedAlertTimestamp(entry);
+    const timestamps = remainingTimestamps.get(name) || [];
+    let nearestIndex = -1;
+    let nearestDistance = Infinity;
+    if (timestamp != null) {
+      timestamps.forEach((candidate, index) => {
+        const distance = Math.abs(candidate - timestamp);
+        if (distance <= ALERT_SCOPE_TIME_TOLERANCE_MS && distance < nearestDistance) {
+          nearestIndex = index;
+          nearestDistance = distance;
+        }
+      });
+    }
+    const sidMatches = scope.sids.has(sid);
+    if (!sidMatches && nearestIndex === -1) return false;
+    if (nearestIndex !== -1) timestamps.splice(nearestIndex, 1);
+    return true;
+  });
+}
+
 async function fetchTriggeredAlerts({ minutes, limit }, config) {
+  const scope = await fetchConfiguredAlertScope({ minutes, limit }, config);
+  if (!scope.nameTimestamps.size && !scope.sids.size) return [];
   const cutoff = Date.now() - (minutes * 60 * 1000);
-  const instanceLimit = Math.min(Math.max(limit, 20), MAX_FIRED_ALERT_INSTANCES);
+  const instanceLimit = MAX_FIRED_ALERT_INSTANCES;
   const query = new URLSearchParams({
     output_mode:'json', count:String(instanceLimit), offset:'0',
     sort_key:'trigger_time', sort_dir:'desc',
@@ -490,13 +563,16 @@ async function fetchTriggeredAlerts({ minutes, limit }, config) {
     { timeoutMs:30000 }, config
   );
   const data = parseJsonResponse(text, 'fired-alert list');
-  const entries = (Array.isArray(data.entry) ? data.entry : [])
+  const entries = scopedFiredAlertEntries(
+    (Array.isArray(data.entry) ? data.entry : [])
     .filter(entry => stringValue(entry?.content || {}, 'sid'))
     .filter(entry => {
       const timestamp = firedAlertTimestamp(entry);
       return timestamp == null || timestamp >= cutoff;
     })
-    .sort((left, right) => (firedAlertTimestamp(right) || 0) - (firedAlertTimestamp(left) || 0));
+    .sort((left, right) => (firedAlertTimestamp(right) || 0) - (firedAlertTimestamp(left) || 0)),
+    scope
+  );
 
   const normalized = [];
   let attemptedJobs = 0;
