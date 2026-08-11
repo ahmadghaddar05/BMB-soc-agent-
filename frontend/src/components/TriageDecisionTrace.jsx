@@ -3,23 +3,24 @@ import {
   GitMerge, Layers3, Link2, ShieldCheck, Sparkles, X,
 } from 'lucide-react';
 import { fmtTs, verdictLabel } from '../lib/api';
+import { Button, EmptyState, SkeletonLoader, StatusChip, Timeline } from './ui';
 
 const STAGES = [
-  { key:'collected', label:'Collected', description:'Received from the configured security source.', icon:Database },
-  { key:'normalized', label:'Normalized', description:'Mapped into the BMB alert schema.', icon:Layers3 },
-  { key:'enriched', label:'Enriched', description:'Checked against available security context.', icon:Sparkles },
-  { key:'triaged', label:'Triaged', description:'Assessed using stored evidence and policy.', icon:Bot },
-  { key:'correlated', label:'Correlation', description:'Evaluated against related activity.', icon:GitMerge },
-  { key:'incident_decision', label:'Incident decision', description:'Promoted, updated, or left as activity.', icon:ShieldCheck },
+  { key:'collected', label:'Evidence received', description:'Accepted from the configured security source.', icon:Database },
+  { key:'normalized', label:'Evidence normalized', description:'Mapped into the canonical BMB alert schema.', icon:Layers3 },
+  { key:'enriched', label:'Context evaluated', description:'Checked against available identity, asset, endpoint, and threat context.', icon:Sparkles },
+  { key:'triaged', label:'Model assessment', description:'Assessed using the stored evidence and active policy.', icon:Bot },
+  { key:'correlated', label:'Correlation evaluated', description:'Compared with related activity in the configured correlation window.', icon:GitMerge },
+  { key:'incident_decision', label:'Incident decision', description:'Promoted, updated, or retained as alert activity.', icon:ShieldCheck },
 ];
 
 const STATUS_ICON = {
-  completed: Check,
-  failed: X,
-  skipped: CircleDashed,
-  running: Clock3,
-  pending: Clock3,
-  current: Link2,
+  completed:Check,
+  failed:X,
+  skipped:CircleDashed,
+  running:Clock3,
+  pending:Clock3,
+  current:Link2,
 };
 
 function object(value) {
@@ -62,80 +63,94 @@ function latestByStage(events = []) {
   return result;
 }
 
+function displayValue(value) {
+  if (value == null || value === '') return 'Not supplied';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function RecordedDetails({ event }) {
+  const input = Object.entries(object(event.input_summary));
+  const output = Object.entries(object(event.output_summary));
+  const limitations = list(event.limitations);
+  return (
+    <div className="triage-recorded-details">
+      <dl>
+        <div><dt>Executor</dt><dd>{displayExecutor(event)}</dd></div>
+        <div><dt>Actor</dt><dd>{event.actor || 'Not recorded'}</dd></div>
+        <div><dt>Provider</dt><dd>{event.provider || 'Not applicable'}</dd></div>
+        <div><dt>Model</dt><dd>{event.model || 'Not applicable'}</dd></div>
+        <div><dt>Confidence</dt><dd>{confidence(event)}</dd></div>
+        <div><dt>Completed</dt><dd>{fmtTs(event.finished_at || event.created_at)}</dd></div>
+      </dl>
+      {(input.length > 0 || output.length > 0) && (
+        <div className="triage-recorded-summaries">
+          {input.length > 0 && <section><h4>Bounded input</h4>{input.map(([key, value]) => <p key={key}><span>{key.replaceAll('_', ' ')}</span><strong>{displayValue(value)}</strong></p>)}</section>}
+          {output.length > 0 && <section><h4>Recorded output</h4>{output.map(([key, value]) => <p key={key}><span>{key.replaceAll('_', ' ')}</span><strong>{displayValue(value)}</strong></p>)}</section>}
+        </div>
+      )}
+      {limitations.length > 0 && <section className="triage-recorded-limitations"><h4>Recorded limitations</h4><ul>{limitations.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></section>}
+      {event.error_message && <p className="triage-recorded-error"><AlertTriangle />{event.error_message}</p>}
+    </div>
+  );
+}
+
+function traceItems(events, includeAll = false) {
+  const recorded = latestByStage(events);
+  const stages = includeAll ? STAGES : STAGES.slice(0, 4);
+  return stages.flatMap(stage => {
+    const event = recorded.get(stage.key);
+    if (!event && !includeAll) return [];
+    const Icon = stage.icon;
+    return [{
+      id:stage.key,
+      title:stage.label,
+      detail:event?.reason || stage.description,
+      meta:event ? (event.status === 'completed' ? displayExecutor(event) : String(event.status || 'Recorded')) : 'Not recorded',
+      icon:<Icon aria-hidden="true" />,
+      expandedLabel:event ? 'Inspect recorded evidence' : null,
+      expandedContent:event ? <RecordedDetails event={event} /> : null,
+    }];
+  });
+}
+
 export function TriageDecisionSummary({ journey, loading, error, verdict, onOpenWorkflow }) {
   const events = journey?.stages || [];
   const triage = [...events].reverse().find(event => event.stage === 'triaged');
   const output = object(triage?.output_summary);
   const limitations = list(triage?.limitations);
+  const items = traceItems(events);
 
   return (
-    <section className="decision-trace-summary" aria-labelledby="decision-trace-title">
-      <div className="decision-trace-heading">
-        <div>
-          <span><Bot />AI decision trace</span>
-          <h3 id="decision-trace-title">Why this assessment?</h3>
-        </div>
-        <button type="button" onClick={onOpenWorkflow}>View full workflow</button>
-      </div>
+    <section className="triage-decision-trace" aria-labelledby="decision-trace-title">
+      <header>
+        <div><span>AI decision trace</span><h3 id="decision-trace-title">Why this assessment?</h3></div>
+        <Button variant="secondary" onClick={onOpenWorkflow}>View full workflow</Button>
+      </header>
       {loading ? (
-        <div className="decision-trace-state"><i className="trace-spinner" />Loading recorded workflow…</div>
+        <SkeletonLoader lines={3} />
       ) : error ? (
-        <div className="decision-trace-state is-error"><AlertTriangle />Workflow evidence could not be loaded. The stored verdict remains visible.</div>
+        <EmptyState icon={AlertTriangle} message="Decision trace is temporarily unavailable" />
       ) : !triage ? (
-        <div className="decision-trace-state"><CircleDashed />No recorded triage stage exists for this alert. Missing history is not inferred.</div>
+        <EmptyState icon={CircleDashed} message="This alert is waiting for AI triage" />
       ) : (
         <>
-          <p className="decision-reason">{triage.reason || verdict?.narrative || 'No model explanation was recorded.'}</p>
-          <dl className="decision-facts">
-            <div><dt>Decision</dt><dd>{verdictLabel(output.verdict || verdict?.verdict)}</dd></div>
-            <div><dt>Confidence</dt><dd>{confidence(triage)} <small>{triage.confidence_kind || 'score type not recorded'}</small></dd></div>
-            <div><dt>Decision source</dt><dd>{displayExecutor(triage)} <small>{triage.provider || 'provider not recorded'}</small></dd></div>
-            <div><dt>Model</dt><dd title={triage.model || ''}>{triage.model || 'Not recorded'}</dd></div>
-            <div><dt>Evidence citations</dt><dd>{Number(output.citation_count || 0)} recorded</dd></div>
-            <div><dt>Limitations</dt><dd>{limitations.length ? `${limitations.length} recorded` : 'None supplied'}</dd></div>
-          </dl>
-          <div className={`decision-limitations ${limitations.length ? '' : 'is-clear'}`}>
+          <div className="triage-decision-summary">
+            <StatusChip status="active">{verdictLabel(output.verdict || verdict?.verdict)}</StatusChip>
+            <span>{confidence(triage)} model confidence</span>
+            <span>{displayExecutor(triage)}</span>
+          </div>
+          <Timeline items={items} className="triage-reasoning-timeline" />
+          <div className={`triage-limitations ${limitations.length ? 'has-limitations' : ''}`}>
             <strong>{limitations.length ? 'Known evidence limitations' : 'No explicit limitation supplied'}</strong>
             {limitations.length
               ? <ul>{limitations.slice(0, 3).map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul>
-              : <p>The model did not record a limitation. Analysts should still verify the cited evidence before acting.</p>}
+              : <p>The model did not record a limitation. Verify cited evidence before acting.</p>}
           </div>
-          <p className="decision-trust-note">This explains the recorded workflow; it does not independently prove the verdict is correct.</p>
+          <p className="triage-trust-note">This explains the recorded workflow; it does not independently prove the verdict is correct.</p>
         </>
       )}
     </section>
-  );
-}
-
-function StageDetails({ event }) {
-  const input = object(event.input_summary);
-  const output = object(event.output_summary);
-  const limitations = list(event.limitations);
-  const inputItems = Object.entries(input);
-  const outputItems = Object.entries(output);
-
-  return (
-    <details className="workflow-stage-details">
-      <summary>Recorded details</summary>
-      <div className="workflow-detail-grid">
-        <dl>
-          <div><dt>Executor</dt><dd>{displayExecutor(event)}</dd></div>
-          <div><dt>Actor</dt><dd>{event.actor || 'Not recorded'}</dd></div>
-          <div><dt>Provider</dt><dd>{event.provider || 'Not applicable'}</dd></div>
-          <div><dt>Model</dt><dd>{event.model || 'Not applicable'}</dd></div>
-          <div><dt>Confidence</dt><dd>{confidence(event)}</dd></div>
-          <div><dt>Completed</dt><dd>{fmtTs(event.finished_at || event.created_at)}</dd></div>
-        </dl>
-        {(inputItems.length > 0 || outputItems.length > 0) && (
-          <div className="workflow-recorded-summary">
-            {inputItems.length > 0 && <section><h5>Bounded input summary</h5>{inputItems.map(([key, value]) => <p key={key}><span>{key.replaceAll('_', ' ')}</span><strong>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</strong></p>)}</section>}
-            {outputItems.length > 0 && <section><h5>Recorded output summary</h5>{outputItems.map(([key, value]) => <p key={key}><span>{key.replaceAll('_', ' ')}</span><strong>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</strong></p>)}</section>}
-          </div>
-        )}
-      </div>
-      {limitations.length > 0 && <div className="workflow-limitations"><strong>Recorded limitations</strong><ul>{limitations.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></div>}
-      {event.error_message && <div className="workflow-error"><AlertTriangle />{event.error_message}</div>}
-    </details>
   );
 }
 
@@ -145,54 +160,43 @@ export function TriageWorkflow({ journey, loading, error }) {
   const linkedIncident = journey?.current_state?.incident || null;
   const hasCorrelationDecision = recorded.has('correlated');
 
-  if (loading) return <section className="workflow-empty"><i className="trace-spinner" /><strong>Loading recorded workflow</strong><span>Reading append-only provenance for this alert.</span></section>;
-  if (error) return <section className="workflow-empty is-error"><AlertTriangle /><strong>Workflow unavailable</strong><span>The provenance endpoint could not be read. No workflow state has been inferred.</span></section>;
-  if (!events.length) return <section className="workflow-empty"><CircleDashed /><strong>No recorded workflow yet</strong><span>This alert may predate workflow provenance or may not have entered processing. Missing stages are not inferred.</span></section>;
+  if (loading) return <section className="triage-workflow-state"><SkeletonLoader lines={5} /></section>;
+  if (error) return <EmptyState icon={AlertTriangle} message="Recorded workflow is temporarily unavailable" />;
+  if (!events.length) return <EmptyState icon={CircleDashed} message="No processing history has been recorded yet" />;
+
+  const workflowItems = STAGES.map(stage => {
+    const recordedEvent = recorded.get(stage.key);
+    const currentStateEvent = !recordedEvent && linkedIncident && stage.key === 'correlated'
+      ? { status:'current', reason:`Currently linked to incident INC-${String(linkedIncident.id).padStart(5, '0')}. The original correlation ledger event is unavailable.` }
+      : !recordedEvent && linkedIncident && stage.key === 'incident_decision'
+        ? { status:'current', reason:`The linked incident is currently ${String(linkedIncident.status || 'recorded').replaceAll('_', ' ')}. This is database state, not reconstructed AI provenance.` }
+        : null;
+    const event = recordedEvent || currentStateEvent;
+    const Icon = stage.icon;
+    const StatusIcon = STATUS_ICON[event?.status] || CircleDashed;
+    return {
+      id:stage.key,
+      title:stage.label,
+      detail:event?.reason || stage.description,
+      meta:event?.status === 'current' ? 'Current state' : event?.status || 'Not recorded',
+      icon:<Icon aria-hidden="true" />,
+      expandedLabel:recordedEvent ? 'Inspect recorded evidence' : null,
+      expandedContent:recordedEvent ? <RecordedDetails event={recordedEvent} /> : null,
+      statusIcon:<StatusIcon />,
+    };
+  });
 
   return (
     <section className="triage-workflow" aria-labelledby="workflow-title">
       <header>
         <div><span>Recorded provenance</span><h3 id="workflow-title">How this alert was processed</h3></div>
-        <p>{events.length} append-only event{events.length === 1 ? '' : 's'}</p>
+        <StatusChip>{events.length} append-only event{events.length === 1 ? '' : 's'}</StatusChip>
       </header>
-      <div className="workflow-trust-banner"><ShieldCheck /><p><strong>Recorded workflow and current state</strong><span>Ledger events remain append-only. A current incident link may be shown separately when older provenance is unavailable.</span></p></div>
+      <p className="triage-workflow-trust"><ShieldCheck />Recorded workflow and current state. Ledger events are append-only; missing history is not inferred.</p>
       {!hasCorrelationDecision && !linkedIncident && (
-        <div className="module-notice">
-          <GitMerge />
-          <span><strong>Awaiting BMB correlation processing.</strong> A source rule name such as “Multiple Alerts for Same User” describes the Elastic detection; it is not a BMB correlation result. This stage is complete only when a recorded outcome appears below.</span>
-        </div>
+        <p className="triage-workflow-awaiting"><GitMerge /><span><strong>Awaiting BMB correlation processing.</strong> A detection title can describe repeated activity without being a recorded BMB correlation result.</span></p>
       )}
-      <ol className="workflow-stage-list">
-        {STAGES.map(stage => {
-          const recordedEvent = recorded.get(stage.key);
-          const currentStateEvent = !recordedEvent && linkedIncident && stage.key === 'correlated'
-            ? {
-              status:'current',
-              reason:`Currently linked to incident INC-${String(linkedIncident.id).padStart(5, '0')}. The original correlation ledger event is unavailable.`,
-            }
-            : !recordedEvent && linkedIncident && stage.key === 'incident_decision'
-              ? {
-                status:'current',
-                reason:`The linked incident is currently ${String(linkedIncident.status || 'recorded').replaceAll('_', ' ')}. This is database state, not reconstructed AI provenance.`,
-              }
-              : null;
-          const event = recordedEvent || currentStateEvent;
-          const Icon = stage.icon;
-          const StatusIcon = STATUS_ICON[event?.status] || CircleDashed;
-          return (
-            <li key={stage.key} className={`workflow-stage workflow-${event?.status || 'missing'}`}>
-              <span className="workflow-stage-icon"><Icon /></span>
-              <div className="workflow-stage-body">
-                <div className="workflow-stage-title">
-                  <div><h4>{stage.label}</h4><p>{event?.reason || stage.description}</p></div>
-                  <span><StatusIcon />{event?.status === 'current' ? 'Current state' : event?.status || 'Not recorded'}</span>
-                </div>
-                {recordedEvent && <StageDetails event={recordedEvent} />}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+      <Timeline items={workflowItems} className="triage-workflow-timeline" />
     </section>
   );
 }

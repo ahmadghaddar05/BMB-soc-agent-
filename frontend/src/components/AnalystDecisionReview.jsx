@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { AlertTriangle, Check, CircleHelp, MessageSquareWarning, ShieldCheck } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, Check, CircleHelp, MessageSquareWarning } from 'lucide-react';
 import { api, fmtTs } from '../lib/api';
+import { Button, StatusChip } from './ui';
 
 const OPTIONS = [
   { value:'confirmed', label:'Confirm', icon:Check, help:'Stored evidence supports this decision.' },
@@ -12,13 +13,20 @@ function decisionLabel(value) {
   return OPTIONS.find(option => option.value === value)?.label || String(value || '').replaceAll('_', ' ');
 }
 
-export default function AnalystDecisionReview({ entityType, entityId, reviews = [], onRecorded }) {
+export default function AnalystDecisionReview({ entityType, entityId, reviews = [], onRecorded, openSignal = 0 }) {
   const [open, setOpen] = useState(false);
   const [decision, setDecision] = useState('confirmed');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const previousOpenSignal = useRef(openSignal);
   const latest = reviews[0];
+
+  useEffect(() => {
+    if (previousOpenSignal.current === openSignal) return;
+    previousOpenSignal.current = openSignal;
+    setOpen(true);
+  }, [openSignal]);
 
   async function submit(event) {
     event.preventDefault();
@@ -47,7 +55,6 @@ export default function AnalystDecisionReview({ entityType, entityId, reviews = 
   return (
     <section className="analyst-decision-review" aria-labelledby={`${entityType}-${entityId}-review-title`}>
       <div className="analyst-review-summary">
-        <span className={`analyst-review-icon ${latest?.decision || 'unreviewed'}`}><ShieldCheck /></span>
         <div>
           <span>Human review</span>
           <strong id={`${entityType}-${entityId}-review-title`}>
@@ -59,9 +66,10 @@ export default function AnalystDecisionReview({ entityType, entityId, reviews = 
               : 'Confirm, challenge, or request more evidence. The AI record remains unchanged.'}
           </small>
         </div>
-        <button type="button" onClick={() => setOpen(value => !value)}>
+        <StatusChip status={latest ? 'resolved' : 'neutral'}>{latest ? 'Reviewed' : 'Awaiting review'}</StatusChip>
+        <Button variant="primary" onClick={() => setOpen(value => !value)}>
           {open ? 'Cancel review' : latest ? 'Add new review' : 'Record review'}
-        </button>
+        </Button>
       </div>
 
       {open && (
@@ -103,9 +111,9 @@ export default function AnalystDecisionReview({ entityType, entityId, reviews = 
           {error && <p className="analyst-review-error" role="alert"><AlertTriangle />{error}</p>}
           <div className="analyst-review-actions">
             <p>Append-only review. This does not rewrite the AI verdict or execute a response.</p>
-            <button type="submit" disabled={busy || reason.trim().length < 10}>
+            <Button type="submit" variant="primary" disabled={busy || reason.trim().length < 10}>
               {busy ? 'Recording…' : 'Record analyst review'}
-            </button>
+            </Button>
           </div>
         </form>
       )}

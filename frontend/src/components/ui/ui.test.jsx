@@ -2,8 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { ShieldAlert } from 'lucide-react';
 import {
-  Button, Card, EmptyState, LiveIndicator, SegmentedControl,
-  SeverityBadge, SkeletonLoader, StatusChip, Timeline,
+  Button, Card, ConfidenceGauge, EmptyState, LiveIndicator, SegmentedControl,
+  SeverityBadge, SkeletonLoader, StatusChip, Timeline, UnderlineTabs,
 } from './index';
 
 describe('BMB shared product components', () => {
@@ -31,9 +31,18 @@ describe('BMB shared product components', () => {
   });
 
   it('provides one reusable timeline language for monitoring, reasoning, and cases', () => {
-    const html = renderToStaticMarkup(<Timeline items={[{ id:'one', title:'Evidence collected', detail:'Two matching records', meta:'2m ago' }]} />);
+    const html = renderToStaticMarkup(<Timeline items={[{ id:'one', title:'Evidence collected', detail:'Two matching records', meta:'2m ago', expandedContent:<p>Stored record</p> }]} />);
     expect(html).toContain('ui-timeline');
     expect(html).toContain('Evidence collected');
     expect(html).toContain('Two matching records');
+    expect(html).toContain('Recorded details');
+  });
+
+  it('renders shared AI confidence and underline-tab controls', () => {
+    const html = renderToStaticMarkup(<><ConfidenceGauge value={84} label="Needs investigation" /><UnderlineTabs value="overview" onChange={vi.fn()} options={[{ value:'overview', label:'Overview' }, { value:'evidence', label:'Evidence' }]} /></>);
+    expect(html).toContain('ui-confidence-confident');
+    expect(html).toContain('84%');
+    expect(html).toContain('role="tablist"');
+    expect(html).toContain('aria-selected="true"');
   });
 });
