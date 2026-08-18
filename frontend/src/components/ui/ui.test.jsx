@@ -32,8 +32,15 @@ describe('BMB shared product components', () => {
   });
 
   it('provides one reusable timeline language for monitoring, reasoning, and cases', () => {
-    const html = renderToStaticMarkup(<Timeline items={[{ id:'one', title:'Evidence collected', detail:'Two matching records', meta:'2m ago', expandedContent:<p>Stored record</p> }]} />);
+    const html = renderToStaticMarkup(<Timeline ariaLabel="Attack events" live items={[{ id:'one', title:'Evidence collected', detail:'Two matching records', meta:'2m ago', timestamp:'17:42:13', severity:'critical', eventType:'access', expandedContent:<p>Stored record</p> }]} />);
     expect(html).toContain('ui-timeline');
+    expect(html).toContain('aria-label="Attack events"');
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain('aria-relevant="additions"');
+    expect(html).toContain('role="log"');
+    expect(html).toContain('ui-timeline-tone-critical');
+    expect(html).toContain('data-event-type="access"');
+    expect(html).toContain('<time');
     expect(html).toContain('Evidence collected');
     expect(html).toContain('Two matching records');
     expect(html).toContain('Recorded details');

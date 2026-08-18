@@ -1345,8 +1345,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ui/Timeline.jsx": {
-    "mtime": 1786891240.68797,
-    "ast_hash": "a35cfb220bcf8b80079fb56fbfd23b44",
+    "mtime": 1786889087.3550322,
+    "ast_hash": "bb32294e962c68e8767c5c3727a04d82",
     "semantic_hash": ""
   },
   "frontend/src/components/ui/index.js": {
@@ -1355,8 +1355,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ui/ui.test.jsx": {
-    "mtime": 1786891241.0633981,
-    "ast_hash": "71dd660f02f1633b7566a9c8af737dd1",
+    "mtime": 1786883853.3489778,
+    "ast_hash": "120a8e127360d21bcc07038362023930",
     "semantic_hash": ""
   },
   "frontend/src/components/ui/utils.js": {
@@ -1405,8 +1405,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/AttackSimulator.jsx": {
-    "mtime": 1786891103.404019,
-    "ast_hash": "8ea26156bc3f48a4ca53a017a836aa66",
+    "mtime": 1786890607.0600307,
+    "ast_hash": "c6efd8c07943efc52698dcfe4bf5ee55",
     "semantic_hash": ""
   },
   "frontend/src/pages/DigitalTwin.jsx": {
@@ -1420,13 +1420,13 @@
     "semantic_hash": ""
   },
   "frontend/src/components/digital-twin/NetworkTopologyCanvas.jsx": {
-    "mtime": 1786891241.4309676,
-    "ast_hash": "670fdc947dd8694548a1c62a88ad75fb",
+    "mtime": 1786887369.898206,
+    "ast_hash": "031eb03cc936b162521e23fe70c94aee",
     "semantic_hash": ""
   },
   "frontend/src/components/digital-twin/NetworkTopologyCanvas.test.jsx": {
-    "mtime": 1786891241.8406627,
-    "ast_hash": "93f9449fa0499d7ab40aa5849bd7d348",
+    "mtime": 1786887566.9036362,
+    "ast_hash": "f1bf3e95898d2f71ec2c240fef6504ce",
     "semantic_hash": ""
   },
   "frontend/src/lib/attackSimulation.js": {
@@ -1450,18 +1450,13 @@
     "semantic_hash": ""
   },
   "frontend/src/components/attack-simulator/SimulationResponse.jsx": {
-    "mtime": 1786891242.1989927,
-    "ast_hash": "9c47fe617e657ee348bedbfaf2f19ad0",
+    "mtime": 1786890606.2893221,
+    "ast_hash": "f90798120255804511ec34ffb0ad789d",
     "semantic_hash": ""
   },
   "frontend/src/components/attack-simulator/SimulationResponse.test.jsx": {
     "mtime": 1786890606.6772752,
     "ast_hash": "8366a19f1aae6bafffa50b7564b341df",
-    "semantic_hash": ""
-  },
-  "frontend/src/pages/AttackSimulator.test.jsx": {
-    "mtime": 1786891156.53921,
-    "ast_hash": "03172bc4fdb62debca72bdc9abc1ea55",
     "semantic_hash": ""
   }
 }

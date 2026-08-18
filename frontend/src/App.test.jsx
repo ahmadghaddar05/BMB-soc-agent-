@@ -188,6 +188,75 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Analytics');
   });
 
+  it('renders both synchronized-visualization foundations only in the analyst workspace', async () => {
+    let topologyRequests = 0;
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/alerts?limit=100')) {
+        topologyRequests += 1;
+        return jsonResponse({ alerts:[
+          ...(topologyRequests > 1 ? [{
+            id:'two', timestamp:'2026-08-16T08:01:00Z', src_ip:'203.0.113.44', hostname:'WEB-SRV01',
+            target_db:'CUSTOMER-DB', rule_desc:'Suspicious database export', source_severity:'critical',
+          }] : []),
+          { id:'one', timestamp:'2026-08-16T08:00:00Z', src_ip:'203.0.113.44', hostname:'WEB-SRV01', target_db:'CUSTOMER-DB' },
+        ] });
+      }
+      return jsonResponse({});
+    });
+
+    await renderAt('/digital-twin');
+    const navLabels = [...document.querySelectorAll('.sidebar-nav .nav-link')].map(link => link.textContent.trim());
+    expect(navLabels.slice(0, 5)).toEqual(['Monitoring', 'Analytics', 'Digital Twin', 'Attack Simulator', 'Triage']);
+    expect(document.querySelector('.topbar-title h1')?.textContent).toBe('Digital Twin');
+    expect(document.body.textContent).toContain('Network Topology');
+    expect(document.querySelector('.digital-twin-canvas')?.getAttribute('aria-label')).toContain('3 nodes and 2 evidence links');
+    expect(document.body.textContent).toContain('No active events');
+
+    await act(async () => document.dispatchEvent(new Event('visibilitychange')));
+    await settle();
+    expect(document.body.textContent).toContain('Suspicious database export was observed on CUSTOMER-DB from 203.0.113.44');
+    expect(document.querySelector('.digital-twin-node.is-compromised')).not.toBeNull();
+    expect(document.querySelector('.digital-twin-edge.is-active-traversal')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Live attack narrative"]')).not.toBeNull();
+
+    const simulatorLink = [...document.querySelectorAll('.sidebar-nav .nav-link')]
+      .find(link => link.textContent.includes('Attack Simulator'));
+    await act(async () => simulatorLink.click());
+    await vi.dynamicImportSettled();
+    await settle();
+    expect(window.location.pathname).toBe('/attack-simulator');
+    expect(document.querySelector('.topbar-title h1')?.textContent).toBe('Attack Simulator');
+    expect(document.body.textContent).toContain('SIMULATION MODE');
+    const scenarioOptions = [...document.querySelectorAll('.attack-scenario-option')];
+    expect(scenarioOptions).toHaveLength(3);
+    expect(scenarioOptions.map(option => option.textContent)).toEqual(expect.arrayContaining([
+      expect.stringContaining('DMZ Web Server Compromise'),
+      expect.stringContaining('Credential Phishing → Lateral Movement'),
+      expect.stringContaining('Insider Data Exfiltration'),
+    ]));
+    await act(async () => scenarioOptions[2].click());
+    expect(scenarioOptions[2].getAttribute('aria-checked')).toBe('true');
+    expect(document.querySelector('.mitre-kill-chain-card')).toBeNull();
+    const runButton = document.querySelector('.attack-simulation-run');
+    expect(runButton.textContent).toContain('Run Simulation');
+    await act(async () => runButton.click());
+    expect(runButton.disabled).toBe(true);
+    expect(runButton.textContent).toContain('Simulation Running');
+    expect(scenarioOptions.every(option => option.disabled)).toBe(true);
+    expect(document.querySelector('.mitre-kill-chain-card')).not.toBeNull();
+    expect(document.querySelectorAll('.mitre-kill-chain li')).toHaveLength(5);
+    expect(document.querySelector('.mitre-kill-chain li.is-in-progress')?.textContent).toContain('Discovery');
+    expect(document.querySelector('.simulation-runtime-grid')).not.toBeNull();
+    expect(document.body.textContent).toContain('AI Recommended Response');
+    await settle();
+    expect(document.querySelector('[aria-label="Live simulation narrative"]')).not.toBeNull();
+    expect(document.body.textContent).toContain('A test analyst account queried restricted database schemas.');
+    expect(document.body.textContent).toContain('T1087.002 · Discovery');
+  });
+
   it('maps observable matches through individual alerts into stored incident chains', async () => {
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);
