@@ -1,5 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AttackSimulator from './AttackSimulator';
 
@@ -15,7 +16,11 @@ describe('AttackSimulator', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    await act(async () => root.render(<AttackSimulator />));
+    await act(async () => root.render(
+      <MemoryRouter initialEntries={['/attack-simulator?mode=training']}>
+        <AttackSimulator />
+      </MemoryRouter>
+    ));
   });
 
   afterEach(async () => {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity, AlertTriangle, BellOff, ChevronDown, ChevronUp, Clock3,
-  Database, FileSearch, Pause, Play, RefreshCw, Server, ShieldCheck, User,
+  Crosshair, Database, FileSearch, Pause, Play, RefreshCw, Server, ShieldCheck, User,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import {
@@ -396,6 +396,9 @@ function ActivityItem({ activity, id, technicalId, expanded, onToggle, onMute })
     ? `/alerts?time_range=all&search=${encodeURIComponent(technicalId)}`
     : '/alerts?time_range=all';
   const investigationTarget = `/investigations?search=${encodeURIComponent(technicalId || alertReference(activity))}`;
+  const replayTarget = technicalId
+    ? `/attack-simulator?alert=${encodeURIComponent(technicalId)}&autoplay=1`
+    : '/attack-simulator';
   const domId = `monitoring-details-${String(id).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 
   return (
@@ -429,6 +432,9 @@ function ActivityItem({ activity, id, technicalId, expanded, onToggle, onMute })
       </button>
 
       <div className="monitoring-row-actions" aria-label={`Actions for ${title}`}>
+        <Link to={replayTarget} className="monitoring-row-action" aria-label={`Run animated replay for ${title}`} title="Run alert replay">
+          <Crosshair size={16} strokeWidth={1.5} aria-hidden="true" />
+        </Link>
         <Link to={triageTarget} className="monitoring-row-action" aria-label={`Open ${title} in technical triage`} title="Open technical triage">
           <ShieldCheck size={16} strokeWidth={1.5} aria-hidden="true" />
         </Link>
@@ -452,7 +458,10 @@ function ActivityItem({ activity, id, technicalId, expanded, onToggle, onMute })
             <Detail label="First observed" value={formatTimestamp(activity.first_seen || activity.timestamp)} />
             <Detail label="Last observed" value={formatTimestamp(timestamp)} />
           </dl>
-          <Link to={triageTarget} className="monitoring-details-link">Open technical triage</Link>
+          <div className="monitoring-details-actions">
+            <Link to={replayTarget} className="monitoring-details-link">Run animated replay</Link>
+            <Link to={triageTarget} className="monitoring-details-link is-secondary">Open technical triage</Link>
+          </div>
         </div>
       )}
     </li>

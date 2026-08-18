@@ -1,9 +1,11 @@
 export const NETWORK_NODE_TYPES = Object.freeze([
   'firewall', 'server', 'database', 'workstation', 'external',
+  'user', 'process', 'action', 'ai', 'correlation', 'incident',
 ]);
 
 export const NETWORK_NODE_STATES = Object.freeze([
   'idle', 'monitoring', 'targeted', 'compromised', 'contained',
+  'analyzing', 'decided', 'unavailable',
 ]);
 
 export const NETWORK_EDGE_STATES = Object.freeze([

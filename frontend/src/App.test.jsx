@@ -204,6 +204,27 @@ describe('authenticated application flows', () => {
           { id:'one', timestamp:'2026-08-16T08:00:00Z', src_ip:'203.0.113.44', hostname:'WEB-SRV01', target_db:'CUSTOMER-DB' },
         ] });
       }
+      if (url.endsWith('/alerts?page=1&limit=12&triage_status=triaged')) return jsonResponse({ alerts:[{
+        id:'elastic:replay-ready', timestamp:'2026-08-16T08:02:00Z', src_ip:'203.0.113.44',
+        hostname:'WEB-SRV01', rule_desc:'Suspicious web shell execution', source_severity:'critical',
+        triage_status:'triaged', verdict:{ verdict:'true_positive', confidence:.92 },
+      }] });
+      if (url.endsWith('/alerts/elastic%3Areplay-ready')) return jsonResponse({
+        id:'elastic:replay-ready', timestamp:'2026-08-16T08:02:00Z', src_ip:'203.0.113.44',
+        hostname:'WEB-SRV01', rule_desc:'Suspicious web shell execution', source_severity:'critical',
+        event_action:'process-started', process:'powershell.exe', mitre_tactics:['execution'],
+        mitre_techniques:['T1059.001'], triage_status:'triaged',
+        verdict:{ verdict:'true_positive', confidence:.92, key_findings:['PowerShell contacted an external address.'] },
+      });
+      if (url.endsWith('/alerts/elastic%3Areplay-ready/journey')) return jsonResponse({
+        stages:[
+          { stage:'triaged', status:'completed', model:'meta-llama/llama-3.3-70b-instruct', confidence:.92, reason:'The process and network evidence supported escalation.', output_summary:{ verdict:'true_positive' } },
+          { stage:'correlated', status:'completed', reason:'The host and identity matched related activity.', output_summary:{ decision:'linked' } },
+          { stage:'incident_decision', status:'completed', reason:'The alert was linked to an open incident.', output_summary:{ decision:'promoted' } },
+        ],
+        current_state:{ incident:{ id:9, title:'Web shell activity', severity:'critical', status:'open' } },
+        analyst_reviews:[],
+      });
       return jsonResponse({});
     });
 
@@ -229,6 +250,20 @@ describe('authenticated application flows', () => {
     await settle();
     expect(window.location.pathname).toBe('/attack-simulator');
     expect(document.querySelector('.topbar-title h1')?.textContent).toBe('Attack Simulator');
+    expect(document.body.textContent).toContain('Real alert replay');
+    expect(document.body.textContent).toContain('Select a real alert');
+    expect(document.body.textContent).toContain('Suspicious web shell execution');
+    await act(async () => document.querySelector('.alert-replay-alert-list button').click());
+    await settle();
+    expect(window.location.search).toContain('alert=elastic%3Areplay-ready');
+    expect(document.body.textContent).toContain('Attack and AI decision map');
+    expect(document.body.textContent).toContain('How the AI reached its result');
+    expect(document.body.textContent).toContain('meta-llama/llama-3.3-70b-instruct');
+    expect(document.querySelector('.digital-twin-canvas')).not.toBeNull();
+    const trainingMode = [...document.querySelectorAll('.attack-simulator-modebar button')]
+      .find(button => button.textContent === 'Training Mode');
+    await act(async () => trainingMode.click());
+    await settle();
     expect(document.body.textContent).toContain('SIMULATION MODE');
     const scenarioOptions = [...document.querySelectorAll('.attack-scenario-option')];
     expect(scenarioOptions).toHaveLength(3);
@@ -555,6 +590,8 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).not.toContain('Critical Security Event Detected');
     expect(document.body.textContent).toContain('high');
     expect(document.body.textContent).toContain('Elastic live ingest active');
+    expect(document.querySelector('a[title="Run alert replay"]')?.getAttribute('href'))
+      .toBe('/attack-simulator?alert=elastic%3Acredential-1&autoplay=1');
   });
 
   it('keeps live alerts visible when collector health is temporarily unavailable', async () => {

@@ -41,7 +41,7 @@ const PAGE_META = {
   '/live-monitoring': ['Live Monitoring', 'Security activity from connected sources'],
   '/security-analytics': ['Security Analytics', 'Attack patterns and telemetry trends'],
   '/digital-twin': ['Digital Twin', 'Live topology and observed attack paths'],
-  '/attack-simulator': ['Attack Simulator', 'Controlled MITRE ATT&CK scenario training'],
+  '/attack-simulator': ['Attack Simulator', 'Animated alert reconstruction and AI decision replay'],
   '/alerts': ['Technical Triage', 'Prioritized security activity for analyst review'],
   '/incidents': ['Incident Command', 'Correlated attack evidence and containment'],
   '/ai-triage': ['AI-assisted Triage', 'Evidence-grounded prioritization'],

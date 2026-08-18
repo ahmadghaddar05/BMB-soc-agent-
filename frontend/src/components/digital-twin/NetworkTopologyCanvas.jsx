@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import {
-  AlertTriangle, CheckCircle, Database, Globe2, LocateFixed, Minus, Monitor, Plus, Server, Shield,
+  Activity, AlertTriangle, BrainCircuit, CheckCircle, Database, GitMerge, Globe2,
+  LocateFixed, Minus, Monitor, Plus, Server, Shield, ShieldCheck, Terminal, UserRound,
 } from 'lucide-react';
 import { Button } from '../ui';
 
@@ -15,6 +16,12 @@ const NODE_ICONS = {
   database:Database,
   workstation:Monitor,
   external:Globe2,
+  user:UserRound,
+  process:Terminal,
+  action:Activity,
+  ai:BrainCircuit,
+  correlation:GitMerge,
+  incident:ShieldCheck,
 };
 
 const LEGEND = [
@@ -154,7 +161,7 @@ export default function NetworkTopologyCanvas({ nodes = [], edges = [] }) {
         <rect width={WIDTH} height={HEIGHT} fill="url(#digital-twin-dot-grid)" />
         <g transform={`translate(${viewport.x} ${viewport.y}) scale(${viewport.zoom})`}>
           <g className="digital-twin-edges" aria-hidden="true">
-            {edges.map(edge => <path key={edge.id} className={`digital-twin-edge is-${edge.state}`} d={edgePath(edge, nodeById)} />)}
+            {edges.map(edge => <path key={edge.id} className={`digital-twin-edge is-${edge.state} is-${edge.kind || 'attack'}`} d={edgePath(edge, nodeById)} />)}
           </g>
           <g>{nodes.map(node => <TopologyNode key={node.id} node={node} />)}</g>
         </g>

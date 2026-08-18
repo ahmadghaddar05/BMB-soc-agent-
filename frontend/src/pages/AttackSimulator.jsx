@@ -3,10 +3,12 @@ import {
   Server, Share2, ShieldCheck, Terminal,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import AlertReplayWorkspace from '../components/attack-simulator/AlertReplayWorkspace';
 import MitreKillChain from '../components/attack-simulator/MitreKillChain';
 import SimulationResponse from '../components/attack-simulator/SimulationResponse';
 import {
-  Button, Card, LiveIndicator, SkeletonLoader, StatusChip, Timeline,
+  Button, Card, LiveIndicator, SegmentedControl, SkeletonLoader, StatusChip, Timeline,
 } from '../components/ui';
 import useSynchronizedEventStream from '../hooks/useSynchronizedEventStream';
 import {
@@ -38,7 +40,7 @@ function eventTimestamp(event) {
     : 'Now';
 }
 
-export default function AttackSimulator() {
+function TrainingSimulator() {
   const [selectedScenarioId, setSelectedScenarioId] = useState(ATTACK_SCENARIOS[0].id);
   const scenarioRefs = useRef([]);
   const stream = useSynchronizedEventStream();
@@ -91,7 +93,7 @@ export default function AttackSimulator() {
   }
 
   return (
-    <div className="attack-simulator-page ui-page-enter">
+    <div className="attack-training-workspace">
       <Card
         className="attack-scenario-selector"
         title="Attack Simulation"
@@ -178,6 +180,30 @@ export default function AttackSimulator() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+export default function AttackSimulator() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode = searchParams.get('mode') === 'training' ? 'training' : 'replay';
+
+  function changeMode(value) {
+    setSearchParams(value === 'training' ? { mode:'training' } : {});
+  }
+
+  return (
+    <div className="attack-simulator-page ui-page-enter">
+      <div className="attack-simulator-modebar">
+        <div><strong>{mode === 'replay' ? 'Real alert replay' : 'Training scenarios'}</strong><small>{mode === 'replay' ? 'Animated reconstruction from stored evidence' : 'Controlled demonstrations with no external effects'}</small></div>
+        <SegmentedControl
+          value={mode}
+          onChange={changeMode}
+          label="Attack simulator mode"
+          options={[{ value:'replay', label:'Alert Replay' }, { value:'training', label:'Training Mode' }]}
+        />
+      </div>
+      {mode === 'replay' ? <AlertReplayWorkspace /> : <TrainingSimulator />}
     </div>
   );
 }
