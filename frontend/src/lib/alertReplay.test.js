@@ -35,6 +35,7 @@ const journey = {
       id:3, stage:'triaged', status:'completed', executor_type:'ai', provider:'hermes',
       model:'meta-llama/llama-3.3-70b-instruct', confidence:.91,
       reason:'PowerShell opened an unusual external connection.',
+      input_summary:{ evidence_count:6, process:'powershell.exe', target:'DEV-WS002' },
       output_summary:{ verdict:'true_positive', severity:'critical' },
       limitations:['The downloaded file was not recovered.'],
     },
@@ -44,6 +45,7 @@ const journey = {
     },
     {
       id:5, stage:'incident_decision', status:'completed', reason:'Added to an open incident.',
+      input_summary:{ correlation_decision:'linked', severity:'critical' },
       output_summary:{ decision:'promoted' },
     },
   ],
@@ -63,6 +65,13 @@ describe('real alert replay adapter', () => {
     ]));
     expect(replay.nodes.find(node => node.id === 'source')?.sublabel).toBe('203.0.113.44');
     expect(replay.nodes.find(node => node.id === 'action')?.sublabel).toBe('powershell.exe');
+    expect(replay.scriptedEvents.map(event => event.phase)).toEqual([
+      'observed', 'evidence', 'inference', 'verdict', 'correlation', 'incident',
+    ]);
+    expect(replay.observed.facts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label:'Process', value:'powershell.exe' }),
+      expect.objectContaining({ label:'Parent process', value:'explorer.exe' }),
+    ]));
   });
 
   it('uses persisted AI, correlation, and incident decisions without inventing outcomes', () => {
@@ -70,9 +79,18 @@ describe('real alert replay adapter', () => {
     expect(replay.ai).toMatchObject({
       verdict:'True Positive', confidence:91,
       model:'meta-llama/llama-3.3-70b-instruct',
-      correlation:{ recorded:true, status:'Recorded' },
+      correlation:{ recorded:true, status:'Linked' },
       incidentDecision:{ recorded:true, status:'INC-00017' },
     });
+    expect(replay.ai.inputFacts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label:'Process', value:'powershell.exe' }),
+    ]));
+    expect(replay.ai.correlation.inputs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label:'Candidate Count', value:'2' }),
+    ]));
+    expect(replay.ai.incidentDecision.outputs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label:'Decision', value:'promoted' }),
+    ]));
     expect(replay.scriptedEvents.find(event => event.id.endsWith(':correlation'))?.message)
       .toBe('Shared host and identity linked two alerts.');
     expect(replay.scriptedEvents.find(event => event.id.endsWith(':decision'))?.title)
@@ -108,4 +126,3 @@ describe('real alert replay adapter', () => {
     expect(replay.scriptedEvents.every(event => event.category === 'observed')).toBe(true);
   });
 });
-

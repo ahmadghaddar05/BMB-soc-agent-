@@ -256,10 +256,10 @@ describe('authenticated application flows', () => {
     await act(async () => document.querySelector('.alert-replay-alert-list button').click());
     await settle();
     expect(window.location.search).toContain('alert=elastic%3Areplay-ready');
-    expect(document.body.textContent).toContain('Attack and AI decision map');
-    expect(document.body.textContent).toContain('How the AI reached its result');
-    expect(document.body.textContent).toContain('meta-llama/llama-3.3-70b-instruct');
-    expect(document.querySelector('.digital-twin-canvas')).not.toBeNull();
+    expect(document.body.textContent).toContain('AI investigation replay');
+    expect(document.body.textContent).toContain('Current phase evidence');
+    expect(document.body.textContent).toContain('Security action reconstructed');
+    expect(document.querySelector('.alert-replay-scene')).not.toBeNull();
     const trainingMode = [...document.querySelectorAll('.attack-simulator-modebar button')]
       .find(button => button.textContent === 'Training Mode');
     await act(async () => trainingMode.click());

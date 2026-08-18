@@ -125,6 +125,31 @@ function incidentReference(incident) {
   return `INC-${String(incident.id).padStart(5, '0')}`;
 }
 
+function displayScalar(value) {
+  if (value == null || value === '') return null;
+  if (Array.isArray(value)) return value.map(displayScalar).filter(Boolean).join(', ') || null;
+  if (typeof value === 'object') return null;
+  return String(value);
+}
+
+function summaryEntries(value, prefix = '', result = []) {
+  if (result.length >= 8) return result;
+  const source = object(value);
+  Object.entries(source).forEach(([key, item]) => {
+    if (result.length >= 8) return;
+    const label = prefix ? `${prefix} ${humanize(key)}` : humanize(key);
+    const displayed = displayScalar(item);
+    if (displayed) result.push({ id:`fact-${result.length}`, label, value:displayed });
+    else if (item && typeof item === 'object' && !Array.isArray(item)) summaryEntries(item, label, result);
+  });
+  return result;
+}
+
+function evidenceFact(id, label, value, type) {
+  const displayed = displayScalar(value);
+  return displayed ? { id, label, value:displayed, type } : null;
+}
+
 /**
  * Builds a read-only replay exclusively from persisted alert and journey data.
  * Collection, normalization, and enrichment stages are intentionally omitted.
@@ -153,6 +178,14 @@ export function buildAlertReplay(alert, journey = {}) {
     at(evidence, 'process.command_line')
   );
   const parentProcess = first(at(evidence, 'process.parent.name'), at(evidence, 'process.parent.executable'));
+  const fileHash = first(
+    alert.file_hash,
+    at(evidence, 'file.hash.sha256'),
+    at(evidence, 'file.hash.sha1'),
+    at(evidence, 'file.hash.md5'),
+    at(evidence, 'process.hash.sha256'),
+    at(evidence, 'process.hash.md5')
+  );
   const destinationIp = first(alert.dst_ip, at(evidence, 'destination.ip'), at(evidence, 'server.ip'));
   const target = first(
     alert.target_db,
@@ -168,6 +201,24 @@ export function buildAlertReplay(alert, journey = {}) {
   const model = first(triage?.model, verdict.model, verdict.model_identity);
   const triageReady = Boolean(verdict.verdict || (triage && triage.status === 'completed'));
   const incidentId = incidentReference(incident);
+  const observedEvidence = [
+    evidenceFact('detection', 'Detection', activityTitle(alert), 'detection'),
+    evidenceFact('dataset', 'Telemetry source', alert.event_dataset || alert.source_system, 'dataset'),
+    evidenceFact('source-ip', 'Source address', sourceIp, 'network'),
+    evidenceFact('identity', 'Identity', identity, 'identity'),
+    evidenceFact('process', 'Process', process, 'process'),
+    evidenceFact('parent-process', 'Parent process', parentProcess, 'process'),
+    evidenceFact('file-hash', 'File hash', fileHash, 'file'),
+    evidenceFact('target', 'Affected target', target, 'target'),
+    evidenceFact('destination-ip', 'Destination address', destinationIp, 'network'),
+    evidenceFact('action', 'Observed action', action, 'action'),
+  ].filter(Boolean);
+  const triageInputs = summaryEntries(triage?.input_summary);
+  const triageOutputs = summaryEntries(triage?.output_summary);
+  const correlationInputs = summaryEntries(correlation?.input_summary);
+  const correlationOutputs = summaryEntries(correlation?.output_summary);
+  const decisionInputs = summaryEntries(decision?.input_summary);
+  const decisionOutputs = summaryEntries(decision?.output_summary);
 
   const observedNodes = [];
   if (sourceValue) observedNodes.push({
@@ -216,31 +267,18 @@ export function buildAlertReplay(alert, journey = {}) {
   const scriptedEvents = [];
   let offset = 0;
 
-  observedNodes.forEach((node, index) => {
-    const previous = observedNodes[index - 1];
-    const message = index === 0 && node.id === 'source'
-      ? `${node.sublabel} was associated with the observed activity.`
-      : node.id === 'target'
-        ? `${humanize(action)} reached ${node.sublabel}.`
-        : `${humanize(action)} was observed${process ? ` through ${process}` : ''}.`;
-    scriptedEvents.push({
-      id:`${alert.id}:observed:${node.id}`,
-      timestampOffset:offset,
-      timestamp:timestamps,
-      title:index === 0 ? 'Observed activity began' : node.id === 'target' ? 'Target reached' : 'Security action observed',
-      message,
-      detail:node.sublabel,
-      category:'observed',
-      eventType:eventType(alert),
-      severity,
-      affectedNodeId:node.id,
-      affectedEdgeId:previous ? edgeInto(node.id) : null,
-      nodeState:node.id === 'source' ? 'monitoring' : severity === 'critical' ? 'compromised' : 'targeted',
-      relatedStageId:mitreStages[Math.min(index, Math.max(0, mitreStages.length - 1))]?.id || null,
-      evidence:[node.sublabel],
-    });
-    offset += 1_400;
+  scriptedEvents.push({
+    id:`${alert.id}:observed`, timestampOffset:offset, timestamp:timestamps,
+    title:'Security action reconstructed',
+    message:`${humanize(action)}${target ? ` affected ${target}` : ' was recorded by the alert source'}.`,
+    detail:[sourceValue, process, target].filter(Boolean).join(' -> ') || activityTitle(alert),
+    phase:'observed', category:'observed', eventType:eventType(alert), severity,
+    affectedNodeId:'action', affectedEdgeId:edgeInto('action'),
+    nodeState:severity === 'critical' ? 'compromised' : 'targeted',
+    relatedStageId:mitreStages[0]?.id || null,
+    evidence:observedEvidence.slice(0, 6).map(item => `${item.label}: ${item.value}`),
   });
+  offset += 1_600;
 
   if (triageReady) {
     const findings = list(verdict.key_findings).map(String);
@@ -250,12 +288,22 @@ export function buildAlertReplay(alert, journey = {}) {
     const limitations = [...new Set([...list(verdict.limitations), ...stageLimitations(triage)])].map(String);
     const confidence = confidencePercent(triage?.confidence ?? verdict.confidence);
     scriptedEvents.push({
-      id:`${alert.id}:ai`, timestampOffset:offset, timestamp:triage?.finished_at || triage?.created_at || timestamps,
-      title:'AI evaluated the observed evidence',
-      message:triage?.reason || verdict.narrative || 'The stored model assessment completed.',
-      detail:model || 'Recorded AI assessment', category:'ai', eventType:'correlation', severity,
+      id:`${alert.id}:evidence`, timestampOffset:offset, timestamp:triage?.started_at || triage?.created_at || timestamps,
+      title:'Evidence prepared for model review',
+      message:`${triageInputs.length || observedEvidence.length} recorded inputs were available to the selected model.`,
+      detail:model || 'Recorded AI assessment', phase:'evidence', category:'ai', eventType:'correlation', severity,
       affectedNodeId:'ai', affectedEdgeId:edgeInto('ai'), nodeState:'analyzing',
-      evidence:evidenceInputs, confidence, model, provider:triage?.provider || null,
+      evidence:(triageInputs.length ? triageInputs.map(item => `${item.label}: ${item.value}`) : evidenceInputs),
+      confidence, model, provider:triage?.provider || null, limitations,
+    });
+    offset += 1_600;
+    scriptedEvents.push({
+      id:`${alert.id}:inference`, timestampOffset:offset, timestamp:triage?.finished_at || timestamps,
+      title:'Model evaluated evidence and gaps',
+      message:triage?.reason || verdict.narrative || 'The stored model rationale was recorded.',
+      detail:model || 'Recorded model inference', phase:'inference', category:'ai', eventType:'correlation', severity,
+      affectedNodeId:'ai', affectedEdgeId:null, nodeState:'analyzing',
+      evidence:evidenceInputs, confidence, model, provider:triage?.provider || null, limitations,
     });
     offset += 1_800;
     scriptedEvents.push({
@@ -263,7 +311,7 @@ export function buildAlertReplay(alert, journey = {}) {
       title:`Verdict: ${humanize(triageOutput.verdict || verdict.verdict || 'Recorded')}`,
       message:triage?.reason || verdict.narrative || 'The AI verdict was persisted.',
       detail:confidence == null ? 'Confidence not supplied' : `${confidence}% confidence`,
-      category:'ai', eventType:'correlation', severity:triageOutput.severity || verdict.severity || severity,
+      phase:'verdict', category:'ai', eventType:'correlation', severity:triageOutput.severity || verdict.severity || severity,
       affectedNodeId:'ai', affectedEdgeId:null, nodeState:'decided', evidence:evidenceInputs,
       confidence, model, limitations,
     });
@@ -277,7 +325,7 @@ export function buildAlertReplay(alert, journey = {}) {
       title:correlation ? 'Correlation decision recorded' : 'Correlation evidence unavailable',
       message:correlation?.reason || 'No append-only correlation decision is stored for this alert.',
       detail:correlation ? humanize(correlationOutput.decision || correlation.status) : 'Not recorded',
-      category:'system', eventType:'correlation', severity,
+      phase:'correlation', category:'system', eventType:'correlation', severity,
       affectedNodeId:'correlation', affectedEdgeId:edgeInto('correlation'),
       nodeState:correlation ? 'decided' : 'unavailable',
       evidence:Object.entries(object(correlation?.input_summary)).slice(0, 4).map(([key, value]) => `${humanize(key)}: ${String(value)}`),
@@ -291,7 +339,7 @@ export function buildAlertReplay(alert, journey = {}) {
         ? `This alert is stored as evidence for ${incidentId}.`
         : 'No append-only incident decision is stored for this alert.'),
       detail:incidentId || humanize(decisionOutput.decision || decision?.status || 'Not recorded'),
-      category:'system', eventType:'correlation', severity:incident?.severity || severity,
+      phase:'incident', category:'system', eventType:'correlation', severity:incident?.severity || severity,
       affectedNodeId:'decision', affectedEdgeId:edgeInto('decision'),
       nodeState:decision || incidentId ? 'decided' : 'unavailable',
       evidence:incidentId ? [incident.title, humanize(incident.status)].filter(Boolean) : [],
@@ -310,6 +358,13 @@ export function buildAlertReplay(alert, journey = {}) {
     severity,
     timestamp:timestamps,
     triageReady,
+    observed:Object.freeze({
+      source:sourceValue || null,
+      action:humanize(action),
+      target:target || destinationIp || null,
+      process:process || null,
+      facts:Object.freeze(observedEvidence.map(item => Object.freeze(item))),
+    }),
     nodes:Object.freeze(nodes.map(node => Object.freeze(node))),
     edges:Object.freeze(edges.map(edge => Object.freeze(edge))),
     scriptedEvents:Object.freeze(scriptedEvents.map(event => Object.freeze(event))),
@@ -319,12 +374,27 @@ export function buildAlertReplay(alert, journey = {}) {
       confidence,
       model:model || null,
       provider:triage?.provider || null,
+      rationale:triage?.reason || verdict.narrative || null,
+      inputFacts:Object.freeze((triageInputs.length ? triageInputs : observedEvidence).map(item => Object.freeze({ ...item }))),
+      outputFacts:Object.freeze(triageOutputs.map(item => Object.freeze({ ...item }))),
       findings:Object.freeze(list(verdict.key_findings).map(String)),
       limitations:Object.freeze([...new Set([...list(verdict.limitations), ...stageLimitations(triage)])].map(String)),
       recommendations:Object.freeze(list(verdict.recommended_actions).map(String)),
       citations:Object.freeze(list(verdict.citations).map(item => typeof item === 'object' ? { ...item } : item)),
-      correlation:Object.freeze({ recorded:Boolean(correlation), status:recordedStatus(correlation), reason:correlation?.reason || null }),
-      incidentDecision:Object.freeze({ recorded:Boolean(decision || incident), status:incidentId || recordedStatus(decision), reason:decision?.reason || null }),
+      correlation:Object.freeze({
+        recorded:Boolean(correlation), status:humanize(correlationOutput.decision) || recordedStatus(correlation), reason:correlation?.reason || null,
+        inputs:Object.freeze(correlationInputs.map(item => Object.freeze({ ...item }))),
+        outputs:Object.freeze(correlationOutputs.map(item => Object.freeze({ ...item }))),
+      }),
+      incidentDecision:Object.freeze({
+        recorded:Boolean(decision || incident), status:incidentId || humanize(decisionOutput.decision) || recordedStatus(decision), reason:decision?.reason || null,
+        inputs:Object.freeze(decisionInputs.map(item => Object.freeze({ ...item }))),
+        outputs:Object.freeze(decisionOutputs.map(item => Object.freeze({ ...item }))),
+        incident:incident ? Object.freeze({
+          reference:incidentId, title:incident.title || null, severity:incident.severity || null,
+          status:incident.status || null,
+        }) : null,
+      }),
       reviews:Object.freeze(reviews.map(review => ({ ...review }))),
     }),
   });

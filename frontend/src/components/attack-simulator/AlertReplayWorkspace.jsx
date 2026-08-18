@@ -1,43 +1,24 @@
 import {
-  AlertTriangle, BrainCircuit, Check, ChevronLeft, ChevronRight, CircleDashed,
-  Eye, GitMerge, ListRestart, Pause, Play, Radio, RefreshCw, ShieldCheck,
+  AlertTriangle, BrainCircuit, Check, ChevronLeft, ChevronRight,
+  ListRestart, Pause, Play, Radio, RefreshCw, ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../../lib/api';
-import {
-  buildAlertReplay, deriveReplayMitreProgress, deriveReplayTopology,
-} from '../../lib/alertReplay';
+import { buildAlertReplay, deriveReplayMitreProgress } from '../../lib/alertReplay';
 import { activityTitle, alertReference, severityOf } from '../../lib/executive';
 import useAlertReplayPlayback from '../../hooks/useAlertReplayPlayback';
-import NetworkTopologyCanvas from '../digital-twin/NetworkTopologyCanvas';
 import {
   Button, Card, ConfidenceGauge, EmptyState, LiveIndicator, Select,
   SeverityBadge, SkeletonLoader, StatusChip,
 } from '../ui';
+import AlertReplayScene from './AlertReplayScene';
 import MitreKillChain from './MitreKillChain';
 
 const EMPTY_EVENTS = Object.freeze([]);
 
 function ready(alert) {
   return String(alert?.triage_status || '').toLowerCase() === 'triaged' || Boolean(alert?.verdict);
-}
-
-function statusForStep(step, currentEvent, visibleEvents) {
-  const index = visibleEvents.findIndex(event => event.id === step.eventId);
-  if (currentEvent?.id === step.eventId) return 'active';
-  if (index >= 0) return step.recorded === false ? 'unavailable' : 'complete';
-  return 'upcoming';
-}
-
-function ReplayStep({ label, detail, status, icon:Icon }) {
-  const StatusIcon = status === 'complete' ? Check : status === 'unavailable' ? CircleDashed : Icon;
-  return (
-    <li className={`alert-replay-step is-${status}`}>
-      <span><StatusIcon size={16} strokeWidth={1.5} aria-hidden="true" /></span>
-      <div><strong>{label}</strong><small>{detail}</small></div>
-    </li>
-  );
 }
 
 function ReplaySelector({ alerts, loading, error, onSelect, onReload }) {
@@ -127,9 +108,6 @@ export default function AlertReplayWorkspace() {
     playback.play();
   }, [autoplay, playback.play, replay]);
 
-  const topology = useMemo(() => replay
-    ? deriveReplayTopology(replay, playback.visibleEvents, playback.currentEvent?.id)
-    : { nodes:[], edges:[] }, [playback.currentEvent?.id, playback.visibleEvents, replay]);
   const mitreStages = useMemo(() => replay
     ? deriveReplayMitreProgress(replay, playback.visibleEvents) : [], [playback.visibleEvents, replay]);
 
@@ -162,17 +140,7 @@ export default function AlertReplayWorkspace() {
   }
 
   const current = playback.currentEvent;
-  const triageEvent = replay.scriptedEvents.find(event => event.id.endsWith(':ai'));
   const verdictEvent = replay.scriptedEvents.find(event => event.id.endsWith(':verdict'));
-  const correlationEvent = replay.scriptedEvents.find(event => event.id.endsWith(':correlation'));
-  const decisionEvent = replay.scriptedEvents.find(event => event.id.endsWith(':decision'));
-  const steps = [
-    { label:'Observed action', detail:replay.nodes.find(node => node.id === 'action')?.label || replay.title, eventId:replay.scriptedEvents.find(event => event.category === 'observed')?.id, icon:Eye, recorded:true },
-    { label:'Evidence reasoning', detail:replay.ai.model || 'Recorded AI assessment', eventId:triageEvent?.id, icon:BrainCircuit, recorded:Boolean(triageEvent) },
-    { label:replay.ai.verdict, detail:replay.ai.confidence == null ? 'Confidence not supplied' : `${replay.ai.confidence}% confidence`, eventId:verdictEvent?.id, icon:ShieldCheck, recorded:Boolean(verdictEvent) },
-    { label:'Correlation', detail:replay.ai.correlation.status, eventId:correlationEvent?.id, icon:GitMerge, recorded:replay.ai.correlation.recorded },
-    { label:'Incident decision', detail:replay.ai.incidentDecision.status, eventId:decisionEvent?.id, icon:ShieldCheck, recorded:replay.ai.incidentDecision.recorded },
-  ];
   const verdictVisible = playback.visibleEvents.some(event => event.id === verdictEvent?.id);
   const replayFinished = playback.completed;
 
@@ -195,13 +163,13 @@ export default function AlertReplayWorkspace() {
           <div className="alert-replay-layout">
             <Card
               className="alert-replay-map-card"
-              title="Attack and AI decision map"
-              caption="Observed entities and persisted decisions only."
+              title="AI investigation replay"
+              caption="Each frame visualizes the recorded work performed in that phase."
               action={playback.running ? <LiveIndicator label="Replaying" /> : <StatusChip status={replayFinished ? 'resolved' : 'neutral'}>{replayFinished ? 'Replay complete' : 'Ready'}</StatusChip>}
             >
-              <NetworkTopologyCanvas nodes={topology.nodes} edges={topology.edges} />
+              <AlertReplayScene replay={replay} event={current || replay.scriptedEvents[0]} />
               <div className="alert-replay-current" aria-live="polite">
-                <span className={`is-${current?.category || 'idle'}`}>{current ? current.category : 'ready'}</span>
+                <span className={`is-${current?.category || 'idle'}`}>{current ? current.phase : 'ready'}</span>
                 <div>
                   <strong>{current?.title || 'Ready to reconstruct this alert'}</strong>
                   <p>{current?.detail || 'Start the replay to follow the observed action and AI decision.'}</p>
@@ -222,11 +190,19 @@ export default function AlertReplayWorkspace() {
               </div>
             </Card>
 
-            <Card className="alert-replay-ai-card" title="How the AI reached its result" caption="Progressive view of the recorded decision ledger.">
-              <ConfidenceGauge value={verdictVisible ? replay.ai.confidence : null} label={verdictVisible ? replay.ai.verdict : 'Waiting for AI step'} />
-              <ol className="alert-replay-steps">
-                {steps.map(step => <ReplayStep key={step.label} {...step} status={statusForStep(step, current, playback.visibleEvents)} />)}
-              </ol>
+            <Card className="alert-replay-ai-card" title="Current phase evidence" caption="Stored inputs and result for the active frame.">
+              <ConfidenceGauge value={verdictVisible ? replay.ai.confidence : null} label={verdictVisible ? replay.ai.verdict : 'Waiting for verdict phase'} />
+              <section className="alert-replay-phase-summary" aria-live="polite">
+                <small>{current?.phase ? `${current.phase} phase` : 'Replay ready'}</small>
+                <strong>{current?.title || 'Start the replay'}</strong>
+                <p>{current?.message || 'The first frame reconstructs the observed security action.'}</p>
+                {current?.model && (
+                  <dl>
+                    <div><dt>Model</dt><dd>{current.model}</dd></div>
+                    {current.provider && <div><dt>Provider</dt><dd>{current.provider}</dd></div>}
+                  </dl>
+                )}
+              </section>
               {current?.evidence?.length > 0 && (
                 <section className="alert-replay-evidence" aria-live="polite">
                   <span>Evidence in this step</span>
@@ -258,4 +234,3 @@ export default function AlertReplayWorkspace() {
     </div>
   );
 }
-
