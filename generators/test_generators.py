@@ -8,6 +8,7 @@ if HERE not in sys.path:
 
 from common_inventory import USERS
 from evidence_context import enrich_event_evidence
+from mitre_catalog import ACTION_MAPPINGS, TACTICS
 from scenario_engine import build_scenario
 from scenario_runner import SCENARIOS, compose_run, summarize
 from simulation_engine import ALERT_RATES
@@ -73,6 +74,67 @@ class GeneratorScenarioTests(unittest.TestCase):
         )
         ids = [event["event"]["id"] for _, event in records]
         self.assertEqual(len(ids), len(set(ids)))
+
+    def test_full_attack_chain_has_canonical_ordered_mitre_path(self):
+        records = build_scenario(
+            "full_attack_chain", "maya.georges", "198.51.100.24",
+            campaign_id="BMB-MITRE-PATH-TEST",
+        )
+        alerts = [event for _, event in records if event["event"]["kind"] == "alert"]
+        self.assertEqual(
+            [event["attack"]["tactic_id"] for event in alerts],
+            [
+                "TA0001", "TA0002", "TA0003", "TA0006", "TA0007",
+                "TA0008", "TA0009", "TA0011", "TA0010", "TA0040",
+            ],
+        )
+        self.assertEqual(
+            [event["correlation"]["path_position"] for event in alerts],
+            list(range(1, len(alerts) + 1)),
+        )
+        self.assertEqual({event["correlation"]["path_length"] for event in alerts}, {len(alerts)})
+        self.assertIsNone(alerts[0]["correlation"]["previous_event_id"])
+        self.assertIsNone(alerts[-1]["correlation"]["next_event_id"])
+        self.assertEqual(
+            alerts[0]["correlation"]["next_event_id"], alerts[1]["event"]["id"]
+        )
+
+    def test_every_alert_builder_has_canonical_mitre_and_observed_control_metadata(self):
+        for source, module in self.SOURCES.items():
+            for builder in module.ALERT_EVENTS:
+                with self.subTest(source=source, builder=builder.__name__):
+                    event = enrich_event_evidence(builder(), source)
+                    action = event["event"]["action"]
+                    self.assertIn(action, ACTION_MAPPINGS)
+                    mapping = ACTION_MAPPINGS[action]
+                    self.assertEqual(event["threat"]["framework"], "MITRE ATT&CK")
+                    self.assertEqual(event["threat"]["technique"]["id"], [mapping["technique_id"]])
+                    self.assertEqual(event["threat"]["tactic"]["id"], [mapping["tactic_id"]])
+                    self.assertEqual(event["attack"]["technique_name"], mapping["technique_name"])
+                    self.assertEqual(event["attack"]["tactic_name"], mapping["tactic_name"])
+                    self.assertEqual(
+                        event["attack"]["stage_order"], TACTICS[mapping["tactic_id"]]["order"]
+                    )
+                    self.assertIn(event["security_control"]["status"], {"blocked", "detected"})
+                    self.assertTrue(event["security_control"]["observed"])
+                    self.assertIn(
+                        event["attack"]["observed_state"], {"contained", "detected-active"}
+                    )
+
+    def test_standalone_alerts_do_not_reuse_template_campaign_as_correlation_identity(self):
+        first = enrich_event_evidence(edr.credential_dumping(), "edr")
+        second = enrich_event_evidence(edr.credential_dumping(), "edr")
+        self.assertEqual(first["attack"]["template_id"], "EDR-CRED-001")
+        self.assertEqual(second["attack"]["template_id"], "EDR-CRED-001")
+        self.assertNotEqual(first["attack"]["campaign_id"], second["attack"]["campaign_id"])
+
+    def test_sparse_incident_scenario_links_only_alert_records(self):
+        records = build_scenario("account_compromise", campaign_id="BMB-SPARSE-TEST")
+        alerts = [event for _, event in records if event["event"]["kind"] == "alert"]
+        non_alerts = [event for _, event in records if event["event"]["kind"] != "alert"]
+        self.assertEqual(len(alerts), 3)
+        self.assertEqual([event["correlation"]["path_position"] for event in alerts], [1, 2, 3])
+        self.assertTrue(all("path_position" not in event["correlation"] for event in non_alerts))
 
     def test_policy_records_are_investigable_but_never_security_alerts(self):
         records = build_scenario("policy_violations", "maya.georges", "198.51.100.24")

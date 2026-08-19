@@ -1276,6 +1276,70 @@ def credential_dumping():
 
     return event
 
+
+def network_service_scan():
+
+    user=choose_user()
+    target=choose_user()
+    event=base_event(
+        "network-service-scanning",
+        ["network"],
+        severity=8,
+        kind="alert"
+    )
+    add_endpoint_context(event,user,"network_service_scan")
+    add_process(event,"powershell.exe","explorer.exe")
+    event["destination"]={"ip":target["ip"],"port":445}
+    event["network"]={
+        "direction":"internal",
+        "transport":"tcp",
+        "protocol":"smb",
+        "scan_type":"sequential_port_probe",
+        "target_count":64,
+    }
+    event["related"]["ip"]=list(dict.fromkeys([*event["related"].get("ip",[]),target["ip"]]))
+    event["related"]["hosts"]=list(dict.fromkeys([*event["related"].get("hosts",[]),target["host"]]))
+    event["attack"]=campaign("EDR-DISCOVERY-001","discovery","TA0007")
+    event["rule"]={
+        "name":"Internal Network Service Scanning",
+        "category":"network-discovery"
+    }
+    return event
+
+
+def remote_service_execution():
+
+    user=choose_user()
+    target=choose_user()
+    event=base_event(
+        "remote-service-execution",
+        ["process","network"],
+        severity=9,
+        kind="alert"
+    )
+    add_endpoint_context(event,user,"remote_service_execution")
+    add_process(event,"powershell.exe","services.exe")
+    event["destination"]={"ip":target["ip"],"port":445}
+    event["network"]={
+        "direction":"internal",
+        "transport":"tcp",
+        "protocol":"smb",
+    }
+    event["remote_service"]={
+        "type":"smb_admin_share",
+        "share":"ADMIN$",
+        "target_host":target["host"],
+        "authenticated":True,
+    }
+    event["related"]["ip"]=list(dict.fromkeys([*event["related"].get("ip",[]),target["ip"]]))
+    event["related"]["hosts"]=list(dict.fromkeys([*event["related"].get("hosts",[]),target["host"]]))
+    event["attack"]=campaign("EDR-LATERAL-001","lateral_movement","TA0008")
+    event["rule"]={
+        "name":"Suspicious SMB Remote Service Execution",
+        "category":"lateral-movement"
+    }
+    return event
+
 # ============================================================
 # PERSISTENCE ATTACKS
 # ============================================================
@@ -1648,6 +1712,10 @@ ALERT_EVENTS=[
     c2_connection,
 
     credential_dumping,
+
+    network_service_scan,
+
+    remote_service_execution,
 
     registry_persistence,
 

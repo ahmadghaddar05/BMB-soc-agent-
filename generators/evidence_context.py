@@ -12,6 +12,8 @@ import hashlib
 import os
 import uuid
 
+from mitre_catalog import enrich_attack_metadata
+
 
 WINDOWS_PATHS = {
     "cmd.exe": r"C:\Windows\System32\cmd.exe",
@@ -175,6 +177,16 @@ def _ensure_edr(event):
             r"C:\Users\Public\encryptor.exe --path C:\Shared --extension .locked",
             "powershell.exe",
         ),
+        "network-service-scanning": (
+            "powershell.exe",
+            "powershell.exe -NoProfile -Command 1..254 | ForEach-Object { Test-NetConnection 10.1.20.$_ -Port 445 }",
+            "explorer.exe",
+        ),
+        "remote-service-execution": (
+            "powershell.exe",
+            r"powershell.exe -NoProfile -Command Invoke-Command -ComputerName FIN-WS002 -ScriptBlock { whoami }",
+            "services.exe",
+        ),
     }
     for candidate, values in action_context.items():
         if candidate in action:
@@ -204,12 +216,11 @@ def _ensure_edr(event):
         file_doc.setdefault("code_signature", deepcopy(event["process"]["code_signature"]))
 
     if "network" in event["event"].get("category", []):
-        event.setdefault("network", {}).update({
-            "transport": "tcp",
-            "protocol": "https",
-            "direction": "egress",
-            "bytes": _stable_number(event, "network-bytes", 900, 900000),
-        })
+        network = event.setdefault("network", {})
+        network.setdefault("transport", "tcp")
+        network.setdefault("protocol", "https")
+        network.setdefault("direction", "egress")
+        network.setdefault("bytes", _stable_number(event, "network-bytes", 900, 900000))
 
 
 def _ensure_ad(event):
@@ -426,9 +437,18 @@ def _summary(event, source):
     outcome = event.get("event", {}).get("outcome", "unknown")
     details = [f"{source} observed {action}", f"user={user}", f"host={host}", f"source.ip={src}", f"outcome={outcome}"]
     campaign = event.get("attack", {}).get("campaign_id")
+    technique = event.get("attack", {}).get("technique_id")
+    tactic = event.get("attack", {}).get("tactic_id")
+    control_status = event.get("security_control", {}).get("status")
     correlation_session = event.get("correlation", {}).get("session_id")
     if campaign:
         details.append(f"attack.campaign_id={campaign}")
+    if technique:
+        details.append(f"attack.technique_id={technique}")
+    if tactic:
+        details.append(f"attack.tactic_id={tactic}")
+    if control_status:
+        details.append(f"security_control.status={control_status}")
     if correlation_session:
         details.append(f"correlation.session_id={correlation_session}")
     policy = event.get("policy", {})
@@ -478,6 +498,7 @@ def enrich_event_evidence(event, source):
         "webapp": _ensure_web,
     }
     source_enrichers[source](event)
+    enrich_attack_metadata(event)
 
     event["message"] = _summary(event, source)
     evidence = event.setdefault("evidence", {})

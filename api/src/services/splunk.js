@@ -94,7 +94,10 @@ function safeLiteral(value) {
 
 function valueAt(result, ...keys) {
   for (const key of keys) {
-    const value = result?.[key];
+    let value = result?.[key];
+    if ((value === undefined || value === null || value === '') && key.includes('.')) {
+      value = key.split('.').reduce((current, part) => current?.[part], result);
+    }
     if (value !== undefined && value !== null && value !== '') return value;
   }
   return null;
@@ -111,6 +114,15 @@ function listValue(value) {
   if (Array.isArray(value)) return value.map(item => String(item).trim()).filter(Boolean);
   if (value == null || value === '') return [];
   return String(value).split(',').map(item => item.trim()).filter(Boolean);
+}
+
+function normalizedList(result, keys, transform = value => value) {
+  return [...new Set(keys.flatMap(key => listValue(valueAt(result, key)))
+    .map(value => transform(String(value).trim())).filter(Boolean))];
+}
+
+function normalizeTactic(value) {
+  return String(value).toLowerCase().trim().replace(/[\s-]+/g, '_');
 }
 
 function parseRawKeyValueFields(value) {
@@ -259,8 +271,14 @@ function normalizeAlert(hit) {
     hostname: stringValue(result, 'host', 'hostname', 'host_name', 'host.name', 'dest_host'),
     target_db: stringValue(result, 'database.name', 'database', 'db_name'),
     process: stringValue(result, 'process_name', 'process.name', 'process', 'exe', 'Image'),
-    mitre_techniques: listValue(valueAt(result, 'mitre_techniques', 'mitre_attack_id', 'annotations.mitre_attack')),
-    mitre_tactics: listValue(valueAt(result, 'mitre_tactics', 'mitre_tactic')),
+    mitre_techniques: normalizedList(result, [
+      'mitre_techniques', 'mitre_attack_id', 'annotations.mitre_attack',
+      'threat.technique.id', 'kibana.alert.rule.threat.technique.id',
+    ], value => value.toUpperCase()),
+    mitre_tactics: normalizedList(result, [
+      'mitre_tactics', 'mitre_tactic', 'threat.tactic.name',
+      'kibana.alert.rule.threat.tactic.name',
+    ], normalizeTactic),
     risk_score: Number.isFinite(riskScore) ? riskScore : null,
     source_severity: severity,
     workflow_status: stringValue(result, 'status', 'workflow_status'),

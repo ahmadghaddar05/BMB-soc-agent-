@@ -35,6 +35,18 @@ function normalizeTactic(value) {
     .replace(/[\s-]+/g, '_');
 }
 
+const TACTIC_NAMES_BY_ID = {
+  TA0043:'Reconnaissance', TA0001:'Initial Access', TA0002:'Execution',
+  TA0003:'Persistence', TA0004:'Privilege Escalation', TA0006:'Credential Access',
+  TA0007:'Discovery', TA0008:'Lateral Movement', TA0009:'Collection',
+  TA0011:'Command and Control', TA0010:'Exfiltration', TA0040:'Impact',
+};
+
+function uniqueFieldValues(fields, names) {
+  return [...new Set(names.flatMap(name => values(fields, name))
+    .map(value => String(value).trim()).filter(Boolean))];
+}
+
 /*
  * The current dashboard still expects the old rule_level field.
  * This temporary mapping keeps the existing interface working:
@@ -170,6 +182,23 @@ function requestJson(urlString, body, { method = 'POST', connection = null } = {
 function normalizeAlert(hit, groupWindowMinutes = 5) {
   const fields = hit.fields || {};
 
+  const mitreTechniques = uniqueFieldValues(fields, [
+    'threat.technique.id',
+    'kibana.alert.rule.threat.technique.id',
+  ]).map(value => value.toUpperCase());
+  const tacticIds = uniqueFieldValues(fields, [
+    'threat.tactic.id',
+    'kibana.alert.rule.threat.tactic.id',
+  ]).map(value => value.toUpperCase());
+  const tacticNames = uniqueFieldValues(fields, [
+    'threat.tactic.name',
+    'kibana.alert.rule.threat.tactic.name',
+  ]);
+  const mitreTactics = [...new Set([
+    ...tacticNames,
+    ...tacticIds.map(id => TACTIC_NAMES_BY_ID[id]).filter(Boolean),
+  ].map(normalizeTactic))];
+
   const timestamp =
     first(fields, '@timestamp') ||
     new Date().toISOString();
@@ -248,15 +277,9 @@ function normalizeAlert(hit, groupWindowMinutes = 5) {
     target_db:
       first(fields, 'database.name'),
 
-    mitre_techniques: values(
-      fields,
-      'threat.technique.id'
-    ).map(value => String(value).toUpperCase()),
+    mitre_techniques: mitreTechniques,
 
-    mitre_tactics: values(
-      fields,
-      'threat.tactic.name'
-    ).map(normalizeTactic),
+    mitre_tactics: mitreTactics,
 
     source_system: 'elastic',
     source_index: hit._index,
@@ -512,10 +535,21 @@ async function searchAlerts({
 
       'attack.campaign_id',
       'attack.stage',
+      'attack.stage_order',
       'attack.tactic',
+      'attack.tactic_id',
+      'attack.tactic_name',
+      'attack.technique_id',
+      'attack.technique_name',
+      'attack.observed_state',
       'correlation.session_id',
       'correlation.sequence',
       'correlation.join_keys',
+      'correlation.path_position',
+      'correlation.path_length',
+      'security_control.status',
+      'security_control.action',
+      'security_control.observed',
 
       'policy.id',
       'policy.category',
@@ -531,6 +565,10 @@ async function searchAlerts({
       'threat.tactic.name',
       'threat.technique.id',
       'threat.technique.name',
+      'kibana.alert.rule.threat.tactic.id',
+      'kibana.alert.rule.threat.tactic.name',
+      'kibana.alert.rule.threat.technique.id',
+      'kibana.alert.rule.threat.technique.name',
     ],
 
     query: {
@@ -735,6 +773,28 @@ async function searchAlertsCursor({
     'threat.tactic.name',
     'threat.technique.id',
     'threat.technique.name',
+    'kibana.alert.rule.threat.tactic.id',
+    'kibana.alert.rule.threat.tactic.name',
+    'kibana.alert.rule.threat.technique.id',
+    'kibana.alert.rule.threat.technique.name',
+
+    'attack.campaign_id',
+    'attack.stage',
+    'attack.stage_order',
+    'attack.tactic',
+    'attack.tactic_id',
+    'attack.tactic_name',
+    'attack.technique_id',
+    'attack.technique_name',
+    'attack.observed_state',
+    'correlation.session_id',
+    'correlation.sequence',
+    'correlation.join_keys',
+    'correlation.path_position',
+    'correlation.path_length',
+    'security_control.status',
+    'security_control.action',
+    'security_control.observed',
   ];
 
   const collectedHits = [];
@@ -922,7 +982,12 @@ const RAW_EVENT_FIELDS = [
   'correlation.session_id', 'correlation.sequence', 'correlation.join_keys',
   'policy.id', 'policy.domain', 'policy.category', 'policy.violation',
   'policy.authorized', 'policy.security_alert', 'policy.disposition', 'policy.reason',
-  'change.id', 'change.approved', 'attack.campaign_id', 'attack.stage', 'attack.tactic',
+  'change.id', 'change.approved', 'attack.campaign_id', 'attack.stage',
+  'attack.stage_order', 'attack.tactic', 'attack.tactic_id', 'attack.tactic_name',
+  'attack.technique_id', 'attack.technique_name', 'attack.observed_state',
+  'threat.tactic.id', 'threat.tactic.name', 'threat.technique.id', 'threat.technique.name',
+  'security_control.status', 'security_control.action', 'security_control.observed',
+  'correlation.path_position', 'correlation.path_length',
 ];
 
 function normalizeRawEvent(hit) {
@@ -972,6 +1037,16 @@ function normalizeRawEvent(hit) {
       id: first(fields, 'attack.campaign_id'),
       stage: first(fields, 'attack.stage'),
       tactic: first(fields, 'attack.tactic'),
+      tactic_id: first(fields, 'attack.tactic_id') || first(fields, 'threat.tactic.id'),
+      tactic_name: first(fields, 'attack.tactic_name') || first(fields, 'threat.tactic.name'),
+      technique_id: first(fields, 'attack.technique_id') || first(fields, 'threat.technique.id'),
+      technique_name: first(fields, 'attack.technique_name') || first(fields, 'threat.technique.name'),
+      observed_state: first(fields, 'attack.observed_state'),
+    },
+    security_control: {
+      status: first(fields, 'security_control.status'),
+      action: first(fields, 'security_control.action'),
+      observed: first(fields, 'security_control.observed'),
     },
     message: first(fields, 'message'),
   };

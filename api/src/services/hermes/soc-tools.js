@@ -318,13 +318,17 @@ function sanitize(value, depth = 0) {
 }
 
 function publicAlert(row) {
-  const rawFields = row.raw?.fields || {};
+  const rawFields = row.raw?.fields || row.raw || {};
+  const rawValue = key => {
+    if (rawFields[key] !== undefined) return rawFields[key];
+    return key.split('.').reduce((current, part) => current?.[part], rawFields);
+  };
   const firstRaw = key => {
-    const value = rawFields[key];
+    const value = rawValue(key);
     return Array.isArray(value) ? value[0] : value;
   };
   const allRaw = key => {
-    const value = rawFields[key];
+    const value = rawValue(key);
     if (value == null) return [];
     return Array.isArray(value) ? value : [value];
   };
@@ -442,9 +446,21 @@ function publicAlert(row) {
         campaign_id: firstRaw('attack.campaign_id'),
         stage: firstRaw('attack.stage'),
         tactic: firstRaw('attack.tactic'),
+        tactic_id: firstRaw('attack.tactic_id') || firstRaw('threat.tactic.id'),
+        tactic_name: firstRaw('attack.tactic_name') || firstRaw('threat.tactic.name'),
+        technique_id: firstRaw('attack.technique_id') || firstRaw('threat.technique.id'),
+        technique_name: firstRaw('attack.technique_name') || firstRaw('threat.technique.name'),
+        observed_state: firstRaw('attack.observed_state'),
         session_id: firstRaw('correlation.session_id'),
         sequence: firstRaw('correlation.sequence'),
         join_keys: allRaw('correlation.join_keys'),
+        path_position: firstRaw('correlation.path_position'),
+        path_length: firstRaw('correlation.path_length'),
+      },
+      security_control: {
+        status: firstRaw('security_control.status'),
+        action: firstRaw('security_control.action'),
+        observed: firstRaw('security_control.observed'),
       },
       authorization_context: {
         policy_id: firstRaw('policy.id'),

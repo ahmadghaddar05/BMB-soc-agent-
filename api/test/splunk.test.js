@@ -81,6 +81,22 @@ test('Splunk normalization maps textual urgency and common CIM fields', () => {
   assert.equal(alert.risk_score, null);
 });
 
+test('Splunk normalization preserves flattened or nested ATT&CK fields', () => {
+  const alert = normalizeAlert({
+    _time:'2026-08-19T08:00:00Z', _cd:'security~mitre~1', index:'security',
+    severity:'high', signature:'Remote service execution',
+    threat:{
+      technique:{ id:['T1021.002'] },
+      tactic:{ name:['Lateral Movement'] },
+    },
+    'kibana.alert.rule.threat.technique.id':['T1046'],
+    'kibana.alert.rule.threat.tactic.name':['Discovery'],
+    _raw:'Observed SMB execution after internal service scan',
+  });
+  assert.deepEqual(alert.mitre_techniques, ['T1021.002', 'T1046']);
+  assert.deepEqual(alert.mitre_tactics, ['lateral_movement', 'discovery']);
+});
+
 test('Splunk audit alert_fired records expose the saved-search context embedded in _raw', () => {
   const raw = 'Audit:[timestamp=08-10-2026 14:43:15.607, user=cybersec, action=alert_fired, ss_user="cybersec", ss_app="cisco_ios", ss_name="bmb - port flapping", sid="rt_scheduler_test", severity=3, triggered_alerts=1]';
   const parsed = parseRawKeyValueFields(raw);
