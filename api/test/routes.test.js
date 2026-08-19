@@ -389,10 +389,13 @@ test('grouped alerts expose specific titles and search technical and asset ident
 test('MITRE Coverage endpoints keep incident evidence, AI provenance, and aggregate gaps auditable', async () => {
   db.query = async sql => {
     const statement = String(sql);
+    if (statement.includes('mitre_incident_directory_mappings')) return { rows:[{
+      incident_id:7, id:'alert-1', mitre_techniques:['T1110.003'], mitre_tactics:[], raw:{},
+    }] };
     if (statement.includes('mitre_incident_directory')) return { rows:[{
       id:7, title:'Credential attack path', severity:'critical', status:'open', owner:null,
       first_seen:'2026-08-18T08:00:00Z', last_seen:'2026-08-18T08:10:00Z',
-      created_at:'2026-08-18T08:00:00Z', updated_at:'2026-08-18T08:10:00Z', alert_count:1, stage_count:1,
+      created_at:'2026-08-18T08:00:00Z', updated_at:'2026-08-18T08:10:00Z', alert_count:1,
     }] };
     if (statement === 'SELECT * FROM incidents WHERE id=$1') return { rows:[{
       id:7, title:'Credential attack path', severity:'critical', status:'open', owner:null,
@@ -412,7 +415,8 @@ test('MITRE Coverage endpoints keep incident evidence, AI provenance, and aggreg
     }] };
     if (statement.includes('mitre_incident_simulations')) return { rows:[] };
     if (statement.includes('mitre_coverage_aggregate')) return { rows:[{
-      tactic_key:'credential_access', total_alert_count:9, incident_count:2, detection_count:1,
+      incident_id:7, alert_id:'alert-1', rule_id:'password-spray', rule_desc:'Password spray',
+      mitre_techniques:['T1110.003'], mitre_tactics:[], raw:{},
     }] };
     throw new Error(`Unexpected MITRE test query: ${statement}`);
   };
@@ -431,9 +435,9 @@ test('MITRE Coverage endpoints keep incident evidence, AI provenance, and aggreg
 
   const coverage = await request(routeApp()).get('/api/mitre/coverage?range=90');
   assert.equal(coverage.status, 200);
-  assert.equal(coverage.body.tactics.length, 11);
-  assert.equal(coverage.body.tactics.find(item => item.id === 'TA0006').totalAlertCount, 9);
-  assert.match(coverage.body.summary, /1 of 11 tactics/);
+  assert.equal(coverage.body.tactics.length, 12);
+  assert.equal(coverage.body.tactics.find(item => item.id === 'TA0006').totalAlertCount, 1);
+  assert.match(coverage.body.summary, /1 of 12 tactics/);
 });
 
 test('identity pivots search alert evidence and incidents linked through matching alerts', async () => {

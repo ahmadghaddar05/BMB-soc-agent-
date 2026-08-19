@@ -1,22 +1,22 @@
-# Graph Report - BMB-soc-agent--main  (2026-08-16)
+# Graph Report - BMB-soc-agent--main  (2026-08-19)
 
 ## Corpus Check
-- 283 files · ~208,067 words
+- 296 files · ~219,701 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2416 nodes · 4442 edges · 202 communities (178 shown, 24 thin omitted)
-- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 446 edges (avg confidence: 0.61)
+- 2550 nodes · 4742 edges · 206 communities (182 shown, 24 thin omitted)
+- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 470 edges (avg confidence: 0.61)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `eeb98c66`
+- Built from commit: `10978c7c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - enrich_event_evidence
-- AIConfiguration.jsx
+- mitre.js
 - devDependencies
 - src/routes/index.js
 - services/alert-retention.js
@@ -34,11 +34,11 @@
 - runtimeConfig
 - admin.js
 - ad_generator.py
-- Assets.jsx
+- alertReference
 - Part 3 — Function Documentation
 - soc-tools.js
 - src/workers/pipeline.js
-- Alerts.jsx
+- analyst.js
 - src.before-elastic-connector-20260713-101839/services/reports.js
 - src/services/reports.js
 - errors.js
@@ -67,23 +67,23 @@
 - Phase 7 - Add controlled AI workflow actions
 - evaluate.js
 - Incidents.jsx
-- TriageDecisionTrace.jsx
+- alertReplay.js
 - BMB SOC Agent: Complete Architecture and Phase Guide
 - Phase 3 - Turn chat into a grounded SOC analyst
-- src/db/index.js
+- src/services/dbtools.js
 - src.before-elastic-connector-20260713-101839/routes/index.js
 - src.before-elastic-connector-20260713-101839/services/wazuh.js
 - src.before-elastic-connector-20260713-101839/workers/correlation.js
-- DigitalTwin.jsx
-- ConnectorManager.jsx
+- securityVisualization.js
+- AIConfiguration.jsx
 - Phase 5 - Correlate alerts into incidents
 - Phase 0 — Current-State Audit
 - App.test.jsx
 - Phase 5 — Security Administration Experience
 - BMB SOC Agent
 - What changed
-- client.js
-- api
+- AlertReplayScene.jsx
+- test_generators.py
 - src.before-elastic-connector-20260713-101839/services/tools.js
 - services/connectors.js
 - src/services/tools.js
@@ -96,7 +96,7 @@
 - Phase 6 - Make investigations and cases durable
 - Phase 0 — Hermes Migration Map
 - Required implementation scope
-- src/services/wazuh.js
+- Phase 4 - Move automated alert triage to Hermes
 - src.before-elastic-connector-20260713-101839/workers/scheduler.js
 - 001_current_schema.sql
 - Phase 4 - Hermes Triage Acceptance Gate
@@ -110,7 +110,7 @@
 - Phase 3 - Grounded Hermes Analyst Acceptance Gate
 - Splunk integration
 - 01_schema.sql
-- LiveMonitoring.jsx
+- MitreCoverage.jsx
 - nginx.test.js
 - Phase 0 — Prioritized Issue Backlog
 - 10. Operational deployment and troubleshooting completed
@@ -151,10 +151,10 @@
 - scenario_engine.py
 - Phase 2 - Establish Hermes as the shared AI boundary
 - executive.js
-- CollectorHealth.jsx
-- health.js
-- workflows.js
-- buildGroupKey
+- client.js
+- SelectionAssistant.jsx
+- src/db/index.js
+- src/services/wazuh.js
 - scenario_runner.py
 - 11. End-to-end logic at Phase 4
 - 13. Security and trust model
@@ -179,7 +179,7 @@
 - alerts
 - fetch_runs
 - triage_cache
-- IncidentCorrelationTrace.jsx
+- Alerts.jsx
 - webapp_generator.py
 - Cases.jsx
 - email_generator.py
@@ -187,26 +187,30 @@
 - Phase 8 - Add the proactive autonomous SOC worker
 - behavior_engine.py
 - pipeline.test.js
-- AuditGovernance.jsx
-- pages/Reports.jsx
-- Phase 9 - Add approval-gated response simulation
+- Investigations.jsx
+- ROLES
+- TriageDecisionTrace.jsx
 - 020_managed_connectors.sql
-- Responses.jsx
-- DataRetention.jsx
-- Phase 1 - Secure and stabilize the foundation
+- api
+- backfill-mitre-mappings.js
+- health.js
+- NetworkTopologyCanvas.jsx
+- buildGroupKey
 - HeaderStatusChip.jsx
+- DigitalTwin.jsx
+- Phase 1 - Secure and stabilize the foundation
 
 ## God Nodes (most connected - your core abstractions)
-1. `choose_user()` - 59 edges
-2. `api()` - 57 edges
-3. `fmtTs()` - 35 edges
-4. `cx()` - 28 edges
-5. `enrich_event_evidence()` - 26 edges
-6. `runtimeConfig()` - 25 edges
-7. `activityTitle()` - 25 edges
-8. `humanize()` - 24 edges
-9. `alertReference()` - 22 edges
-10. `add_endpoint_context()` - 21 edges
+1. `api()` - 61 edges
+2. `choose_user()` - 61 edges
+3. `fmtTs()` - 37 edges
+4. `humanize()` - 29 edges
+5. `activityTitle()` - 29 edges
+6. `enrich_event_evidence()` - 29 edges
+7. `cx()` - 28 edges
+8. `alertReference()` - 26 edges
+9. `runtimeConfig()` - 25 edges
+10. `buildAlertReplay()` - 23 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `EntityRelationshipGraph()` --indirect_call--> `incident()`  [INFERRED]
@@ -223,15 +227,15 @@
 ## Import Cycles
 - None detected.
 
-## Communities (202 total, 24 thin omitted)
+## Communities (206 total, 24 thin omitted)
 
 ### Community 0 - "enrich_event_evidence"
-Cohesion: 0.16
+Cohesion: 0.15
 Nodes (16): _artifact_hex(), enrich_event_evidence(), _ensure_ad(), _ensure_database(), _ensure_edr(), _ensure_email(), _ensure_hashes(), _ensure_linux() (+8 more)
 
-### Community 1 - "AIConfiguration.jsx"
-Cohesion: 0.13
-Nodes (12): fmtDuration(), AIConfiguration(), booleanFact(), DEFAULTS, healthTone(), initialDrafts(), integerError(), ratioError() (+4 more)
+### Community 1 - "mitre.js"
+Cohesion: 0.16
+Nodes (22): alertMappings(), alertState(), at(), buildIncident(), confidence(), coverage(), coverageFromAlerts(), normalizeKey() (+14 more)
 
 ### Community 2 - "devDependencies"
 Cohesion: 0.04
@@ -239,7 +243,7 @@ Nodes (46): autoprefixer, clsx, date-fns, eslint, eslint-plugin-react, dependenc
 
 ### Community 3 - "src/routes/index.js"
 Cohesion: 0.05
-Nodes (45): actions, { activeConnector }, admin, ANALYST_READ_PREFIXES, ANALYST_REVIEW_DECISIONS, ANALYTICS_WINDOWS, BOOLEAN_SETTINGS, boundedPressure() (+37 more)
+Nodes (46): actions, { activeConnector }, admin, ANALYST_READ_PREFIXES, ANALYST_REVIEW_DECISIONS, ANALYTICS_WINDOWS, BOOLEAN_SETTINGS, boundedPressure() (+38 more)
 
 ### Community 4 - "services/alert-retention.js"
 Cohesion: 0.16
@@ -247,11 +251,11 @@ Nodes (21): db, main(), { runRetention }, assertMode(), boundedInteger(), db, el
 
 ### Community 5 - "autonomous.js"
 Cohesion: 0.16
-Nodes (19): actionSummary(), alertNote(), boundedConfidence(), boundedInt(), compact(), { createActionService }, crypto, db (+11 more)
+Nodes (20): actionSummary(), alertNote(), boundedConfidence(), boundedInt(), compact(), { createActionService }, crypto, db (+12 more)
 
 ### Community 6 - "triage.js"
 Cohesion: 0.09
-Nodes (33): combinedSignal(), validateCitations(), publicAlert(), sanitize(), { combinedSignal }, { createAgentStore }, { createSocToolkit, publicAlert, sanitize }, crypto (+25 more)
+Nodes (31): publicAlert(), sanitize(), { combinedSignal }, { createAgentStore }, { createSocToolkit, publicAlert, sanitize }, crypto, { defaultHermesClient }, enrichmentFingerprint() (+23 more)
 
 ### Community 7 - "src/workers/scheduler.js"
 Cohesion: 0.24
@@ -263,20 +267,20 @@ Nodes (37): ajv, dependencies, ajv, cors, express, express-rate-limit, helmet, m
 
 ### Community 9 - "hermes/correlation.js"
 Cohesion: 0.09
-Nodes (29): combinedSignal(), connectedGroup(), correlateHermes(), correlationInput(), { createAgentStore }, crypto, { defaultHermesClient }, derivedSeverity() (+21 more)
+Nodes (30): combinedSignal(), connectedGroup(), correlateHermes(), correlationInput(), { createAgentStore }, crypto, { defaultHermesClient }, derivedSeverity() (+22 more)
 
 ### Community 10 - "api/src/index.js"
 Cohesion: 0.08
 Nodes (30): app, { authRouter, requireAuth, requireCsrf }, { bootstrapUserDirectory }, cors, createApp(), crypto, db, express (+22 more)
 
 ### Community 11 - "src/workers/correlation.js"
-Cohesion: 0.15
-Nodes (17): hasStrongRelation(), relationScore(), boundedInt(), {
+Cohesion: 0.16
+Nodes (15): boundedInt(), {
   correlateHermes, hasStrongRelation, relationScore,
-}, correlatePending(), crypto, db, { HermesError } (+9 more)
+}, correlatePending(), crypto, db, { HermesError }, incidentKey(), maxSeverity() (+7 more)
 
 ### Community 12 - "App.jsx"
-Cohesion: 0.06
+Cohesion: 0.07
 Nodes (27): AIConfiguration, AITriage, Alerts, Approvals, Assets, AttackSimulator, AuditGovernance, Cases (+19 more)
 
 ### Community 13 - "BMB Security Operations: Current Project and Technical Summary"
@@ -288,8 +292,8 @@ Cohesion: 0.10
 Nodes (26): choose_event(), main(), choose_event(), main(), choose_event(), main(), alert_probability(), burst_multiplier() (+18 more)
 
 ### Community 15 - "Dashboard.jsx"
-Cohesion: 0.10
-Nodes (17): ExecutiveAiValue(), ExecutiveBriefing(), ExecutiveDataTrust(), status(), ExecutiveDecisionQueue(), display(), ExecutiveKpiGrid(), MetricCard() (+9 more)
+Cohesion: 0.09
+Nodes (19): ExecutiveAiValue(), ExecutiveBriefing(), ExecutiveDataTrust(), status(), ExecutiveDecisionQueue(), display(), ExecutiveKpiGrid(), MetricCard() (+11 more)
 
 ### Community 16 - "runtimeConfig"
 Cohesion: 0.11
@@ -316,9 +320,9 @@ Nodes (24): AUTH_ROLES, { activeConnector, managerAvailable }, AUDIT_OUTCOMES, {
 Cohesion: 0.21
 Nodes (20): account_lockout(), add_user_context(), base_event(), campaign(), dcsync(), failed_logon(), kerberoasting(), kerberos_authentication() (+12 more)
 
-### Community 19 - "Assets.jsx"
+### Community 19 - "alertReference"
 Cohesion: 0.17
-Nodes (26): EntityRelationshipGraph(), incidentReference(), normalized(), RELATION_FIELDS, relationToIndicator(), sharedRelations(), EmptyState(), alertReference() (+18 more)
+Nodes (26): EntityRelationshipGraph(), incidentReference(), normalized(), RELATION_FIELDS, relationToIndicator(), sharedRelations(), verdictLabel(), alertReference() (+18 more)
 
 ### Community 20 - "Part 3 — Function Documentation"
 Cohesion: 0.06
@@ -332,9 +336,9 @@ Nodes (17): { ActionError, createActionService, stableKey }, { activeConnector }
 Cohesion: 0.13
 Nodes (23): alertSignature(), crypto, { activeConnector }, { alertSignature }, { correlatePending }, crypto, db, enrichAlert() (+15 more)
 
-### Community 23 - "Alerts.jsx"
-Cohesion: 0.17
-Nodes (24): ALERT_VIEW_STORAGE_KEY, createInitialAlertView(), DEFAULT_ALERT_FILTERS, normalizeCitations(), normalizeTextList(), readBrowserAlertView(), sanitizeFilters(), text() (+16 more)
+### Community 23 - "analyst.js"
+Cohesion: 0.29
+Nodes (12): ALERT_VIEW_STORAGE_KEY, createInitialAlertView(), DEFAULT_ALERT_FILTERS, normalizeCitations(), normalizeTextList(), readBrowserAlertView(), sanitizeFilters(), text() (+4 more)
 
 ### Community 24 - "src.before-elastic-connector-20260713-101839/services/reports.js"
 Cohesion: 0.25
@@ -345,8 +349,8 @@ Cohesion: 0.25
 Nodes (22): alertAggregates(), alertsDetailed(), alertsSummary(), COLORS, db, finalize(), fmt(), footer() (+14 more)
 
 ### Community 26 - "errors.js"
-Cohesion: 0.13
-Nodes (8): HermesError, publicHermesError(), crypto, db, { HermesError }, assert, { createAgentStore }, test
+Cohesion: 0.12
+Nodes (10): text(), HermesError, publicHermesError(), crypto, db, { HermesError }, assert, { createAgentStore } (+2 more)
 
 ### Community 27 - "hermes.test.js"
 Cohesion: 0.13
@@ -357,8 +361,8 @@ Cohesion: 0.10
 Nodes (17): AD_GROUPS, AD_USERS, app, CMDB_HOST, CMDB_IP, CMDB_LIST, DATA, EDR_AGENTS (+9 more)
 
 ### Community 29 - "roles.js"
-Cohesion: 0.22
-Nodes (14): Shell(), PermissionGuard(), ICONS, RoleAwareSidebar(), canAccessRoute(), getRoleLanding(), getRoleNavigation(), normalizeRole() (+6 more)
+Cohesion: 0.23
+Nodes (13): Shell(), PermissionGuard(), ICONS, RoleAwareSidebar(), canAccessRoute(), getRoleLanding(), getRoleNavigation(), normalizeRole() (+5 more)
 
 ### Community 30 - "src.before-elastic-connector-20260713-101839/index.js"
 Cohesion: 0.22
@@ -369,28 +373,28 @@ Cohesion: 0.20
 Nodes (20): { authenticateUser, currentSessionUser, publicUser }, authRouter(), clearSessionCookie(), cookieOptions(), crypto, digest(), equalSecret(), parseCookies() (+12 more)
 
 ### Community 32 - "chat.js"
-Cohesion: 0.18
-Nodes (18): authoritativeRuntimeTurn(), chatHermes(), { createAgentStore }, { createSocToolkit, compactText, sanitize }, crypto, { defaultHermesClient }, evidenceKey(), groupedEvidence() (+10 more)
+Cohesion: 0.16
+Nodes (21): routingOptions(), authoritativeRuntimeTurn(), chatHermes(), combinedSignal(), { createAgentStore }, { createSocToolkit, compactText, sanitize }, crypto, { defaultHermesClient } (+13 more)
 
 ### Community 33 - "services/actions.js"
-Cohesion: 0.07
-Nodes (26): requireRoles(), { ActionError, POLICY, POLICY_VERSION, createActionService }, actions, db, { requireRoles }, { Router }, STATUSES, { ActionError, createActionService } (+18 more)
+Cohesion: 0.09
+Nodes (18): { ActionError, POLICY, POLICY_VERSION, createActionService }, actions, db, { requireRoles }, { Router }, STATUSES, ActionError, cleanText() (+10 more)
 
 ### Community 34 - "ai-model-profiles.js"
-Cohesion: 0.22
-Nodes (12): listAiModelProfiles(), modelIdentity(), PROFILE_DEFINITIONS, profileDefinition(), publicProfile(), resolveAiModelProfile(), routingOptions(), { runtimeConfig } (+4 more)
+Cohesion: 0.23
+Nodes (11): listAiModelProfiles(), modelIdentity(), PROFILE_DEFINITIONS, profileDefinition(), publicProfile(), resolveAiModelProfile(), { runtimeConfig }, assert (+3 more)
 
 ### Community 35 - "ui/index.js"
 Cohesion: 0.09
-Nodes (32): connectionState(), MitreKillChain(), StageConnection(), tacticIcon(), SimulationResponse(), Button(), Card(), clamp() (+24 more)
+Nodes (32): EMPTY_EVENTS, connectionState(), MitreKillChain(), StageConnection(), tacticIcon(), SimulationResponse(), Button(), Card() (+24 more)
 
 ### Community 36 - "llm.js"
 Cohesion: 0.22
 Nodes (16): chatAgent(), chatJSON(), compactAlert(), correlateAlerts(), extractJSON(), investigateAlert(), normalizeStage(), parseArgs() (+8 more)
 
 ### Community 37 - "splunk.js"
-Cohesion: 0.09
-Nodes (55): changed(), db, loadCandidates(), main(), { normalizeAlert }, updateAlert(), { checkHealth, fetchAlerts, validateConfiguration }, main() (+47 more)
+Cohesion: 0.08
+Nodes (59): changed(), db, loadCandidates(), main(), { normalizeAlert }, updateAlert(), { checkHealth, fetchAlerts, validateConfiguration }, main() (+51 more)
 
 ### Community 38 - "How AI Triage, Correlation, Incidents, and Investigations Work"
 Cohesion: 0.06
@@ -418,11 +422,11 @@ Nodes (14): Ajv, CORRELATION_SEVERITIES, EVIDENCE_TYPES, { HermesError }, parseA
 
 ### Community 44 - "elastic.js"
 Cohesion: 0.12
-Nodes (26): main(), {
+Nodes (28): main(), {
   searchAlerts,
 }, {
   buildGroupKey,
-}, connectionConfig(), first(), fs, http, https (+18 more)
+}, connectionConfig(), first(), fs, http, https (+20 more)
 
 ### Community 45 - "auth.test.js"
 Cohesion: 0.15
@@ -453,12 +457,12 @@ Cohesion: 0.26
 Nodes (12): buildReport(), { classifyMetrics, pairwiseClusterMetrics, efficiencyMetrics }, demoData(), fs, loadJSON(), main(), pct(), printReport() (+4 more)
 
 ### Community 51 - "Incidents.jsx"
-Cohesion: 0.24
-Nodes (12): InfoTip(), severityOf(), compactTime(), correlatedCount(), entityCounts(), incidentReference(), Incidents(), IncidentSelection() (+4 more)
+Cohesion: 0.16
+Nodes (18): confidence(), IncidentCorrelationTrace(), label(), latest(), object(), outcomeLabel(), sharedLinks(), InfoTip() (+10 more)
 
-### Community 52 - "TriageDecisionTrace.jsx"
-Cohesion: 0.29
-Nodes (11): confidence(), displayExecutor(), displayValue(), latestByStage(), object(), RecordedDetails(), STAGES, STATUS_ICON (+3 more)
+### Community 52 - "alertReplay.js"
+Cohesion: 0.13
+Nodes (27): AlertReplayWorkspace(), SPEEDS, useAlertReplayPlayback(), at(), buildAlertReplay(), buildMitreStages(), confidencePercent(), deriveReplayMitreProgress() (+19 more)
 
 ### Community 53 - "BMB SOC Agent: Complete Architecture and Phase Guide"
 Cohesion: 0.12
@@ -468,9 +472,9 @@ Nodes (16): 11. Lab data and demonstration scenarios, 12. What appears in each m
 Cohesion: 0.50
 Nodes (4): Phase 3 - Turn chat into a grounded SOC analyst, Problem, What the phase did, Why it mattered
 
-### Community 55 - "src/db/index.js"
-Cohesion: 0.13
-Nodes (5): db, { Pool }, CHAT_TOOLS, db, HANDLERS
+### Community 55 - "src/services/dbtools.js"
+Cohesion: 0.17
+Nodes (3): CHAT_TOOLS, db, HANDLERS
 
 ### Community 56 - "src.before-elastic-connector-20260713-101839/routes/index.js"
 Cohesion: 0.20
@@ -484,13 +488,13 @@ Nodes (9): extractEntities(), extractMitre(), fetchAlerts(), fetchFromWazuh(), G
 Cohesion: 0.29
 Nodes (9): { correlateAlerts }, correlatePending(), crypto, db, incidentKey(), maxSeverity(), promoteSingletons(), SEV_ORDER (+1 more)
 
-### Community 59 - "DigitalTwin.jsx"
-Cohesion: 0.08
-Nodes (50): edgePath(), LEGEND, NetworkTopologyCanvas(), NODE_ICONS, shorten(), nodes, TopologyLegend(), TopologyNode() (+42 more)
+### Community 59 - "securityVisualization.js"
+Cohesion: 0.11
+Nodes (40): createSynchronizedEventController(), immutableSnapshot(), initialSnapshot(), useSynchronizedEventStream(), ATTACK_SCENARIOS, attackScenarioById(), deriveMitreProgress(), deriveSimulationResponse() (+32 more)
 
-### Community 60 - "ConnectorManager.jsx"
-Cohesion: 0.20
-Nodes (13): ConnectorManager(), connectorTone(), ConnectorWizard(), initialForm(), PLATFORMS, StatusBadge(), Settings(), yesNo() (+5 more)
+### Community 60 - "AIConfiguration.jsx"
+Cohesion: 0.05
+Nodes (44): ConnectorManager(), connectorTone(), ConnectorWizard(), initialForm(), PLATFORMS, StatusBadge(), fmtDuration(), AIConfiguration() (+36 more)
 
 ### Community 61 - "Phase 5 - Correlate alerts into incidents"
 Cohesion: 0.50
@@ -516,21 +520,21 @@ Nodes (16): Alert-source modes, Authentication and security, BMB SOC Agent, Data
 Cohesion: 0.12
 Nodes (15): Authorization boundary, Cases, Deferred backend work, Existing contracts preserved, Human Review Queue, Incident Command, Investigations, Monitoring (+7 more)
 
-### Community 67 - "client.js"
+### Community 67 - "AlertReplayScene.jsx"
 Cohesion: 0.15
-Nodes (13): abortableDelay(), abortError(), createHermesClient(), crypto, failureSummary(), { HermesError }, normalizedBaseUrl(), normalizeRouteValue() (+5 more)
+Nodes (9): AlertReplayScene(), Fact(), ICONS, InferenceScene(), PHASES, SceneNode(), short(), replay (+1 more)
 
-### Community 68 - "api"
-Cohesion: 0.17
-Nodes (17): AuthenticatedApp(), AnalystDecisionReview(), decisionLabel(), OPTIONS, DECISION_LABELS, DecisionQualityPanel(), metric(), api() (+9 more)
+### Community 68 - "test_generators.py"
+Cohesion: 0.28
+Nodes (6): enrich_attack_metadata(), mapping_for_action(), _observed_control(), Add canonical ATT&CK and observed-control fields to an alert event., Return a defensive copy of the canonical mapping for ``action``., Describe the sensor-observed disposition, not an AI conclusion.
 
 ### Community 69 - "src.before-elastic-connector-20260713-101839/services/tools.js"
 Cohesion: 0.60
 Nodes (5): dispatch(), enrichmentUrl(), get(), post(), TRIAGE_TOOLS
 
 ### Community 70 - "services/connectors.js"
-Cohesion: 0.11
-Nodes (29): actor(), audit(), db, { Router }, {
+Cohesion: 0.10
+Nodes (34): actor(), audit(), db, { Router }, {
   SELECT_COLUMNS,
   configHash,
   decryptSecrets,
@@ -541,7 +545,7 @@ Nodes (29): actor(), audit(), db, { Router }, {
   safeConnectorError,
   testConnection,
   validateConnectorInput,
-}, unavailable(), boundedPort(), boundedText() (+21 more)
+}, unavailable(), activeConnector(), boundedPort() (+26 more)
 
 ### Community 71 - "src/services/tools.js"
 Cohesion: 0.60
@@ -556,8 +560,8 @@ Cohesion: 0.67
 Nodes (3): BASE, getJSON(), main()
 
 ### Community 80 - "choose_user"
-Cohesion: 0.30
-Nodes (25): choose_user(), add_endpoint_context(), add_policy_context(), add_process(), authorized_admin_maintenance(), base_event(), c2_connection(), campaign() (+17 more)
+Cohesion: 0.29
+Nodes (27): choose_user(), add_endpoint_context(), add_policy_context(), add_process(), authorized_admin_maintenance(), base_event(), c2_connection(), campaign() (+19 more)
 
 ### Community 81 - "BMB SOC Agent: Phase 0 to Phase 4 Project History"
 Cohesion: 0.17
@@ -575,9 +579,9 @@ Nodes (10): Configuration removal map, Current-to-target call map, Existing tool
 Cohesion: 0.18
 Nodes (10): Acceptance tests, API correctness, Configuration, Database lifecycle, Frontend reliability, Health and observability, Immediate safety, Phase 1 — Entry Scope and Acceptance Gate (+2 more)
 
-### Community 85 - "src/services/wazuh.js"
-Cohesion: 0.23
-Nodes (14): checkHealth(), connectionConfig(), extractEntities(), extractMitre(), fetchAlerts(), fetchFromWazuh(), fs, GROUP_TECHNIQUE (+6 more)
+### Community 85 - "Phase 4 - Move automated alert triage to Hermes"
+Cohesion: 0.50
+Nodes (4): Phase 4 - Move automated alert triage to Hermes, Problem, What the phase did, Why it mattered
 
 ### Community 86 - "src.before-elastic-connector-20260713-101839/workers/scheduler.js"
 Cohesion: 0.29
@@ -605,7 +609,7 @@ Nodes (9): 6.1 Alert collection and storage, 6.2 Enrichment, 6.3 Hermes triage, 
 
 ### Community 92 - "7. Phase-by-phase evolution"
 Cohesion: 0.22
-Nodes (9): 7. Phase-by-phase evolution, Final lab extension - Realistic coordinated telemetry and raw evidence, Phase 4 - Move automated alert triage to Hermes, Problem, Problem, What the extension did, What the phase did, Why it mattered (+1 more)
+Nodes (9): 7. Phase-by-phase evolution, Final lab extension - Realistic coordinated telemetry and raw evidence, Phase 9 - Add approval-gated response simulation, Problem, Problem, What the extension did, What the phase did, Why it mattered (+1 more)
 
 ### Community 93 - "9. Phase 4 - Hermes-only automated triage"
 Cohesion: 0.22
@@ -631,9 +635,9 @@ Nodes (9): Collection semantics, Environment fallback, Purpose, Recommended dash
 Cohesion: 0.25
 Nodes (7): alerts, alerts_updated_at, fetch_runs, incidents, incidents_updated_at, settings, set_updated_at
 
-### Community 99 - "LiveMonitoring.jsx"
-Cohesion: 0.27
-Nodes (13): activityId(), ActivityItem(), activitySignature(), activityTimestamp(), aiState(), buildSignatureMap(), datasetLabel(), formatTimestamp() (+5 more)
+### Community 99 - "MitreCoverage.jsx"
+Cohesion: 0.15
+Nodes (12): AlertTimeline(), AttackMatrix(), availableActions(), clock(), elapsed(), incidentOption(), IncidentView(), mappingEntries() (+4 more)
 
 ### Community 101 - "Phase 0 — Prioritized Issue Backlog"
 Cohesion: 0.25
@@ -696,8 +700,8 @@ Cohesion: 0.29
 Nodes (6): AI limitations, Backend compatibility, Correlation backlog repair, Correlation honesty, Phase 6 — Interface Polish and Workflow Clarity, What changed
 
 ### Community 116 - "ExampleCorp telemetry generators"
-Cohesion: 0.29
-Nodes (6): AI investigation of non-alert events, Evidence-rich telemetry, ExampleCorp telemetry generators, Send a coordinated exercise, Validate without sending, What changed
+Cohesion: 0.25
+Nodes (7): AI investigation of non-alert events, Evidence-rich telemetry, ExampleCorp telemetry generators, MITRE Coverage and incident-path contract, Send a coordinated exercise, Validate without sending, What changed
 
 ### Community 117 - "linux_generator.py"
 Cohesion: 0.35
@@ -780,34 +784,28 @@ Cohesion: 0.50
 Nodes (4): Phase 0 - Audit reality before adding automation, Problem, What the phase did, Why it mattered
 
 ### Community 137 - "scenario_engine.py"
-Cohesion: 0.18
-Nodes (10): workstation_host_doc(), build_scenario(), _correlate(), find_user(), _iso(), _policy_record(), Build one finite scenario and return ``[(source, event), ...]``., Return an existing inventory user without changing the inventory. (+2 more)
+Cohesion: 0.15
+Nodes (12): workstation_host_doc(), build_scenario(), _correlate(), find_user(), _iso(), _link_alert_path(), _policy_record(), Record stable chronological positions without pre-creating an incident. (+4 more)
 
 ### Community 138 - "Phase 2 - Establish Hermes as the shared AI boundary"
 Cohesion: 0.50
 Nodes (4): Phase 2 - Establish Hermes as the shared AI boundary, Problem, What the phase did, Why it mattered
 
 ### Community 139 - "executive.js"
-Cohesion: 0.12
-Nodes (28): AgentPerformanceHub(), sourceLabel(), STAGES, BusinessAssetList(), AssetBrief(), DeepDiveDrawer(), drawerCopy(), impactOf() (+20 more)
+Cohesion: 0.13
+Nodes (29): AgentPerformanceHub(), sourceLabel(), STAGES, BusinessAssetList(), ACTION_LABELS, affectedEntity(), asNumber(), businessAssetLabel() (+21 more)
 
-### Community 140 - "CollectorHealth.jsx"
-Cohesion: 0.22
-Nodes (9): age(), CollectorHealth(), count(), EMPTY_DRAFT, RunTable(), runTone(), schedulerDraft(), validateDraft() (+1 more)
+### Community 140 - "client.js"
+Cohesion: 0.15
+Nodes (13): abortableDelay(), abortError(), createHermesClient(), crypto, failureSummary(), { HermesError }, normalizedBaseUrl(), normalizeRouteValue() (+5 more)
 
-### Community 141 - "health.js"
-Cohesion: 0.16
-Nodes (14): activeConnector(), configHash(), connectionFromRow(), testConnection(), checkHealth(), fetchAlerts(), { activeConnector }, { checkHermesHealth } (+6 more)
+### Community 142 - "src/db/index.js"
+Cohesion: 0.09
+Nodes (17): db, { Pool }, requireRoles(), { ActionError, createActionService }, actions, db, { requireRoles }, RESPONSE_TYPES (+9 more)
 
-### Community 142 - "workflows.js"
-Cohesion: 0.18
-Nodes (9): actor(), auditValues(), CASE_STATUSES, db, INVESTIGATION_STATUSES, { requireRoles }, { Router }, text() (+1 more)
-
-### Community 143 - "buildGroupKey"
-Cohesion: 0.33
-Nodes (7): {
-  buildGroupKey,
-}, db, main(), buildGroupKey(), crypto, getTimeBucket(), normalizeValue()
+### Community 143 - "src/services/wazuh.js"
+Cohesion: 0.23
+Nodes (14): checkHealth(), connectionConfig(), extractEntities(), extractMitre(), fetchAlerts(), fetchFromWazuh(), fs, GROUP_TECHNIQUE (+6 more)
 
 ### Community 144 - "scenario_runner.py"
 Cohesion: 0.24
@@ -833,17 +831,17 @@ Nodes (3): 15. What is real, what remains limited, Real at Phase 4, Still intent
 Cohesion: 0.67
 Nodes (3): 19. Next work, Before enabling Phase 4 triage broadly, Later phases
 
-### Community 186 - "IncidentCorrelationTrace.jsx"
-Cohesion: 0.46
-Nodes (7): confidence(), IncidentCorrelationTrace(), label(), latest(), object(), outcomeLabel(), sharedLinks()
+### Community 186 - "Alerts.jsx"
+Cohesion: 0.28
+Nodes (14): ready(), ReplaySelector(), activityTitle(), AlertDetail(), Alerts(), entity(), json(), queueAiState() (+6 more)
 
 ### Community 187 - "webapp_generator.py"
 Cohesion: 0.44
 Nodes (14): add_http(), add_web_context(), admin_panel_access(), base_event(), campaign(), large_data_export(), login_bruteforce(), login_success() (+6 more)
 
 ### Community 188 - "Cases.jsx"
-Cohesion: 0.16
-Nodes (18): Select(), actionReference(), friendlyEvidenceText(), investigationReference(), Approvals(), LABELS, statusLabel(), statusTone() (+10 more)
+Cohesion: 0.20
+Nodes (16): AssetBrief(), DeepDiveDrawer(), drawerCopy(), impactOf(), impactTone(), IncidentBrief(), RiskDirectory(), riskSummary() (+8 more)
 
 ### Community 189 - "email_generator.py"
 Cohesion: 0.38
@@ -865,45 +863,67 @@ Nodes (8): calculate_risk(), check_device(), check_ip(), check_privilege(), chec
 Cohesion: 0.29
 Nodes (6): assert, db, fs, { mapWithConcurrency, runCycle }, path, test
 
-### Community 194 - "AuditGovernance.jsx"
-Cohesion: 0.43
-Nodes (6): AuditGovernance(), EMPTY_FILTERS, metadataText(), OUTCOMES, outcomeTone(), timestamp()
+### Community 194 - "Investigations.jsx"
+Cohesion: 0.21
+Nodes (13): actionReference(), caseReference(), displayReference(), friendlyEvidenceText(), investigationReference(), stableHash(), Approvals(), LABELS (+5 more)
 
-### Community 196 - "Phase 9 - Add approval-gated response simulation"
-Cohesion: 0.50
-Nodes (4): Phase 9 - Add approval-gated response simulation, Problem, What the phase did, Why it mattered
+### Community 195 - "ROLES"
+Cohesion: 0.67
+Nodes (3): ROLES, download(), Reports()
 
-### Community 198 - "Responses.jsx"
-Cohesion: 0.40
-Nodes (4): Responses(), stateLabel(), TYPE_META, UNKNOWN_TYPE_META
+### Community 196 - "TriageDecisionTrace.jsx"
+Cohesion: 0.29
+Nodes (11): confidence(), displayExecutor(), displayValue(), latestByStage(), object(), RecordedDetails(), STAGES, STATUS_ICON (+3 more)
 
-### Community 199 - "DataRetention.jsx"
-Cohesion: 0.70
-Nodes (4): count(), CountStrip(), DataRetention(), timestamp()
+### Community 198 - "api"
+Cohesion: 0.14
+Nodes (19): AuthenticatedApp(), AnalystDecisionReview(), decisionLabel(), OPTIONS, DECISION_LABELS, DecisionQualityPanel(), metric(), api() (+11 more)
 
-### Community 200 - "Phase 1 - Secure and stabilize the foundation"
+### Community 199 - "backfill-mitre-mappings.js"
+Cohesion: 0.24
+Nodes (10): db, elastic, main(), missingMappings(), normalizeStoredAlert(), scan(), splunk, assert (+2 more)
+
+### Community 200 - "health.js"
+Cohesion: 0.22
+Nodes (9): checkHealth(), { activeConnector }, { checkHermesHealth }, db, dependencyHealth(), elastic, splunk, timedCheck() (+1 more)
+
+### Community 201 - "NetworkTopologyCanvas.jsx"
+Cohesion: 0.29
+Nodes (8): edgePath(), LEGEND, NetworkTopologyCanvas(), NODE_ICONS, shorten(), nodes, TopologyLegend(), TopologyNode()
+
+### Community 202 - "buildGroupKey"
+Cohesion: 0.33
+Nodes (7): {
+  buildGroupKey,
+}, db, main(), buildGroupKey(), crypto, getTimeBucket(), normalizeValue()
+
+### Community 204 - "DigitalTwin.jsx"
+Cohesion: 0.32
+Nodes (6): EmptyState(), alertId(), DigitalTwin(), EMPTY_TOPOLOGY, EVENT_ICONS, eventTime()
+
+### Community 205 - "Phase 1 - Secure and stabilize the foundation"
 Cohesion: 0.50
 Nodes (4): Phase 1 - Secure and stabilize the foundation, Problem, What the phase did, Why it mattered
 
 ## Knowledge Gaps
-- **956 isolated node(s):** `name`, `version`, `description`, `main`, `start` (+951 more)
+- **979 isolated node(s):** `name`, `version`, `description`, `main`, `start` (+974 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **24 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `incident()` connect `hermes/correlation.js` to `Assets.jsx`, `Incidents.jsx`, `src/workers/correlation.js`, `autonomous.js`?**
-  _High betweenness centrality (0.138) - this node is a cross-community bridge._
-- **Why does `EntityRelationshipGraph()` connect `Assets.jsx` to `hermes/correlation.js`, `DigitalTwin.jsx`, `Alerts.jsx`?**
-  _High betweenness centrality (0.084) - this node is a cross-community bridge._
-- **Why does `runAutonomousAgent()` connect `autonomous.js` to `hermes/correlation.js`, `src/routes/index.js`, `src/workers/pipeline.js`?**
-  _High betweenness centrality (0.059) - this node is a cross-community bridge._
-- **Are the 58 inferred relationships involving `choose_user()` (e.g. with `account_lockout()` and `dcsync()`) actually correct?**
-  _`choose_user()` has 58 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 23 inferred relationships involving `enrich_event_evidence()` (e.g. with `main()` and `main()`) actually correct?**
-  _`enrich_event_evidence()` has 23 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `incident()` connect `autonomous.js` to `alertReference`, `hermes/correlation.js`, `src/workers/correlation.js`, `Incidents.jsx`?**
+  _High betweenness centrality (0.142) - this node is a cross-community bridge._
+- **Why does `EntityRelationshipGraph()` connect `alertReference` to `Alerts.jsx`, `DigitalTwin.jsx`, `Cases.jsx`, `autonomous.js`?**
+  _High betweenness centrality (0.093) - this node is a cross-community bridge._
+- **Why does `runAutonomousAgent()` connect `autonomous.js` to `src/routes/index.js`, `src/workers/pipeline.js`?**
+  _High betweenness centrality (0.055) - this node is a cross-community bridge._
+- **Are the 60 inferred relationships involving `choose_user()` (e.g. with `account_lockout()` and `dcsync()`) actually correct?**
+  _`choose_user()` has 60 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `name`, `version`, `description` to the rest of the system?**
-  _956 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `AIConfiguration.jsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.13333333333333333 - nodes in this community are weakly interconnected._
+  _979 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `enrich_event_evidence` be split into smaller, more focused modules?**
+  _Cohesion score 0.14516129032258066 - nodes in this community are weakly interconnected._
+- **Should `devDependencies` be split into smaller, more focused modules?**
+  _Cohesion score 0.0425531914893617 - nodes in this community are weakly interconnected._

@@ -125,6 +125,18 @@ function normalizeTactic(value) {
   return String(value).toLowerCase().trim().replace(/[\s-]+/g, '_');
 }
 
+const TACTIC_NAMES_BY_ID = Object.freeze({
+  TA0043:'Reconnaissance', TA0001:'Initial Access', TA0002:'Execution',
+  TA0003:'Persistence', TA0004:'Privilege Escalation', TA0006:'Credential Access',
+  TA0007:'Discovery', TA0008:'Lateral Movement', TA0009:'Collection',
+  TA0011:'Command and Control', TA0010:'Exfiltration', TA0040:'Impact',
+});
+
+function normalizeTacticField(value) {
+  const text = String(value || '').trim();
+  return normalizeTactic(TACTIC_NAMES_BY_ID[text.toUpperCase()] || text);
+}
+
 function parseRawKeyValueFields(value) {
   if (typeof value !== 'string' || !value.includes('=')) return {};
   const fields = {};
@@ -274,11 +286,14 @@ function normalizeAlert(hit) {
     mitre_techniques: normalizedList(result, [
       'mitre_techniques', 'mitre_attack_id', 'annotations.mitre_attack',
       'threat.technique.id', 'kibana.alert.rule.threat.technique.id',
+      'attack.technique_id',
     ], value => value.toUpperCase()),
     mitre_tactics: normalizedList(result, [
       'mitre_tactics', 'mitre_tactic', 'threat.tactic.name',
       'kibana.alert.rule.threat.tactic.name',
-    ], normalizeTactic),
+      'threat.tactic.id', 'kibana.alert.rule.threat.tactic.id',
+      'attack.tactic_id', 'attack.tactic_name', 'attack.tactic', 'attack.stage',
+    ], normalizeTacticField),
     risk_score: Number.isFinite(riskScore) ? riskScore : null,
     source_severity: severity,
     workflow_status: stringValue(result, 'status', 'workflow_status'),

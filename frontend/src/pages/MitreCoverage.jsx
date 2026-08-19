@@ -284,7 +284,7 @@ function ResponseActions({ incident, simulations, onSimulationRecorded }) {
   );
 }
 
-function IncidentView({ directory, selectedId, onSelect, detail, loading, error, onReload }) {
+function IncidentView({ directory, pipeline, selectedId, onSelect, detail, loading, error, onReload }) {
   const [selectedAlertId, setSelectedAlertId] = useState('');
   const incident = detail?.incident;
   const tactics = detail?.tactics || [];
@@ -300,6 +300,15 @@ function IncidentView({ directory, selectedId, onSelect, detail, loading, error,
     window.requestAnimationFrame(() => document.getElementById(`mitre-alert-${encodeURIComponent(id)}`)?.scrollIntoView({ behavior:'smooth', block:'center' }));
   }
 
+  const emptyMessage = Number(pipeline?.mappedAlerts || 0) > 0
+    ? `${pipeline.mappedAlerts} ATT&CK-mapped alert${pipeline.mappedAlerts === 1 ? ' is' : 's are'} awaiting incident correlation`
+    : 'No ATT&CK-mapped alerts have been stored yet';
+  const emptyAction = Number(pipeline?.pendingMappedAlerts || 0) > 0
+    ? `${pipeline.pendingMappedAlerts} mapped alert${pipeline.pendingMappedAlerts === 1 ? ' is' : 's are'} still awaiting AI triage`
+    : Number(pipeline?.triagedMappedAlerts || 0) > 0
+      ? 'Mapped alerts are triaged; correlation has not promoted an incident'
+      : null;
+
   return (
     <>
       <div className="mitre-view-toolbar">
@@ -311,7 +320,7 @@ function IncidentView({ directory, selectedId, onSelect, detail, loading, error,
       </div>
       {loading && !incident && <Card><SkeletonLoader lines={7} /></Card>}
       {error && <Card><EmptyState icon={AlertTriangle} message={error} action="Retry after checking the API" /></Card>}
-      {!loading && !error && !incident && <Card><EmptyState icon={LayoutGrid} message="No incidents contain ATT&CK-mapped alerts" /></Card>}
+      {!loading && !error && !incident && <Card><EmptyState icon={LayoutGrid} message={emptyMessage} action={emptyAction} /></Card>}
       {incident && (
         <div className="mitre-incident-view ui-page-enter">
           <Card compact className="mitre-incident-summary" aria-label="Selected incident summary">
@@ -374,6 +383,7 @@ export default function MitreCoverage() {
   const view = searchParams.get('view') === 'coverage' ? 'coverage' : 'incident';
   const selectedId = searchParams.get('incident') || '';
   const [directory, setDirectory] = useState([]);
+  const [pipeline, setPipeline] = useState(null);
   const [detail, setDetail] = useState(null);
   const [coverage, setCoverage] = useState(null);
   const [range, setRange] = useState('90');
@@ -396,10 +406,23 @@ export default function MitreCoverage() {
   }
 
   async function loadDirectory() {
-    const data = await api('/mitre/incidents?limit=100');
-    const rows = data.incidents || [];
-    setDirectory(rows);
-    if (rows.length && !rows.some(item => String(item.id) === String(selectedId))) selectIncident(rows[0].id);
+    setLoading(true);
+    setError('');
+    try {
+      const data = await api('/mitre/incidents?limit=100');
+      const rows = data.incidents || [];
+      setDirectory(rows);
+      setPipeline(data.pipeline || null);
+      if (rows.length && !rows.some(item => String(item.id) === String(selectedId))) selectIncident(rows[0].id);
+      if (!rows.length) setDetail(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function refreshIncidentView() {
+    await loadDirectory();
+    if (selectedId) await loadIncident();
   }
 
   async function loadIncident() {
@@ -444,7 +467,7 @@ export default function MitreCoverage() {
         <span><ShieldCheck />Observed evidence only</span>
       </div>
       {view === 'incident'
-        ? <IncidentView directory={directory} selectedId={selectedId} onSelect={selectIncident} detail={detail} loading={loading} error={error} onReload={loadIncident} />
+        ? <IncidentView directory={directory} pipeline={pipeline} selectedId={selectedId} onSelect={selectIncident} detail={detail} loading={loading} error={error} onReload={refreshIncidentView} />
         : <CoverageView range={range} onRange={setRange} data={coverage} loading={loading} error={error} onReload={loadCoverage} />}
     </div>
   );

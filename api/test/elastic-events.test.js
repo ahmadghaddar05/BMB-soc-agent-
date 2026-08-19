@@ -133,6 +133,23 @@ test('Elastic normalization preserves source and rule-level ATT&CK mappings', ()
   assert.deepEqual(alert.mitre_tactics, ['discovery', 'lateral_movement']);
 });
 
+test('Elastic normalization preserves generator attack metadata when the rule has no ATT&CK mapping', () => {
+  const alert = normalizeAlert({
+    _index:'.alerts-security.alerts-default', _id:'alert-generator-mitre', fields:{
+      '@timestamp':['2026-08-19T08:00:00Z'],
+      'kibana.alert.uuid':['alert-generator-mitre'],
+      'kibana.alert.rule.name':['Generated C2 detection'],
+      'kibana.alert.severity':['high'],
+      'attack.tactic_id':['TA0011'],
+      'attack.tactic_name':['Command and Control'],
+      'attack.technique_id':['T1071.001'],
+      'attack.stage':['command_and_control'],
+    },
+  });
+  assert.deepEqual(alert.mitre_techniques, ['T1071.001']);
+  assert.deepEqual(alert.mitre_tactics, ['command_and_control']);
+});
+
 test('raw Elastic evidence exposes ATT&CK path and observed control state', () => {
   const event = normalizeRawEvent({
     _index:'logs-edr.endpoint-default', _id:'event-mitre-1', fields:{

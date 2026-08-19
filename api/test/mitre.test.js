@@ -15,6 +15,19 @@ test('maps generator ATT&CK techniques into the canonical tactic sequence', () =
   assert.equal(mappings[1].techniques[0].id, 'T1059.001');
 });
 
+test('maps every generator-only ATT&CK stage and can recover mappings from stored raw evidence', () => {
+  const mappings = mitre.alertMappings({
+    mitre_techniques:[], mitre_tactics:[],
+    raw:{ fields:{
+      'attack.tactic_id':['TA0011'],
+      'attack.technique_id':['T1071.001'],
+    } },
+  });
+  assert.equal(mitre.TACTICS.length, 12);
+  assert.equal(mappings[0].tacticId, 'TA0011');
+  assert.equal(mappings[0].techniques[0].name, 'Web Protocols');
+});
+
 test('marks containment only when source evidence records a preventive outcome', () => {
   const aiOnly = {
     verdict:{ verdict:'true_positive', recommended_actions:['isolate endpoint'] },
@@ -69,10 +82,21 @@ test('coverage always returns every curated tactic and names real gaps', () => {
     { tactic_key:'TA0008', total_alert_count:5, incident_count:2, detection_count:1 },
   ], '90');
 
-  assert.equal(result.tactics.length, 11);
+  assert.equal(result.tactics.length, 12);
   assert.equal(result.tactics.find(item => item.id === 'TA0006').totalAlertCount, 14);
   assert.equal(result.tactics.find(item => item.id === 'TA0008').incidentCount, 2);
-  assert.match(result.summary, /2 of 11 tactics/);
+  assert.match(result.summary, /2 of 12 tactics/);
   assert.match(result.summary, /Reconnaissance/);
   assert.match(result.summary, /last 90 days/);
+});
+
+test('derives incident stage counts and coverage from technique-only evidence', () => {
+  const rows = [{
+    incident_id:7, alert_id:'alert-1', rule_id:'c2-rule',
+    mitre_tactics:[], mitre_techniques:['T1071.001'], raw:{},
+  }];
+  assert.equal(mitre.stageCounts(rows).get('7'), 1);
+  const result = mitre.coverageFromAlerts(rows, '90');
+  assert.equal(result.tactics.find(item => item.id === 'TA0011').totalAlertCount, 1);
+  assert.equal(result.tactics.find(item => item.id === 'TA0011').incidentCount, 1);
 });

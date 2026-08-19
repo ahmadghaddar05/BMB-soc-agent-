@@ -97,6 +97,17 @@ test('Splunk normalization preserves flattened or nested ATT&CK fields', () => {
   assert.deepEqual(alert.mitre_tactics, ['lateral_movement', 'discovery']);
 });
 
+test('Splunk normalization preserves generator attack metadata', () => {
+  const alert = normalizeAlert({
+    _time:'2026-08-19T08:00:00Z', _cd:'security~mitre~generator', index:'alerts',
+    severity:'high', signature:'Generated C2 detection',
+    attack:{ tactic_id:'TA0011', tactic_name:'Command and Control', technique_id:'T1071.001' },
+    _raw:'Observed outbound beaconing',
+  });
+  assert.deepEqual(alert.mitre_techniques, ['T1071.001']);
+  assert.deepEqual(alert.mitre_tactics, ['command_and_control']);
+});
+
 test('Splunk audit alert_fired records expose the saved-search context embedded in _raw', () => {
   const raw = 'Audit:[timestamp=08-10-2026 14:43:15.607, user=cybersec, action=alert_fired, ss_user="cybersec", ss_app="cisco_ios", ss_name="bmb - port flapping", sid="rt_scheduler_test", severity=3, triggered_alerts=1]';
   const parsed = parseRawKeyValueFields(raw);

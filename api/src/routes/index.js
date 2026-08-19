@@ -1337,7 +1337,10 @@ r.get('/mitre/incidents', async (req, res) => {
       `EXISTS (
          SELECT 1 FROM alerts evidence
          WHERE evidence.id=ANY(i.alert_ids)
-           AND cardinality(COALESCE(evidence.mitre_tactics,'{}'::text[])) > 0
+           AND (
+             cardinality(COALESCE(evidence.mitre_tactics,'{}'::text[])) > 0
+             OR cardinality(COALESCE(evidence.mitre_techniques,'{}'::text[])) > 0
+           )
        )`,
     ];
     if (status !== 'all') {
@@ -1352,13 +1355,7 @@ r.get('/mitre/incidents', async (req, res) => {
     const result = await db.query(
       `/* mitre_incident_directory */
        SELECT i.id,i.title,i.severity,i.status,i.owner,i.first_seen,i.last_seen,
-              i.created_at,i.updated_at,cardinality(i.alert_ids)::int AS alert_count,
-              COALESCE((
-                SELECT COUNT(DISTINCT LOWER(REGEXP_REPLACE(tactic,'[^a-zA-Z0-9]+','_','g')))::int
-                FROM alerts evidence
-                CROSS JOIN LATERAL unnest(COALESCE(evidence.mitre_tactics,'{}'::text[])) tactic
-                WHERE evidence.id=ANY(i.alert_ids) AND NULLIF(tactic,'') IS NOT NULL
-              ),0)::int AS stage_count
+              i.created_at,i.updated_at,cardinality(i.alert_ids)::int AS alert_count
        FROM incidents i
        WHERE ${conditions.join(' AND ')}
        ORDER BY CASE i.status WHEN 'open' THEN 0 ELSE 1 END,
@@ -1367,6 +1364,29 @@ r.get('/mitre/incidents', async (req, res) => {
        LIMIT $${params.length}`,
       params
     );
+    const incidentIds = result.rows.map(item => Number(item.id));
+    const evidence = incidentIds.length ? await db.query(
+      `/* mitre_incident_directory_mappings */
+       SELECT i.id AS incident_id,a.id,a.mitre_tactics,a.mitre_techniques,a.raw
+       FROM incidents i JOIN alerts a ON a.id=ANY(i.alert_ids)
+       WHERE i.id=ANY($1::int[])`,
+      [incidentIds]
+    ) : { rows:[] };
+    const stageCounts = mitre.stageCounts(evidence.rows);
+    const pipeline = result.rows.length ? null : (await db.query(
+      `/* mitre_pipeline_status */
+       WITH mapped AS (
+         SELECT id,triage_status FROM alerts
+         WHERE cardinality(COALESCE(mitre_tactics,'{}'::text[])) > 0
+            OR cardinality(COALESCE(mitre_techniques,'{}'::text[])) > 0
+       )
+       SELECT COUNT(*)::int AS mapped_alerts,
+              COUNT(*) FILTER (WHERE triage_status='triaged')::int AS triaged_mapped_alerts,
+              COUNT(*) FILTER (WHERE triage_status='pending')::int AS pending_mapped_alerts,
+              (SELECT COUNT(DISTINCT i.id)::int
+               FROM incidents i JOIN mapped evidence ON evidence.id=ANY(i.alert_ids)) AS mapped_incidents
+       FROM mapped`
+    )).rows[0];
     res.json({
       incidents:result.rows.map(item => ({
         id:Number(item.id),
@@ -1379,8 +1399,14 @@ r.get('/mitre/incidents', async (req, res) => {
         lastSeen:item.last_seen,
         createdAt:item.created_at,
         alertCount:Number(item.alert_count || 0),
-        stageCount:Number(item.stage_count || 0),
+        stageCount:stageCounts.get(String(item.id)) || 0,
       })),
+      pipeline:pipeline ? {
+        mappedAlerts:Number(pipeline.mapped_alerts || 0),
+        triagedMappedAlerts:Number(pipeline.triaged_mapped_alerts || 0),
+        pendingMappedAlerts:Number(pipeline.pending_mapped_alerts || 0),
+        mappedIncidents:Number(pipeline.mapped_incidents || 0),
+      } : null,
     });
   } catch (e) { res.status(500).json({ error:e.message }); }
 });
@@ -1443,28 +1469,13 @@ r.get('/mitre/coverage', async (req, res) => {
     const days = range === 'all' ? null : Number(range);
     const result = await db.query(
       `/* mitre_coverage_aggregate */
-       WITH incident_alerts AS (
-         SELECT DISTINCT i.id AS incident_id,a.id AS alert_id,a.rule_id,a.rule_desc,
-                a.alert_reason,a.event_action,a.mitre_tactics
-         FROM incidents i
-         JOIN alerts a ON a.id=ANY(i.alert_ids)
-         WHERE ($1::int IS NULL OR a.timestamp >= NOW() - ($1::int * INTERVAL '1 day'))
-       ), expanded AS (
-         SELECT incident_id,alert_id,
-                LOWER(REGEXP_REPLACE(tactic,'[^a-zA-Z0-9]+','_','g')) AS tactic_key,
-                COALESCE(NULLIF(rule_id,''),NULLIF(alert_reason,''),NULLIF(rule_desc,''),
-                         NULLIF(event_action,''),alert_id) AS detection_key
-         FROM incident_alerts
-         CROSS JOIN LATERAL unnest(COALESCE(mitre_tactics,'{}'::text[])) tactic
-         WHERE NULLIF(tactic,'') IS NOT NULL
-       )
-       SELECT tactic_key,COUNT(DISTINCT alert_id)::int AS total_alert_count,
-              COUNT(DISTINCT incident_id)::int AS incident_count,
-              COUNT(DISTINCT detection_key)::int AS detection_count
-       FROM expanded GROUP BY tactic_key ORDER BY tactic_key`,
+       SELECT DISTINCT i.id AS incident_id,a.id AS alert_id,a.rule_id,a.rule_desc,
+              a.alert_reason,a.event_action,a.mitre_tactics,a.mitre_techniques,a.raw
+       FROM incidents i JOIN alerts a ON a.id=ANY(i.alert_ids)
+       WHERE ($1::int IS NULL OR a.timestamp >= NOW() - ($1::int * INTERVAL '1 day'))`,
       [days]
     );
-    res.json({ generatedAt:new Date().toISOString(), ...mitre.coverage(result.rows, range) });
+    res.json({ generatedAt:new Date().toISOString(), ...mitre.coverageFromAlerts(result.rows, range) });
   } catch (e) { res.status(500).json({ error:e.message }); }
 });
 

@@ -10,8 +10,9 @@ const TACTICS = Object.freeze([
   { id:'TA0007', name:'Discovery', key:'discovery', order:7 },
   { id:'TA0008', name:'Lateral Movement', key:'lateral_movement', order:8 },
   { id:'TA0009', name:'Collection', key:'collection', order:9 },
-  { id:'TA0010', name:'Exfiltration', key:'exfiltration', order:10 },
-  { id:'TA0040', name:'Impact', key:'impact', order:11 },
+  { id:'TA0011', name:'Command and Control', key:'command_and_control', order:10 },
+  { id:'TA0010', name:'Exfiltration', key:'exfiltration', order:11 },
+  { id:'TA0040', name:'Impact', key:'impact', order:12 },
 ]);
 
 const TACTIC_BY_KEY = new Map(TACTICS.flatMap(tactic => [
@@ -26,6 +27,8 @@ const TECHNIQUES = Object.freeze({
   'T1566.001':{ name:'Spearphishing Attachment', tactic:'initial_access' },
   'T1566.002':{ name:'Spearphishing Link', tactic:'initial_access' },
   T1078:{ name:'Valid Accounts', tactic:'initial_access' },
+  T1204:{ name:'User Execution', tactic:'execution' },
+  'T1204.002':{ name:'Malicious File', tactic:'execution' },
   T1059:{ name:'Command and Scripting Interpreter', tactic:'execution' },
   'T1059.001':{ name:'PowerShell', tactic:'execution' },
   'T1059.004':{ name:'Unix Shell', tactic:'execution' },
@@ -33,12 +36,17 @@ const TECHNIQUES = Object.freeze({
   T1505:{ name:'Server Software Component', tactic:'persistence' },
   'T1505.003':{ name:'Web Shell', tactic:'persistence' },
   'T1547.001':{ name:'Registry Run Keys / Startup Folder', tactic:'persistence' },
-  T1098:{ name:'Account Manipulation', tactic:'persistence' },
+  'T1053.003':{ name:'Cron', tactic:'persistence' },
+  'T1053.005':{ name:'Scheduled Task', tactic:'persistence' },
   'T1136.001':{ name:'Create Account: Local Account', tactic:'persistence' },
+  T1098:{ name:'Account Manipulation', tactic:'privilege_escalation' },
+  'T1548.003':{ name:'Sudo and Sudo Caching', tactic:'privilege_escalation' },
   T1068:{ name:'Exploitation for Privilege Escalation', tactic:'privilege_escalation' },
   'T1484.001':{ name:'Group Policy Modification', tactic:'privilege_escalation' },
   'T1003.001':{ name:'LSASS Memory', tactic:'credential_access' },
   'T1003.006':{ name:'DCSync', tactic:'credential_access' },
+  'T1003.008':{ name:'/etc/passwd and /etc/shadow', tactic:'credential_access' },
+  T1110:{ name:'Brute Force', tactic:'credential_access' },
   'T1110.001':{ name:'Password Guessing', tactic:'credential_access' },
   'T1110.003':{ name:'Password Spraying', tactic:'credential_access' },
   'T1558.003':{ name:'Kerberoasting', tactic:'credential_access' },
@@ -46,13 +54,17 @@ const TECHNIQUES = Object.freeze({
   T1087:{ name:'Account Discovery', tactic:'discovery' },
   'T1021.001':{ name:'Remote Desktop Protocol', tactic:'lateral_movement' },
   'T1021.002':{ name:'SMB / Windows Admin Shares', tactic:'lateral_movement' },
+  T1213:{ name:'Data from Information Repositories', tactic:'collection' },
   'T1074.001':{ name:'Local Data Staging', tactic:'collection' },
   T1114:{ name:'Email Collection', tactic:'collection' },
   T1025:{ name:'Data from Removable Media', tactic:'collection' },
   'T1560.001':{ name:'Archive via Utility', tactic:'collection' },
+  'T1071.001':{ name:'Web Protocols', tactic:'command_and_control' },
+  T1020:{ name:'Automated Exfiltration', tactic:'exfiltration' },
   T1041:{ name:'Exfiltration Over C2 Channel', tactic:'exfiltration' },
   'T1567.002':{ name:'Exfiltration to Cloud Storage', tactic:'exfiltration' },
   T1486:{ name:'Data Encrypted for Impact', tactic:'impact' },
+  T1485:{ name:'Data Destruction', tactic:'impact' },
   T1490:{ name:'Inhibit System Recovery', tactic:'impact' },
   T1531:{ name:'Account Access Removal', tactic:'impact' },
 });
@@ -134,8 +146,23 @@ function alertState(alert) {
 }
 
 function alertMappings(alert) {
-  const tactics = list(alert?.mitre_tactics).map(tactic).filter(Boolean);
-  const techniques = list(alert?.mitre_techniques).map(technique).filter(Boolean);
+  const raw = rawEvidence(alert);
+  const rawTactics = [
+    ...list(at(raw, 'threat.tactic.id')),
+    ...list(at(raw, 'threat.tactic.name')),
+    ...list(at(raw, 'attack.tactic_id')),
+    ...list(at(raw, 'attack.tactic_name')),
+    ...list(at(raw, 'attack.tactic')),
+    ...list(at(raw, 'attack.stage')),
+  ];
+  const rawTechniques = [
+    ...list(at(raw, 'threat.technique.id')),
+    ...list(at(raw, 'attack.technique_id')),
+  ];
+  const tactics = [...new Set([...list(alert?.mitre_tactics), ...rawTactics])]
+    .map(tactic).filter(Boolean);
+  const techniques = [...new Set([...list(alert?.mitre_techniques), ...rawTechniques])]
+    .map(technique).filter(Boolean);
   const tacticKeys = [...new Set([
     ...tactics.map(item => item.key),
     ...techniques.map(item => item.tacticKey).filter(Boolean),
@@ -152,6 +179,42 @@ function alertMappings(alert) {
       techniques:(matching.length ? matching : fallback).map(item => ({ id:item.id, name:item.name })),
     };
   });
+}
+
+function stageCounts(rows) {
+  const byIncident = new Map();
+  for (const row of rows) {
+    const id = String(row.incident_id);
+    const stages = byIncident.get(id) || new Set();
+    for (const mapping of alertMappings(row)) stages.add(mapping.tacticId);
+    byIncident.set(id, stages);
+  }
+  return new Map([...byIncident].map(([id, stages]) => [id, stages.size]));
+}
+
+function coverageFromAlerts(rows, range) {
+  const buckets = new Map();
+  for (const row of rows) {
+    const detection = String(
+      row.rule_id || row.alert_reason || row.rule_desc || row.event_action || row.alert_id || row.id
+    );
+    for (const mapping of alertMappings(row)) {
+      const bucket = buckets.get(mapping.tacticId) || {
+        tactic_key:mapping.tacticId,
+        alerts:new Set(), incidents:new Set(), detections:new Set(),
+      };
+      bucket.alerts.add(String(row.alert_id || row.id));
+      bucket.incidents.add(String(row.incident_id));
+      bucket.detections.add(detection);
+      buckets.set(mapping.tacticId, bucket);
+    }
+  }
+  return coverage([...buckets.values()].map(bucket => ({
+    tactic_key:bucket.tactic_key,
+    total_alert_count:bucket.alerts.size,
+    incident_count:bucket.incidents.size,
+    detection_count:bucket.detections.size,
+  })), range);
 }
 
 function confidence(value) {
@@ -253,6 +316,8 @@ module.exports = {
   alertState,
   buildIncident,
   coverage,
+  coverageFromAlerts,
   normalizeKey,
   observedControlStatus,
+  stageCounts,
 };

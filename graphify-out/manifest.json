@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "api/src/routes/index.js": {
-    "mtime": 1786440077.6172924,
-    "ast_hash": "7b71e2ccbe988a4a1f0085dc796c77f3",
+    "mtime": 1787129705.7850091,
+    "ast_hash": "0f9f6674ca80c6820903d2fc24e18f25",
     "semantic_hash": ""
   },
   "api/src/routes/responses.js": {
@@ -260,8 +260,8 @@
     "semantic_hash": "a345e80b5a885868958a3cfadc9ef95a"
   },
   "api/src/services/elastic.js": {
-    "mtime": 1787125353.6668603,
-    "ast_hash": "47d3fabca6ee958a61b1cfe15bf47076",
+    "mtime": 1787129503.1702173,
+    "ast_hash": "ffc34649c6b1b7df8993c5c0f98d2509",
     "semantic_hash": ""
   },
   "api/src/services/grouping.js": {
@@ -330,8 +330,8 @@
     "semantic_hash": "b92ed4e800a4bda2895d5711e50d6442"
   },
   "api/src/services/splunk.js": {
-    "mtime": 1787125369.0637217,
-    "ast_hash": "d5a72f69f07aaed7cc30757f81ef4b74",
+    "mtime": 1787129503.538017,
+    "ast_hash": "f7e7fc69cea82ffd1928eeecd37f552e",
     "semantic_hash": ""
   },
   "api/src/services/tools.js": {
@@ -405,8 +405,8 @@
     "semantic_hash": "622818f64cc68ff1cf9a4b58505a796e"
   },
   "api/test/elastic-events.test.js": {
-    "mtime": 1787125529.6870651,
-    "ast_hash": "6b5a6123f29667e03326a82687044afd",
+    "mtime": 1787129648.3219619,
+    "ast_hash": "d4ddb3537973d6fb65c6836637f5d754",
     "semantic_hash": ""
   },
   "api/test/hermes-correlation.test.js": {
@@ -440,8 +440,8 @@
     "semantic_hash": "b44658cc6ba65776586d60358275772b"
   },
   "api/test/routes.test.js": {
-    "mtime": 1786440077.9318235,
-    "ast_hash": "46a109dd71ff46e5cbc6795b1aabeaa9",
+    "mtime": 1787129665.2490902,
+    "ast_hash": "e4388e09f5d10662f40b200648d0525f",
     "semantic_hash": ""
   },
   "api/test/soc-tools.test.js": {
@@ -540,8 +540,8 @@
     "semantic_hash": "20e362dac654cd615ebf803332d28e7d"
   },
   "frontend/src/App.jsx": {
-    "mtime": 1787041415.2083874,
-    "ast_hash": "d75188aaab94e527ed861d909b1ef80d",
+    "mtime": 1787126886.8518412,
+    "ast_hash": "a9c0ba4f442bc7ae3554083cb7200549",
     "semantic_hash": ""
   },
   "frontend/src/App.test.jsx": {
@@ -600,8 +600,8 @@
     "semantic_hash": "22ad7307f5662c6083958879d9217909"
   },
   "frontend/src/components/RoleAwareSidebar.jsx": {
-    "mtime": 1786883710.307969,
-    "ast_hash": "d3c08e3e0d5fdb2d2fc3af3cb5c9940d",
+    "mtime": 1787126887.5568144,
+    "ast_hash": "2ecc80683c1ec3dc1faf0a5b49a9e47b",
     "semantic_hash": ""
   },
   "frontend/src/components/SelectionAssistant.jsx": {
@@ -705,8 +705,8 @@
     "semantic_hash": "3a036ff9afa895660366a670a06d30b9"
   },
   "frontend/src/lib/roles.js": {
-    "mtime": 1786883709.9330318,
-    "ast_hash": "5704f2be7a88ef772575de9792ac7462",
+    "mtime": 1787126887.1855385,
+    "ast_hash": "07df01c2ef512db7f9aef61232ecd8b3",
     "semantic_hash": ""
   },
   "frontend/src/lib/roles.test.js": {
@@ -990,8 +990,8 @@
     "semantic_hash": ""
   },
   "api/test/splunk.test.js": {
-    "mtime": 1787125516.5653732,
-    "ast_hash": "3c85d01f830735989d6a048c80dc4303",
+    "mtime": 1787129648.781961,
+    "ast_hash": "b26b61fbb131cd59dc142109c0e2b0af",
     "semantic_hash": ""
   },
   "AGENTS.md": {
@@ -1345,8 +1345,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ui/Timeline.jsx": {
-    "mtime": 1786891240.68797,
-    "ast_hash": "a35cfb220bcf8b80079fb56fbfd23b44",
+    "mtime": 1787126874.2492557,
+    "ast_hash": "d8aa0990603bfa436dd707b6b922cf8e",
     "semantic_hash": ""
   },
   "frontend/src/components/ui/index.js": {
@@ -1497,6 +1497,36 @@
   "generators/mitre_catalog.py": {
     "mtime": 1787125031.52074,
     "ast_hash": "ebb4774deeb9c9398f482c3a40290449",
+    "semantic_hash": ""
+  },
+  "api/src/scripts/backfill-mitre-mappings.js": {
+    "mtime": 1787130037.201888,
+    "ast_hash": "f61f59f2c40c6f1dbf192220236bebfd",
+    "semantic_hash": ""
+  },
+  "api/src/services/mitre.js": {
+    "mtime": 1787129503.9087603,
+    "ast_hash": "ecc627c061c6371a5a6616ab2afeffa5",
+    "semantic_hash": ""
+  },
+  "api/test/mitre-backfill.test.js": {
+    "mtime": 1787130037.5763476,
+    "ast_hash": "3590d00bcc9ed35fa160f84f30eae75a",
+    "semantic_hash": ""
+  },
+  "api/test/mitre.test.js": {
+    "mtime": 1787129649.1689339,
+    "ast_hash": "1e6f6e39a8d782f7ae381bad1b8a40cd",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/MitreCoverage.jsx": {
+    "mtime": 1787129579.7084324,
+    "ast_hash": "bc9cdfcc5041e24f9fa3536fc0ab86a6",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/MitreCoverage.test.jsx": {
+    "mtime": 1787127338.716949,
+    "ast_hash": "c399f39be9be279522c5bb9ee7c38c5a",
     "semantic_hash": ""
   }
 }

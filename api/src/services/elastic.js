@@ -185,14 +185,19 @@ function normalizeAlert(hit, groupWindowMinutes = 5) {
   const mitreTechniques = uniqueFieldValues(fields, [
     'threat.technique.id',
     'kibana.alert.rule.threat.technique.id',
+    'attack.technique_id',
   ]).map(value => value.toUpperCase());
   const tacticIds = uniqueFieldValues(fields, [
     'threat.tactic.id',
     'kibana.alert.rule.threat.tactic.id',
+    'attack.tactic_id',
+    'attack.tactic',
   ]).map(value => value.toUpperCase());
   const tacticNames = uniqueFieldValues(fields, [
     'threat.tactic.name',
     'kibana.alert.rule.threat.tactic.name',
+    'attack.tactic_name',
+    'attack.stage',
   ]);
   const mitreTactics = [...new Set([
     ...tacticNames,
