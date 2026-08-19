@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   Activity, AlertTriangle, Bot, BriefcaseBusiness, ChevronLeft, Database, FileText, Globe2, HeartPulse,
-  Crosshair, LayoutDashboard, RadioTower, ScrollText, Search, Server, Settings, Share2,
+  Crosshair, LayoutDashboard, LayoutGrid, RadioTower, ScrollText, Search, Server, Settings, Share2,
   ShieldAlert, ShieldCheck, ShieldOff, Users, X,
 } from 'lucide-react';
 import { getRoleNavigation } from '../lib/roles';
@@ -12,6 +12,7 @@ const ICONS = {
   analytics: Activity,
   'digital-twin': Share2,
   'attack-simulator': Crosshair,
+  'mitre-coverage': LayoutGrid,
   triage: ShieldAlert,
   investigations: Search,
   incidents: AlertTriangle,

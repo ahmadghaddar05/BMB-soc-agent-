@@ -40,8 +40,9 @@ export default function Timeline({
         return (
         <li
           key={item.id || `${item.title}-${index}`}
+          id={item.domId || undefined}
           ref={index === items.length - 1 ? endRef : undefined}
-          className={cx(tone && `ui-timeline-tone-${tone}`, item.final && 'is-final')}
+          className={cx(tone && `ui-timeline-tone-${tone}`, item.final && 'is-final', item.className)}
           data-event-type={item.eventType || undefined}
           style={{ '--timeline-index': Math.min(index, 6) }}
         >

@@ -16,6 +16,7 @@ const LiveMonitoring = lazy(() => import('./pages/LiveMonitoring'));
 const SOCAnalytics = lazy(() => import('./pages/SOCAnalytics'));
 const DigitalTwin = lazy(() => import('./pages/DigitalTwin'));
 const AttackSimulator = lazy(() => import('./pages/AttackSimulator'));
+const MitreCoverage = lazy(() => import('./pages/MitreCoverage'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 const Incidents = lazy(() => import('./pages/Incidents'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
@@ -42,6 +43,7 @@ const PAGE_META = {
   '/security-analytics': ['Security Analytics', 'Attack patterns and telemetry trends'],
   '/digital-twin': ['Digital Twin', 'Live topology and observed attack paths'],
   '/attack-simulator': ['Attack Simulator', 'Animated alert reconstruction and AI decision replay'],
+  '/mitre-coverage': ['MITRE Coverage', 'Map alerts to ATT&CK tactics and identify detection gaps'],
   '/alerts': ['Technical Triage', 'Prioritized security activity for analyst review'],
   '/incidents': ['Incident Command', 'Correlated attack evidence and containment'],
   '/ai-triage': ['AI-assisted Triage', 'Evidence-grounded prioritization'],
@@ -208,6 +210,7 @@ function Shell({ session, onLogout }) {
               <Route path="/security-analytics" element={protect(<SOCAnalytics />)} />
               <Route path="/digital-twin" element={protect(<DigitalTwin />)} />
               <Route path="/attack-simulator" element={protect(<AttackSimulator />)} />
+              <Route path="/mitre-coverage" element={protect(<MitreCoverage />)} />
               <Route path="/alerts" element={protect(<Alerts />)} />
               <Route path="/ai-triage" element={protect(<AITriage />)} />
               <Route path="/investigations" element={protect(<Investigations />)} />

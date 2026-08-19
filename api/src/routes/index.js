@@ -15,13 +15,14 @@ const admin = require('./admin');
 const { POLICY_VERSION: AUTONOMOUS_POLICY_VERSION, runAutonomousAgent } = require('../workers/autonomous');
 const { requireRoles } = require('../middleware/auth');
 const { activeConnector } = require('../services/connectors');
+const mitre = require('../services/mitre');
 
 const r = Router();
 
 const ANALYST_READ_PREFIXES = Object.freeze([
   '/health', '/collector/status', '/agent/status', '/alerts', '/alert-groups',
   '/incidents', '/pivot', '/stats', '/investigations', '/cases', '/actions',
-  '/action-policy', '/responses', '/reports', '/workflow-quality', '/analytics',
+  '/action-policy', '/responses', '/reports', '/workflow-quality', '/analytics', '/mitre',
 ]);
 
 const EXECUTIVE_READ_PREFIXES = Object.freeze([
@@ -1321,6 +1322,152 @@ r.post('/alerts/:id/retriage', requireRoles('soc_analyst', 'administrator'), asy
 // ────────────────────────────────────────────────────────────────────────────
 // Incidents
 // ────────────────────────────────────────────────────────────────────────────
+r.get('/mitre/incidents', async (req, res) => {
+  try {
+    const { status = 'all', search = '', limit = 100 } = req.query;
+    const paging = pagination({ page:1, limit }, { defaultLimit:100, maxLimit:100 });
+    if (paging.error) return res.status(400).json({ error:paging.error });
+    if (!['all', 'open', 'closed', 'false_positive'].includes(status)) {
+      return res.status(400).json({ error:'status has an unsupported value' });
+    }
+    const searchError = optionalText(search, 'search', 200);
+    if (searchError) return res.status(400).json({ error:searchError });
+    const params = [];
+    const conditions = [
+      `EXISTS (
+         SELECT 1 FROM alerts evidence
+         WHERE evidence.id=ANY(i.alert_ids)
+           AND cardinality(COALESCE(evidence.mitre_tactics,'{}'::text[])) > 0
+       )`,
+    ];
+    if (status !== 'all') {
+      params.push(status);
+      conditions.push(`i.status=$${params.length}`);
+    }
+    if (search) {
+      params.push(`%${search}%`);
+      conditions.push(`(i.title ILIKE $${params.length} OR i.id::text ILIKE $${params.length})`);
+    }
+    params.push(paging.limit);
+    const result = await db.query(
+      `/* mitre_incident_directory */
+       SELECT i.id,i.title,i.severity,i.status,i.owner,i.first_seen,i.last_seen,
+              i.created_at,i.updated_at,cardinality(i.alert_ids)::int AS alert_count,
+              COALESCE((
+                SELECT COUNT(DISTINCT LOWER(REGEXP_REPLACE(tactic,'[^a-zA-Z0-9]+','_','g')))::int
+                FROM alerts evidence
+                CROSS JOIN LATERAL unnest(COALESCE(evidence.mitre_tactics,'{}'::text[])) tactic
+                WHERE evidence.id=ANY(i.alert_ids) AND NULLIF(tactic,'') IS NOT NULL
+              ),0)::int AS stage_count
+       FROM incidents i
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY CASE i.status WHEN 'open' THEN 0 ELSE 1 END,
+                CASE i.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+                i.last_seen DESC
+       LIMIT $${params.length}`,
+      params
+    );
+    res.json({
+      incidents:result.rows.map(item => ({
+        id:Number(item.id),
+        reference:`INC-${String(item.id).padStart(5, '0')}`,
+        name:item.title || 'Untitled security incident',
+        severity:item.severity || 'low',
+        status:item.status || 'open',
+        owner:item.owner || null,
+        firstSeen:item.first_seen,
+        lastSeen:item.last_seen,
+        createdAt:item.created_at,
+        alertCount:Number(item.alert_count || 0),
+        stageCount:Number(item.stage_count || 0),
+      })),
+    });
+  } catch (e) { res.status(500).json({ error:e.message }); }
+});
+
+r.get('/mitre/incidents/:id', async (req, res) => {
+  try {
+    const idError = positiveRecordId(req.params.id, 'incident id');
+    if (idError) return res.status(400).json({ error:idError });
+    const incident = await db.query('SELECT * FROM incidents WHERE id=$1', [req.params.id]);
+    if (!incident.rows.length) return res.status(404).json({ error:'Incident not found' });
+    const record = incident.rows[0];
+    const alertIds = Array.isArray(record.alert_ids) ? record.alert_ids.map(String) : [];
+    const [alerts, triage, simulations] = alertIds.length ? await Promise.all([
+      db.query(
+        `/* mitre_incident_alerts */
+         SELECT id,timestamp,rule_desc,alert_reason,event_action,event_dataset,
+                source_system,source_severity,hostname,agent_name,username,src_ip,dst_ip,
+                target_db,triage_status,triaged_at,verdict,mitre_techniques,mitre_tactics,raw
+         FROM alerts WHERE id=ANY($1::text[]) ORDER BY timestamp ASC,id ASC`,
+        [alertIds]
+      ),
+      db.query(
+        `/* mitre_incident_triage */
+         SELECT DISTINCT ON (entity_id) entity_id AS alert_id,confidence,provider,model,
+                input_summary,output_summary,reason,limitations,finished_at,created_at
+         FROM workflow_stage_events
+         WHERE entity_type='alert' AND stage='triaged' AND entity_id=ANY($1::text[])
+         ORDER BY entity_id,created_at DESC,id DESC`,
+        [alertIds]
+      ),
+      db.query(
+        `/* mitre_incident_simulations */
+         SELECT id,response_type,target_value,state,evidence_alert_ids,executed_by,
+                executed_at,verified_at,reverted_at
+         FROM simulated_response_states
+         WHERE evidence_alert_ids && $1::text[]
+         ORDER BY executed_at DESC`,
+        [alertIds]
+      ),
+    ]) : [{ rows:[] }, { rows:[] }, { rows:[] }];
+    res.json({
+      incident:mitre.buildIncident(record, alerts.rows, triage.rows),
+      tactics:mitre.TACTICS,
+      response_simulations:simulations.rows.map(item => ({ ...item, simulationOnly:true })),
+      trust:{
+        source:'stored incident evidence',
+        containmentMeaning:'Only source-observed blocked or prevented events are marked contained.',
+        externalActionsExecuted:false,
+      },
+    });
+  } catch (e) { res.status(500).json({ error:e.message }); }
+});
+
+r.get('/mitre/coverage', async (req, res) => {
+  try {
+    const range = String(req.query.range || '90');
+    if (!['30', '90', 'all'].includes(range)) {
+      return res.status(400).json({ error:'range must be 30, 90, or all' });
+    }
+    const days = range === 'all' ? null : Number(range);
+    const result = await db.query(
+      `/* mitre_coverage_aggregate */
+       WITH incident_alerts AS (
+         SELECT DISTINCT i.id AS incident_id,a.id AS alert_id,a.rule_id,a.rule_desc,
+                a.alert_reason,a.event_action,a.mitre_tactics
+         FROM incidents i
+         JOIN alerts a ON a.id=ANY(i.alert_ids)
+         WHERE ($1::int IS NULL OR a.timestamp >= NOW() - ($1::int * INTERVAL '1 day'))
+       ), expanded AS (
+         SELECT incident_id,alert_id,
+                LOWER(REGEXP_REPLACE(tactic,'[^a-zA-Z0-9]+','_','g')) AS tactic_key,
+                COALESCE(NULLIF(rule_id,''),NULLIF(alert_reason,''),NULLIF(rule_desc,''),
+                         NULLIF(event_action,''),alert_id) AS detection_key
+         FROM incident_alerts
+         CROSS JOIN LATERAL unnest(COALESCE(mitre_tactics,'{}'::text[])) tactic
+         WHERE NULLIF(tactic,'') IS NOT NULL
+       )
+       SELECT tactic_key,COUNT(DISTINCT alert_id)::int AS total_alert_count,
+              COUNT(DISTINCT incident_id)::int AS incident_count,
+              COUNT(DISTINCT detection_key)::int AS detection_count
+       FROM expanded GROUP BY tactic_key ORDER BY tactic_key`,
+      [days]
+    );
+    res.json({ generatedAt:new Date().toISOString(), ...mitre.coverage(result.rows, range) });
+  } catch (e) { res.status(500).json({ error:e.message }); }
+});
+
 r.get('/incidents', async (req, res) => {
   try {
     const { status = 'open', severity, page = 1, limit = 20 } = req.query;

@@ -1,0 +1,514 @@
+.mitre-coverage-page {
+  min-height: 100%;
+  display: grid;
+  align-content: start;
+  gap: 32px;
+  padding: 32px;
+  color: var(--text-secondary);
+  background: var(--bg-base);
+}
+
+.mitre-page-controls,
+.mitre-view-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mitre-page-controls > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.mitre-page-controls > span svg {
+  width: 16px;
+  height: 16px;
+  color: var(--success);
+  stroke-width: 1.5;
+}
+
+.mitre-view-toolbar {
+  justify-content: flex-end;
+}
+
+.mitre-view-toolbar .ui-select-field {
+  width: min(640px, 100%);
+}
+
+.mitre-view-toolbar.is-coverage {
+  justify-content: space-between;
+}
+
+.mitre-incident-view,
+.mitre-coverage-view {
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+}
+
+.mitre-incident-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.mitre-incident-name {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mitre-incident-name > strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mitre-incident-summary dl {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.mitre-incident-summary dl > div {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0 16px;
+  border-left: 1px solid var(--border-subtle);
+  font-size: 13px;
+}
+
+.mitre-incident-summary dt {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.mitre-incident-summary dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mitre-matrix-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mitre-matrix-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mitre-matrix-key i {
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--severity-high);
+}
+
+.mitre-matrix-key i:first-child { margin-left: 0; }
+.mitre-matrix-key i.confirmed { background: var(--severity-critical); }
+.mitre-matrix-key i.contained { background: var(--success); }
+
+.mitre-matrix-scroll,
+.mitre-heatmap-scroll {
+  overflow-x: auto;
+  margin: 0 -20px -20px;
+  padding: 0 20px 20px;
+  outline: none;
+  scrollbar-color: var(--border-default) transparent;
+  scrollbar-width: thin;
+}
+
+.mitre-matrix-scroll:focus-visible,
+.mitre-heatmap-scroll:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.mitre-matrix-canvas {
+  position: relative;
+  min-width: 1320px;
+}
+
+.mitre-matrix-grid {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  min-height: inherit;
+  display: grid;
+}
+
+.mitre-tactic-column {
+  min-height: 148px;
+  padding: 12px 8px 16px;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  transition: opacity 400ms var(--motion-ease), background 400ms var(--motion-ease);
+}
+
+.mitre-tactic-column:first-child { border-left: 1px solid var(--border-subtle); }
+.mitre-tactic-column.is-touched { background: var(--bg-surface-2); }
+.mitre-tactic-column.is-not-reached { opacity: .5; }
+
+.mitre-tactic-column > header,
+.mitre-coverage-column > header {
+  min-height: 44px;
+  text-align: center;
+}
+
+.mitre-tactic-column > header strong,
+.mitre-tactic-column > header code,
+.mitre-coverage-column > header strong,
+.mitre-coverage-column > header code {
+  display: block;
+}
+
+.mitre-tactic-column > header strong,
+.mitre-coverage-column > header strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.mitre-tactic-column > header code,
+.mitre-coverage-column > header code {
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mitre-tactic-alerts {
+  display: grid;
+  gap: 8px;
+}
+
+.mitre-alert-chip {
+  position: relative;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  text-align: left;
+  border: 1.5px solid var(--severity-high);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  transition: border-color 400ms var(--motion-ease), background 120ms var(--motion-ease), transform 120ms var(--motion-ease), box-shadow 400ms var(--motion-ease);
+}
+
+.mitre-alert-chip:hover {
+  background: var(--bg-surface-2);
+  transform: scale(1.005);
+}
+
+.mitre-alert-chip:active { transform: scale(.98); }
+.mitre-alert-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mitre-alert-chip.is-detected-active { animation: mitre-active-pulse 1.4s ease-in-out infinite; }
+.mitre-alert-chip.is-detected-confirmed { border-color: var(--severity-critical); }
+.mitre-alert-chip.is-contained { border-color: var(--success); }
+.mitre-alert-chip.is-selected { box-shadow: inset 0 0 0 2px var(--accent); }
+
+.mitre-alert-chip > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+  stroke-width: 1.5;
+}
+
+.mitre-alert-chip span,
+.mitre-alert-chip strong,
+.mitre-alert-chip code,
+.mitre-alert-chip time {
+  min-width: 0;
+  display: block;
+}
+
+.mitre-alert-chip strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mitre-alert-chip code,
+.mitre-alert-chip time {
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mitre-contained-mark {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  width: 16px !important;
+  height: 16px !important;
+  color: var(--success) !important;
+  fill: var(--bg-surface);
+}
+
+.mitre-tactic-alerts > em {
+  margin-top: 20px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-style: italic;
+  text-align: center;
+}
+
+.mitre-attack-path {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.mitre-attack-path line {
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  animation: mitre-path-draw 600ms var(--motion-ease) forwards;
+  animation-delay: calc(var(--path-index) * 40ms);
+}
+
+.mitre-attack-path .is-threat { stroke: var(--severity-critical); }
+.mitre-attack-path .is-contained { stroke: var(--success); }
+
+.mitre-incident-lower {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.mitre-alert-timeline {
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 8px;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+}
+
+.mitre-alert-timeline > li {
+  border-radius: var(--radius-sm);
+  transition: background 400ms var(--motion-ease);
+}
+
+.mitre-alert-timeline > li.is-selected { background: var(--accent-dim); }
+
+.mitre-timeline-tags {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.mitre-timeline-tags > code {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.mitre-decision-evidence {
+  display: grid;
+  gap: 12px;
+}
+
+.mitre-decision-evidence p,
+.mitre-decision-evidence ul { margin: 0; }
+
+.mitre-decision-evidence p,
+.mitre-decision-evidence li {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.mitre-decision-evidence dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.mitre-decision-evidence dl > div {
+  min-width: 0;
+  padding: 8px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.mitre-decision-evidence dl > div:last-child { border-right: 0; }
+.mitre-decision-evidence dt { color: var(--text-tertiary); font-size: 12px; }
+.mitre-decision-evidence dd { overflow-wrap: anywhere; margin: 4px 0 0; color: var(--text-primary); font-size: 12px; font-weight: 600; }
+.mitre-decision-evidence > div > strong { color: var(--text-primary); font-size: 13px; font-weight: 600; }
+.mitre-decision-evidence ul { margin-top: 8px; padding-left: 20px; }
+
+.mitre-response-card { min-width: 0; }
+.mitre-resolved-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  color: var(--text-primary);
+  border-left: 3px solid var(--success);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.mitre-resolved-summary svg { width: 16px; height: 16px; flex: none; color: var(--success); }
+.mitre-action-error { margin: 0 0 12px; color: var(--severity-critical); font-size: 13px; }
+.mitre-action-list { display: grid; gap: 8px; }
+
+.mitre-action-list > article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+}
+
+.mitre-action-list > article > div:first-child,
+.mitre-actions-taken p {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mitre-action-list svg,
+.mitre-actions-taken svg { width: 16px; height: 16px; flex: none; color: var(--accent); stroke-width: 1.5; }
+.mitre-action-list strong,
+.mitre-action-list small,
+.mitre-actions-taken strong,
+.mitre-actions-taken small { display: block; }
+.mitre-action-list strong,
+.mitre-actions-taken strong { color: var(--text-primary); font-size: 13px; font-weight: 600; }
+.mitre-action-list small,
+.mitre-actions-taken small { margin-top: 4px; color: var(--text-secondary); font-size: 12px; }
+
+.mitre-action-confirm {
+  grid-column: 1 / -1;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.mitre-action-confirm p { margin: 0 0 12px; color: var(--text-secondary); font-size: 13px; }
+.mitre-action-confirm p strong { display: inline; }
+.mitre-action-confirm > span { display: flex; gap: 8px; }
+.mitre-actions-taken { display: grid; gap: 8px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }
+.mitre-actions-taken h3 { margin: 0; color: var(--text-primary); font-size: 16px; font-weight: 600; }
+.mitre-actions-taken p { margin: 0; padding: 8px 12px; border-left: 3px solid var(--success); background: color-mix(in srgb, var(--success) 8%, transparent); }
+.mitre-actions-taken svg { color: var(--success); }
+
+.mitre-heatmap-scroll { margin-top: 4px; }
+.mitre-heatmap {
+  min-width: 1232px;
+  display: grid;
+  gap: 8px;
+}
+
+.mitre-coverage-column {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-2);
+}
+
+.mitre-coverage-cell {
+  position: relative;
+  min-height: 120px;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  padding: 12px;
+  text-align: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  transition: background 400ms var(--motion-ease), transform 120ms var(--motion-ease);
+}
+
+.mitre-coverage-cell:hover { transform: scale(1.005); }
+.mitre-coverage-column.level-0 .mitre-coverage-cell { border-style: dashed; }
+.mitre-coverage-column.level-1 .mitre-coverage-cell { background: color-mix(in srgb, var(--accent) 15%, var(--bg-surface)); }
+.mitre-coverage-column.level-2 .mitre-coverage-cell { background: color-mix(in srgb, var(--accent) 35%, var(--bg-surface)); }
+.mitre-coverage-column.level-3 .mitre-coverage-cell { background: color-mix(in srgb, var(--accent) 60%, var(--bg-surface)); }
+.mitre-coverage-cell > svg { position: absolute; top: 8px; right: 8px; width: 16px; height: 16px; color: var(--severity-medium); stroke-width: 1.5; }
+.mitre-coverage-cell > strong { color: var(--text-primary); font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mitre-coverage-cell > span { color: var(--text-secondary); font-size: 12px; font-weight: 500; line-height: 1.35; }
+.mitre-coverage-summary { display: grid; gap: 12px; }
+.mitre-coverage-summary p { margin: 0; color: var(--text-primary); font-size: 13px; font-weight: 500; }
+.mitre-coverage-summary small { color: var(--text-tertiary); font-size: 12px; }
+
+@keyframes mitre-path-draw { to { stroke-dashoffset: 0; } }
+@keyframes mitre-active-pulse { 0%, 100% { border-color: color-mix(in srgb, var(--severity-high) 60%, transparent); } 50% { border-color: var(--severity-high); } }
+
+@media (max-width: 1100px) {
+  .mitre-coverage-page { padding: 24px; }
+  .mitre-incident-lower { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 767px) {
+  .mitre-coverage-page { gap: 16px; padding: 16px; }
+  .mitre-page-controls,
+  .mitre-view-toolbar,
+  .mitre-incident-summary { align-items: stretch; flex-direction: column; }
+  .mitre-view-toolbar .ui-select-field { width: 100%; }
+  .mitre-incident-name { align-items: flex-start; flex-direction: column; }
+  .mitre-incident-summary dl { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mitre-incident-summary dl > div { padding: 8px; border-top: 1px solid var(--border-subtle); border-left: 0; }
+  .mitre-decision-evidence dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mitre-decision-evidence dl > div:nth-child(2) { border-right: 0; }
+  .mitre-decision-evidence dl > div:nth-child(-n+2) { border-bottom: 1px solid var(--border-subtle); }
+  .mitre-timeline-tags { align-items: flex-start; justify-content: flex-start; flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mitre-alert-chip,
+  .mitre-attack-path line,
+  .mitre-tactic-column,
+  .mitre-coverage-cell,
+  .mitre-alert-timeline > li { animation: none; transition: none; }
+}
