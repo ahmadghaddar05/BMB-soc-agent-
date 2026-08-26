@@ -1528,55 +1528,5 @@
     "mtime": 1787127338.716949,
     "ast_hash": "c399f39be9be279522c5bb9ee7c38c5a",
     "semantic_hash": ""
-  },
-  "docs/API_AND_DATA.md": {
-    "mtime": 1787736662.352578,
-    "ast_hash": "4d472c958ae22f9fa55f9e6549e38f5d",
-    "semantic_hash": ""
-  },
-  "docs/ARCHITECTURE.md": {
-    "mtime": 1787736426.204288,
-    "ast_hash": "b176dbfe6d6ee9fd21840ae3ca3fc443",
-    "semantic_hash": ""
-  },
-  "docs/CHANGELOG.md": {
-    "mtime": 1787738247.2409997,
-    "ast_hash": "44cca5e2958d450171df91cf99fdd6c9",
-    "semantic_hash": ""
-  },
-  "docs/COMPONENTS.md": {
-    "mtime": 1787738514.8207831,
-    "ast_hash": "cefd5464d8fd751e82e032bfe2f99ce0",
-    "semantic_hash": ""
-  },
-  "docs/DESIGN_SYSTEM.md": {
-    "mtime": 1787737446.3726082,
-    "ast_hash": "1c9343948e1a1c9f36cb0bffdffb0831",
-    "semantic_hash": ""
-  },
-  "docs/FEATURE_STATUS.md": {
-    "mtime": 1787737934.7299037,
-    "ast_hash": "73e23a45cd7aba633eb9cab8cf911cc4",
-    "semantic_hash": ""
-  },
-  "docs/KNOWN_ISSUES.md": {
-    "mtime": 1787738102.3076754,
-    "ast_hash": "c140dfccd2d179eeeecd9a823ec0dc49",
-    "semantic_hash": ""
-  },
-  "docs/PAGES.md": {
-    "mtime": 1787737946.6133218,
-    "ast_hash": "6c001304738511fa197c6fb6760bf2e7",
-    "semantic_hash": ""
-  },
-  "docs/README.md": {
-    "mtime": 1787738062.6304607,
-    "ast_hash": "ddb2fe53ff3d4b1305c8ed23b80e3bde",
-    "semantic_hash": ""
-  },
-  "docs/SETUP.md": {
-    "mtime": 1787738198.959718,
-    "ast_hash": "e929f3123823df81d9ea659d608036cd",
-    "semantic_hash": ""
   }
 }
