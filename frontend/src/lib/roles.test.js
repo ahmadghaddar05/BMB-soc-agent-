@@ -22,6 +22,9 @@ describe('role-aware presentation model', () => {
 
     expect(executiveLinks).toEqual(['/dashboard', '/reports']);
     expect(analystLinks).toContain('/alerts');
+    expect(analystLinks).toContain('/security-analytics');
+    expect(analystLinks).toContain('/digital-twin');
+    expect(analystLinks).toContain('/attack-simulator');
     expect(analystLinks).not.toContain('/settings');
     expect(adminLinks).toEqual([
       '/integrations', '/collector-health', '/ai-configuration', '/users-access',
@@ -32,11 +35,23 @@ describe('role-aware presentation model', () => {
 
   it('keeps technical and configuration routes out of unauthorized experiences', () => {
     expect(canAccessRoute(ROLES.EXECUTIVE, '/alerts')).toBe(false);
-    expect(canAccessRoute(ROLES.EXECUTIVE, '/incidents')).toBe(true);
+    expect(canAccessRoute(ROLES.EXECUTIVE, '/incidents')).toBe(false);
     expect(canAccessRoute(ROLES.SOC_ANALYST, '/settings')).toBe(false);
     expect(canAccessRoute(ROLES.SOC_ANALYST, '/responses')).toBe(true);
+    expect(canAccessRoute(ROLES.SOC_ANALYST, '/security-analytics')).toBe(true);
+    expect(canAccessRoute(ROLES.EXECUTIVE, '/security-analytics')).toBe(false);
     expect(canAccessRoute(ROLES.ADMINISTRATOR, '/settings')).toBe(true);
     expect(canAccessRoute(ROLES.ADMINISTRATOR, '/collector-health')).toBe(true);
     expect(canAccessRoute(ROLES.ADMINISTRATOR, '/alerts')).toBe(false);
+    ['/digital-twin', '/attack-simulator'].forEach(path => {
+      expect(canAccessRoute(ROLES.SOC_ANALYST, path)).toBe(true);
+      expect(canAccessRoute(ROLES.EXECUTIVE, path)).toBe(false);
+      expect(canAccessRoute(ROLES.ADMINISTRATOR, path)).toBe(false);
+    });
+  });
+
+  it('places both visualization pages between Analytics and Triage', () => {
+    const labels = getRoleNavigation(ROLES.SOC_ANALYST)[0].items.map(item => item.label);
+    expect(labels.slice(0, 5)).toEqual(['Monitoring', 'Analytics', 'Digital Twin', 'Attack Simulator', 'Triage']);
   });
 });

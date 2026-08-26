@@ -47,7 +47,7 @@ function getTimeBucket(timestamp, windowMinutes = 5) {
   return new Date(bucket).toISOString();
 }
 
-function buildGroupKey(alert, windowMinutes = 5) {
+function buildGroupKey(alert, windowMinutes = 5, { includeTimeBucket = true } = {}) {
   const identity = [
     alert.source_system || 'elastic',
     alert.rule_id || alert.rule_desc,
@@ -57,10 +57,9 @@ function buildGroupKey(alert, windowMinutes = 5) {
     alert.src_ip,
     alert.dst_ip,
     alert.process,
-    getTimeBucket(
-      alert.timestamp,
-      windowMinutes
-    ),
+    includeTimeBucket
+      ? getTimeBucket(alert.timestamp, windowMinutes)
+      : null,
   ]
     .map(normalizeValue)
     .join('|');

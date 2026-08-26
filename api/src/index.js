@@ -11,6 +11,7 @@ const routes  = require('./routes');
 const scheduler = require('./workers/scheduler');
 const { authRouter, requireAuth, requireCsrf } = require('./middleware/auth');
 const { runtimeConfig, validateStartupConfig } = require('./config');
+const { bootstrapUserDirectory } = require('./services/user-directory');
 
 const PORT = process.env.PORT || 3000;
 
@@ -74,6 +75,7 @@ async function main() {
   if (!validation.ok) throw new Error(`Invalid configuration: ${validation.errors.join('; ')}`);
   await waitForDb();
   await runMigrations(db);
+  await bootstrapUserDirectory(runtimeConfig());
   await scheduler.start();
   app.listen(PORT, () => console.log(`[api] listening on :${PORT}`));
 }

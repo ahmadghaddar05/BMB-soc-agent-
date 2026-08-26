@@ -12,16 +12,40 @@ function boundedInt(value, fallback, min, max) {
   return Number.isInteger(number) ? Math.min(max, Math.max(min, number)) : fallback;
 }
 
+const AUTH_ROLES = Object.freeze(['executive', 'soc_analyst', 'administrator']);
+
+function authAccounts(env) {
+  return [
+    {
+      role:'executive',
+      username:String(env.SOC_EXECUTIVE_USERNAME || 'executive').trim(),
+      displayName:'Executive User',
+      password:env.SOC_EXECUTIVE_PASSWORD || '',
+    },
+    {
+      role:'soc_analyst',
+      username:String(env.SOC_ANALYST_USERNAME || 'analyst').trim(),
+      displayName:'SOC Analyst',
+      password:env.SOC_ANALYST_PASSWORD || '',
+    },
+    {
+      role:'administrator',
+      username:String(env.SOC_ADMIN_USERNAME || 'admin').trim(),
+      displayName:'Security Administrator',
+      password:env.SOC_ADMIN_PASSWORD || '',
+    },
+  ].filter(account => account.password !== '');
+}
+
 function runtimeConfig(env = process.env) {
   return {
     nodeEnv: env.NODE_ENV || 'development',
     databaseUrl: env.DATABASE_URL || '',
     authDisabled: bool(env.SOC_AUTH_DISABLED, false),
-    adminUsername: env.SOC_ADMIN_USERNAME || 'admin',
-    adminPassword: env.SOC_ADMIN_PASSWORD || '',
-    userRole: env.SOC_USER_ROLE || 'administrator',
+    authAccounts: authAccounts(env),
     sessionSecret: env.SOC_SESSION_SECRET || '',
     apiKey: env.SOC_API_KEY || '',
+    connectorEncryptionKey: env.CONNECTOR_ENCRYPTION_KEY || '',
     sessionTtlMinutes: Math.min(1440, Math.max(15, parseInt(env.SOC_SESSION_TTL_MINUTES || '480', 10) || 480)),
     cookieSecure: bool(env.SOC_COOKIE_SECURE, (env.NODE_ENV || 'development') === 'production'),
     allowedOrigins: String(env.SOC_ALLOWED_ORIGINS || '')
@@ -32,6 +56,16 @@ function runtimeConfig(env = process.env) {
     elasticEventIndices: env.ELASTIC_EVENT_INDICES || 'logs-*',
     elasticVerifyTls: bool(env.ELASTIC_VERIFY_TLS, true),
     elasticCaCert: env.ELASTIC_CA_CERT || '',
+    splunkUrl: env.SPLUNK_URL || '',
+    splunkToken: env.SPLUNK_TOKEN || '',
+    splunkIndex: env.SPLUNK_INDEX || 'alerts',
+    splunkSearch: env.SPLUNK_SEARCH || '',
+    splunkCollectionMode: env.SPLUNK_COLLECTION_MODE || 'index',
+    splunkNamespaceOwner: env.SPLUNK_NAMESPACE_OWNER || '-',
+    splunkNamespaceApp: env.SPLUNK_NAMESPACE_APP || 'search',
+    splunkAuthScheme: env.SPLUNK_AUTH_SCHEME || 'Bearer',
+    splunkVerifyTls: bool(env.SPLUNK_VERIFY_TLS, true),
+    splunkCaCert: env.SPLUNK_CA_CERT || '',
     wazuhMode: env.WAZUH_MODE || 'mock',
     wazuhUrl: env.WAZUH_INDEXER_URL || '',
     wazuhPassword: env.WAZUH_INDEXER_PASS || '',
@@ -74,14 +108,29 @@ function validateStartupConfig(config = runtimeConfig()) {
   }
   if (!config.authDisabled) {
     if (config.sessionSecret.length < 32) errors.push('SOC_SESSION_SECRET must be at least 32 characters');
-    if (config.adminPassword.length < 12) errors.push('SOC_ADMIN_PASSWORD must be at least 12 characters');
-    if (!['executive','soc_analyst','administrator'].includes(config.userRole)) {
-      errors.push('SOC_USER_ROLE must be executive, soc_analyst, or administrator');
+    for (const account of config.authAccounts) {
+      const prefix = account.role === 'soc_analyst'
+        ? 'SOC_ANALYST'
+        : account.role === 'administrator' ? 'SOC_ADMIN' : 'SOC_EXECUTIVE';
+      if (!account.username) errors.push(`${prefix}_USERNAME is required`);
+      if (account.username.length > 128) errors.push(`${prefix}_USERNAME must be at most 128 characters`);
+      if (account.password.length < 12) errors.push(`${prefix}_PASSWORD must be at least 12 characters`);
     }
+    const usernames = config.authAccounts.map(account => account.username.toLowerCase()).filter(Boolean);
+    if (new Set(usernames).size !== usernames.length) errors.push('Role account usernames must be unique');
+    if (config.authAccounts.some(account => !AUTH_ROLES.includes(account.role))) errors.push('Authentication account role is unsupported');
   }
   if (config.apiKey && config.apiKey.length < 24) warnings.push('SOC_API_KEY should be at least 24 characters');
+  if (config.connectorEncryptionKey) {
+    const connectorKey = /^[a-f0-9]{64}$/i.test(config.connectorEncryptionKey)
+      ? Buffer.from(config.connectorEncryptionKey, 'hex')
+      : Buffer.from(config.connectorEncryptionKey, 'base64');
+    if (connectorKey.length !== 32) errors.push('CONNECTOR_ENCRYPTION_KEY must decode to exactly 32 bytes');
+  } else {
+    warnings.push('CONNECTOR_ENCRYPTION_KEY is not configured; dashboard connector management is unavailable');
+  }
   if (config.nodeEnv === 'production' && !config.cookieSecure) warnings.push('SOC_COOKIE_SECURE is false; use true when the UI is served over HTTPS');
-  if (!['mock','elastic','wazuh'].includes(config.alertSource)) errors.push('ALERT_SOURCE must be mock, elastic, or wazuh');
+  if (!['mock','elastic','wazuh','splunk'].includes(config.alertSource)) errors.push('ALERT_SOURCE must be mock, elastic, wazuh, or splunk');
   if (config.alertSource === 'elastic') {
     if (!config.elasticUrl) errors.push('ELASTICSEARCH_URL is required when ALERT_SOURCE=elastic');
     else if (!validHttpUrl(config.elasticUrl)) errors.push('ELASTICSEARCH_URL must be a valid HTTP(S) URL');
@@ -89,6 +138,23 @@ function validateStartupConfig(config = runtimeConfig()) {
     if (!/^[A-Za-z0-9._,*-]{1,300}$/.test(config.elasticEventIndices)) errors.push('ELASTIC_EVENT_INDICES contains invalid characters');
     if (config.elasticVerifyTls && !config.elasticCaCert) errors.push('ELASTIC_CA_CERT is required when Elastic TLS verification is enabled');
     else if (config.elasticVerifyTls && !fs.existsSync(config.elasticCaCert)) errors.push('ELASTIC_CA_CERT does not exist at the configured path');
+  }
+  if (config.alertSource === 'splunk') {
+    if (!config.splunkUrl) errors.push('SPLUNK_URL is required when ALERT_SOURCE=splunk');
+    else if (!validHttpUrl(config.splunkUrl)) errors.push('SPLUNK_URL must be a valid HTTP(S) URL');
+    if (!config.splunkToken) errors.push('SPLUNK_TOKEN is required when ALERT_SOURCE=splunk');
+    if (!/^[A-Za-z0-9._-]{1,200}$/.test(config.splunkIndex)) errors.push('SPLUNK_INDEX contains invalid characters');
+    if (!['index','triggered_alerts'].includes(config.splunkCollectionMode)) {
+      errors.push('SPLUNK_COLLECTION_MODE must be index or triggered_alerts');
+    }
+    if (![config.splunkNamespaceOwner, config.splunkNamespaceApp].every(value => /^[A-Za-z0-9._-]{1,200}$/.test(value))) {
+      errors.push('SPLUNK_NAMESPACE_OWNER and SPLUNK_NAMESPACE_APP contain invalid characters');
+    }
+    if (!/^(Bearer|Splunk)$/i.test(config.splunkAuthScheme)) errors.push('SPLUNK_AUTH_SCHEME must be Bearer or Splunk');
+    if (config.splunkVerifyTls && config.splunkCaCert && !fs.existsSync(config.splunkCaCert)) {
+      errors.push('SPLUNK_CA_CERT does not exist at the configured path');
+    }
+    if (!config.splunkVerifyTls) warnings.push('SPLUNK_VERIFY_TLS is false; use verified TLS outside controlled testing');
   }
   if (config.alertSource === 'wazuh' && config.wazuhMode !== 'mock') {
     if (!config.wazuhUrl) errors.push('WAZUH_INDEXER_URL is required for a real Wazuh source');
@@ -107,4 +173,4 @@ function validateStartupConfig(config = runtimeConfig()) {
   return { ok: errors.length === 0, errors, warnings };
 }
 
-module.exports = { bool, boundedInt, runtimeConfig, validateStartupConfig };
+module.exports = { AUTH_ROLES, authAccounts, bool, boundedInt, runtimeConfig, validateStartupConfig };

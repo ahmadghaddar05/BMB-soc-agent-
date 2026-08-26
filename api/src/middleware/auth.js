@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const { Router } = require('express');
 const { runtimeConfig } = require('../config');
+const { authenticateUser, currentSessionUser, publicUser } = require('../services/user-directory');
 
 const COOKIE_NAME = 'bmb_soc_session';
 
@@ -41,10 +42,10 @@ function verifyPayload(token, secret) {
   }
 }
 
-function sessionFor(username, config = runtimeConfig()) {
+function sessionFor(user, config = runtimeConfig()) {
   return {
-    sub: username,
-    role: config.userRole || 'administrator',
+    sub:String(user.id),
+    sv:Number(user.session_version),
     csrf: crypto.randomBytes(24).toString('base64url'),
     exp: Date.now() + config.sessionTtlMinutes * 60 * 1000,
   };
@@ -73,32 +74,46 @@ function clearSessionCookie(res, config = runtimeConfig()) {
   res.setHeader('Set-Cookie', options.join('; '));
 }
 
-function readAuth(req, config = runtimeConfig()) {
+async function readAuth(req, config = runtimeConfig()) {
   if (config.authDisabled) {
-    return { user: { username: 'development', role: 'administrator' }, authType: 'development', csrf: null };
+    return {
+      user:{ id:null, username:'development', display_name:'Development Administrator', role:'administrator' },
+      authType:'development',
+      csrf:null,
+    };
   }
 
   const authorization = String(req.headers.authorization || '');
   if (authorization.startsWith('Bearer ') && config.apiKey && equalSecret(authorization.slice(7), config.apiKey)) {
-    return { user: { username: 'service', role: 'administrator' }, authType: 'api_key', csrf: null };
+    return {
+      user:{ id:null, username:'service', display_name:'Service Account', role:'administrator' },
+      authType:'api_key',
+      csrf:null,
+    };
   }
 
   const token = parseCookies(req.headers.cookie)[COOKIE_NAME];
   const payload = verifyPayload(token, config.sessionSecret);
-  if (!payload) return null;
+  if (!payload || !payload.sub || !Number.isInteger(payload.sv)) return null;
+  const user = await currentSessionUser(payload.sub, payload.sv);
+  if (!user) return null;
   return {
-    user: { username: payload.sub, role: payload.role },
+    user:publicUser(user),
     authType: 'session',
     csrf: payload.csrf,
   };
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   if (req.path === '/health' || req.path === '/auth/login') return next();
-  const auth = readAuth(req);
-  if (!auth) return res.status(401).json({ error: 'Authentication required' });
-  Object.assign(req, auth);
-  next();
+  try {
+    const auth = await readAuth(req);
+    if (!auth) return res.status(401).json({ error: 'Authentication required' });
+    Object.assign(req, auth);
+    next();
+  } catch (error) {
+    next(error);
+  }
 }
 
 function requireCsrf(req, res, next) {
@@ -120,35 +135,52 @@ function requireRoles(...allowedRoles) {
 function authRouter() {
   const router = Router();
 
-  router.post('/auth/login', (req, res) => {
+  router.post('/auth/login', async (req, res, next) => {
     const config = runtimeConfig();
     if (config.authDisabled) {
-      return res.json({ user: { username: 'development', role: 'administrator' }, csrf: null });
+      return res.json({
+        user:{ id:null, username:'development', display_name:'Development Administrator', role:'administrator' },
+        csrf:null,
+      });
     }
     const username = typeof req.body?.username === 'string' ? req.body.username : '';
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
-    if (!equalSecret(username, config.adminUsername) || !equalSecret(password, config.adminPassword)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    if (!username || username.length > 128 || !password || password.length > 256) {
+      return res.status(401).json({ error:'Invalid credentials' });
     }
-    const session = sessionFor(username, config);
-    setSessionCookie(res, signPayload(session, config.sessionSecret), config);
-    res.json({ user: { username, role: session.role }, csrf: session.csrf });
+    try {
+      const account = await authenticateUser(username, password);
+      if (!account) return res.status(401).json({ error:'Invalid credentials' });
+      const session = sessionFor(account, config);
+      setSessionCookie(res, signPayload(session, config.sessionSecret), config);
+      res.json({ user:publicUser(account), csrf:session.csrf });
+    } catch (error) {
+      next(error);
+    }
   });
 
-  router.get('/auth/session', (req, res) => {
-    const auth = readAuth(req);
-    if (!auth) return res.status(401).json({ error: 'Authentication required' });
-    res.json({ user: auth.user, csrf: auth.csrf });
+  router.get('/auth/session', async (req, res, next) => {
+    try {
+      const auth = await readAuth(req);
+      if (!auth) return res.status(401).json({ error:'Authentication required' });
+      res.json({ user:auth.user, csrf:auth.csrf });
+    } catch (error) {
+      next(error);
+    }
   });
 
-  router.post('/auth/logout', (req, res) => {
-    const auth = readAuth(req);
-    if (!auth) return res.status(401).json({ error: 'Authentication required' });
-    if (auth.authType === 'session' && (!auth.csrf || !equalSecret(req.headers['x-csrf-token'] || '', auth.csrf))) {
-      return res.status(403).json({ error: 'Invalid CSRF token' });
+  router.post('/auth/logout', async (req, res, next) => {
+    try {
+      const auth = await readAuth(req);
+      if (!auth) return res.status(401).json({ error:'Authentication required' });
+      if (auth.authType === 'session' && (!auth.csrf || !equalSecret(req.headers['x-csrf-token'] || '', auth.csrf))) {
+        return res.status(403).json({ error:'Invalid CSRF token' });
+      }
+      clearSessionCookie(res);
+      res.json({ ok:true });
+    } catch (error) {
+      next(error);
     }
-    clearSessionCookie(res);
-    res.json({ ok: true });
   });
 
   return router;

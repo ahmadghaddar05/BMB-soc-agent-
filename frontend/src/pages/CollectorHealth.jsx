@@ -7,6 +7,8 @@ import StatusBadge from '../components/StatusBadge';
 import { api, fmtDuration, fmtTs } from '../lib/api';
 
 const EMPTY_DRAFT = Object.freeze({
+  live_collection_enabled: 'true',
+  live_collection_interval_seconds: '15',
   scheduler_enabled: 'false',
   interval_minutes: '5',
   lookback_minutes: '15',
@@ -19,6 +21,8 @@ const EMPTY_DRAFT = Object.freeze({
 
 function schedulerDraft(settings = {}) {
   return {
+    live_collection_enabled: settings.live_collection_enabled ?? EMPTY_DRAFT.live_collection_enabled,
+    live_collection_interval_seconds: settings.live_collection_interval_seconds ?? EMPTY_DRAFT.live_collection_interval_seconds,
     scheduler_enabled: settings.scheduler_enabled ?? EMPTY_DRAFT.scheduler_enabled,
     interval_minutes: settings.interval_minutes ?? EMPTY_DRAFT.interval_minutes,
     lookback_minutes: settings.lookback_minutes ?? EMPTY_DRAFT.lookback_minutes,
@@ -39,7 +43,9 @@ function wholeNumber(value, min, max, label) {
 }
 
 function validateDraft(draft, source) {
-  const common = wholeNumber(draft.interval_minutes, 1, 1440, 'Poll interval');
+  const live = wholeNumber(draft.live_collection_interval_seconds, 5, 300, 'Live ingestion interval');
+  if (live) return live;
+  const common = wholeNumber(draft.interval_minutes, 1, 1440, 'AI processing interval');
   if (common) return common;
   if (source === 'elastic') {
     return wholeNumber(draft.elastic_lookback_minutes, 1, 525600, 'Elastic look-back window')
@@ -258,14 +264,17 @@ export default function CollectorHealth() {
       const sourceSettings = source === 'elastic'
         ? ['elastic_lookback_minutes', 'elastic_min_risk_score', 'elastic_limit']
         : ['lookback_minutes', 'min_level', 'limit'];
-      const payload = Object.fromEntries(['scheduler_enabled', 'interval_minutes', ...sourceSettings].map(key => [key, draft[key]]));
+      const payload = Object.fromEntries([
+        'live_collection_enabled', 'live_collection_interval_seconds',
+        'scheduler_enabled', 'interval_minutes', ...sourceSettings,
+      ].map(key => [key, draft[key]]));
       const response = await api('/settings', { method:'PUT', body:JSON.stringify(payload) });
       const settings = response.settings || { ...(snapshot.settings || {}), ...draft };
       setSnapshot(current => ({ ...current, settings }));
       setDraft(schedulerDraft(settings));
       dirtyRef.current = false;
       setDirty(false);
-      setSaveFeedback({ tone:'success', text:'Scheduler policy saved. The observed runtime state will update separately.' });
+      setSaveFeedback({ tone:'success', text:'Collection and processing policy saved. The observed runtime state will update separately.' });
     } catch (error) {
       setSaveFeedback({ tone:'danger', text:error.message || 'Scheduler policy could not be saved.' });
     } finally {
@@ -309,6 +318,9 @@ export default function CollectorHealth() {
   const source = collector.source || 'unknown';
   const cycleActive = Boolean(collector.cycle_active || scheduler.cycle_active);
   const schedulerRunning = Boolean(collector.scheduler_running || scheduler.running);
+  const liveCollectionRunning = Boolean(
+    collector.live_collection_enabled && collector.live_collection_running
+  );
   const cursorState = source !== 'elastic' ? 'Not applicable'
     : !collector.cursor_enabled ? 'Disabled'
       : collector.cursor_timestamp ? fmtTs(collector.cursor_timestamp) : 'Not initialized';
@@ -335,8 +347,15 @@ export default function CollectorHealth() {
 
       {loadError && <div className="module-notice danger" role="alert"><AlertTriangle />{loadError} Previously loaded values remain visible where available.</div>}
       <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-        <StatusBadge tone={cycleActive ? 'attention' : schedulerRunning ? 'success' : 'neutral'}>
-          {cycleActive ? 'Cycle running' : schedulerRunning ? 'Scheduler running' : 'Scheduler stopped'}
+        <StatusBadge tone={collector.collection_active ? 'attention' : liveCollectionRunning ? 'success' : 'critical'}>
+          {collector.collection_active
+            ? 'Receiving alerts'
+            : liveCollectionRunning ? 'Live ingest active' : 'Live ingest stopped'}
+        </StatusBadge>
+        <StatusBadge tone={collector.processing_active ? 'attention' : schedulerRunning ? 'success' : 'neutral'}>
+          {collector.processing_active
+            ? 'AI processing active'
+            : schedulerRunning ? 'AI processing scheduled' : 'AI processing manual'}
         </StatusBadge>
         <span>Source: <strong className="text-[var(--text)]">{source}</strong></span>
         {lastUpdated && <span>Observed {age(lastUpdated)}</span>}
@@ -367,7 +386,7 @@ export default function CollectorHealth() {
             </>
           ) : <p className="py-8 text-center text-sm text-[var(--muted)]">No collection run has been recorded.</p>}
           <div className="mt-4 flex flex-col gap-3 border-t border-[var(--border-soft)] pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="max-w-2xl text-xs leading-5 text-[var(--muted)]">Runs the internal collection pipeline with the currently saved policy. It can perform configured enrichment, triage, correlation, and internal workflow processing.</p>
+            <p className="max-w-2xl text-xs leading-5 text-[var(--muted)]">Runs an immediate ingestion pass followed by configured enrichment, triage, correlation, and internal workflow processing. Normal live ingestion operates independently.</p>
             <button type="button" className="btn-primary whitespace-nowrap" onClick={runCycle} disabled={running || cycleActive}>
               {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               {running ? 'Running cycle…' : cycleActive ? 'Cycle already running' : 'Run collection cycle'}
@@ -393,20 +412,31 @@ export default function CollectorHealth() {
         </Panel>
       </div>
 
-      <Panel icon={TimerReset} title="Scheduler policy" subtitle="Editable collection cadence and limits">
+      <Panel icon={TimerReset} title="Collection and processing policy" subtitle="Live Elastic ingestion is independent from optional AI processing">
         <form onSubmit={saveScheduler}>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="flex min-h-[76px] items-center justify-between gap-4 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-2)] p-3">
-              <span><strong className="block text-sm text-[var(--text)]">Scheduled collection</strong><small className="mt-1 block text-xs text-[var(--muted)]">Starts the configured recurring job.</small></span>
-              <Toggle label="Scheduled collection" checked={draft.scheduler_enabled === 'true'} disabled={saving} onChange={value => updateDraft('scheduler_enabled', value ? 'true' : 'false')} />
+              <span><strong className="block text-sm text-[var(--text)]">Live alert ingestion</strong><small className="mt-1 block text-xs text-[var(--muted)]">Continuously stores new source alerts without invoking AI.</small></span>
+              <Toggle label="Live alert ingestion" checked={draft.live_collection_enabled === 'true'} disabled={saving} onChange={value => updateDraft('live_collection_enabled', value ? 'true' : 'false')} />
+            </label>
+            <label className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface-2)] p-3">
+              <span className="block text-xs font-semibold text-[var(--text)]">Live ingestion interval</span>
+              <span className="mt-2 flex items-center gap-2">
+                <input className="input h-9" type="number" min="5" max="300" value={draft.live_collection_interval_seconds} disabled={saving} onChange={event => updateDraft('live_collection_interval_seconds', event.target.value)} />
+                <small className="whitespace-nowrap text-[11px] text-[var(--muted)]">seconds</small>
+              </span>
+            </label>
+            <label className="flex min-h-[76px] items-center justify-between gap-4 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-2)] p-3">
+              <span><strong className="block text-sm text-[var(--text)]">Scheduled AI processing</strong><small className="mt-1 block text-xs text-[var(--muted)]">Runs enrichment, triage, correlation, and agent workflows.</small></span>
+              <Toggle label="Scheduled AI processing" checked={draft.scheduler_enabled === 'true'} disabled={saving} onChange={value => updateDraft('scheduler_enabled', value ? 'true' : 'false')} />
             </label>
             {(source === 'elastic' ? [
-              ['interval_minutes', 'Poll interval', 'minutes', 1, 1440],
+              ['interval_minutes', 'AI processing interval', 'minutes', 1, 1440],
               ['elastic_lookback_minutes', 'Elastic look-back', 'minutes', 1, 525600],
               ['elastic_min_risk_score', 'Minimum risk score', '0-100', 0, 100],
               ['elastic_limit', 'Elastic alert limit', 'per cycle', 1, 5000],
             ] : [
-              ['interval_minutes', 'Poll interval', 'minutes', 1, 1440],
+              ['interval_minutes', 'AI processing interval', 'minutes', 1, 1440],
               ['lookback_minutes', 'Look-back window', 'minutes', 1, 10080],
               ['min_level', 'Minimum rule level', '0–20', 0, 20],
               ['limit', 'Alert limit', 'per cycle', 1, 5000],

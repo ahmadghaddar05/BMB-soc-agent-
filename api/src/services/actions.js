@@ -220,11 +220,21 @@ async function executeAllowed(client, request, actor) {
   }
   const fields = Object.keys(p);
   const values = fields.map(key => p[key]);
-  const assignments = fields.map((key, index) => `${key}=$${index + 1}`).join(',');
-  values.push(id);
   const table = type === 'investigation.update' ? 'investigations' : 'incidents';
+  const assignments = fields.map((key, index) => `${key}=$${index + 1}`);
+  if (table === 'incidents') {
+    assignments.push('first_response_at=COALESCE(first_response_at,NOW())');
+    const statusIndex = fields.indexOf('status');
+    if (statusIndex >= 0) {
+      assignments.push(
+        `resolved_at=CASE WHEN $${statusIndex + 1} IN ('closed','false_positive') ` +
+        'THEN COALESCE(resolved_at,NOW()) ELSE NULL END'
+      );
+    }
+  }
+  values.push(id);
   const result = await client.query(
-    `UPDATE ${table} SET ${assignments},updated_at=NOW() WHERE id=$${values.length}
+    `UPDATE ${table} SET ${assignments.join(',')},updated_at=NOW() WHERE id=$${values.length}
      RETURNING id,title,status,owner,updated_at`, values
   );
   if (!result.rows.length) return null;

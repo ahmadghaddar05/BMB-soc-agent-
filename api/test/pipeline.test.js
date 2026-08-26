@@ -84,3 +84,77 @@ test('mock collection and enrichment complete with AI disabled and zero AI usage
     else process.env.WAZUH_MODE = originals.wazuhMode;
   }
 });
+
+test('workflow provenance SQL explicitly types nullable and standalone parameters', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../src/workers/pipeline.js'), 'utf8');
+  assert.match(source, /\$5::text,enriched_at/);
+  assert.match(source, /'ENRICHMENT_FAILED',\$1::text,\$5::text,NOW\(\)/);
+  assert.match(source, /\$34::integer/);
+  assert.match(source, /\$3::uuid/);
+});
+
+test('live collection stores new alerts without invoking enrichment or AI processing', async () => {
+  const originals = {
+    getAllSettings:db.getAllSettings,
+    startFetchRun:db.startFetchRun,
+    finishFetchRun:db.finishFetchRun,
+    query:db.query,
+    fetch:globalThis.fetch,
+    alertSource:process.env.ALERT_SOURCE,
+    wazuhMode:process.env.WAZUH_MODE,
+  };
+  let mode;
+  let finished;
+  let inserted = 0;
+  try {
+    process.env.ALERT_SOURCE = 'mock';
+    process.env.WAZUH_MODE = 'mock';
+    db.getAllSettings = async () => ({
+      triage_enabled:'true',
+      correlation_enabled:'true',
+      autonomous_agent_enabled:'true',
+      lookback_minutes:'15',
+      min_level:'0',
+      limit:'20',
+    });
+    db.startFetchRun = async (_trigger, selectedMode) => {
+      mode = selectedMode;
+      return 43;
+    };
+    db.finishFetchRun = async (id, stats, status, error) => {
+      finished = { id, stats, status, error };
+    };
+    db.query = async sql => {
+      if (String(sql).includes('INSERT INTO alerts')) {
+        inserted += 1;
+        return { rows:[], rowCount:1 };
+      }
+      throw new Error(`Live collector unexpectedly processed stored alerts: ${String(sql).slice(0, 80)}`);
+    };
+    globalThis.fetch = async () => {
+      throw new Error('Live collection must not call enrichment');
+    };
+
+    const result = await runCycle('live-collector', { collect:true, process:false });
+    assert.equal(mode, 'collection');
+    assert.equal(inserted, 4);
+    assert.equal(result.stats.fetched, 4);
+    assert.equal(result.stats.stored, 4);
+    assert.equal(result.stats.enriched, 0);
+    assert.equal(result.stats.triaged, 0);
+    assert.equal(result.stats.llm_calls, 0);
+    assert.deepEqual(finished, { id:43, stats:result.stats, status:'ok', error:undefined });
+  } finally {
+    Object.assign(db, {
+      getAllSettings:originals.getAllSettings,
+      startFetchRun:originals.startFetchRun,
+      finishFetchRun:originals.finishFetchRun,
+      query:originals.query,
+    });
+    globalThis.fetch = originals.fetch;
+    if (originals.alertSource === undefined) delete process.env.ALERT_SOURCE;
+    else process.env.ALERT_SOURCE = originals.alertSource;
+    if (originals.wazuhMode === undefined) delete process.env.WAZUH_MODE;
+    else process.env.WAZUH_MODE = originals.wazuhMode;
+  }
+});

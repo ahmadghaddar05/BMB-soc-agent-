@@ -40,6 +40,77 @@ describe('authenticated application flows', () => {
     await settle();
   }
 
+  it('uses one login page and redirects from the server-assigned role', async () => {
+    const requests = [];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({ error:'Authentication required' }, 401);
+      if (url.endsWith('/auth/login')) return jsonResponse({
+        user:{ id:'1', username:'ciso', display_name:'Executive User', role:'executive' }, csrf:'executive-csrf',
+      });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/executive/overview?days=30')) return jsonResponse({
+        generated_at:new Date().toISOString(), window_days:30,
+        health:{ score:90, status:'healthy', drivers:[] },
+        business_risks:{ total:0, by_impact:{ high:0, medium:0, low:0 } },
+        automation:{ activities_seen:0, triaged:0, triage_rate:0 },
+        time_saved:{ hours:0, period_days:30 }, risk_trend:[], top_assets:[],
+      });
+      if (url.endsWith('/agent/status')) return jsonResponse({ enabled:false, readiness:{}, recent_operations:[] });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:false, scheduler_running:false } });
+      return jsonResponse({});
+    });
+
+    await renderAt('/login');
+    expect(document.querySelector('.login-bmb-lockup')).not.toBeNull();
+    expect(document.body.textContent).not.toContain('One secure entry point');
+    expect(document.body.textContent).toContain('role and landing page are determined');
+    expect(document.querySelectorAll('.login-portal-card')).toHaveLength(0);
+
+    const [username, password] = document.querySelectorAll('.login-card input');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value').set.call(username, 'ciso');
+      username.dispatchEvent(new Event('input', { bubbles:true }));
+      Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value').set.call(password, 'executive-secret');
+      password.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    await act(async () => document.querySelector('.login-card').dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })));
+    await vi.dynamicImportSettled();
+    await settle();
+
+    const login = requests.find(item => item.url.endsWith('/auth/login'));
+    expect(JSON.parse(login.options.body)).toEqual({ username:'ciso', password:'executive-secret' });
+    expect(window.location.pathname).toBe('/dashboard');
+  });
+
+  it('opens an account menu before signing out', async () => {
+    const calls = [];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      calls.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'admin', role:'administrator' }, csrf:'csrf-token' });
+      if (url.endsWith('/auth/logout')) return jsonResponse({ ok:true });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      return jsonResponse({});
+    });
+
+    await renderAt('/integrations');
+    const profile = document.querySelector('[aria-label="Open account menu for admin"]');
+    expect(profile).toBeTruthy();
+    await act(async () => profile.click());
+
+    expect(calls.some(item => item.url.endsWith('/auth/logout'))).toBe(false);
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain('Signed in as');
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain('Security Administrator');
+
+    const signOut = document.querySelector('[role="menuitem"]');
+    await act(async () => signOut.click());
+    await settle();
+    expect(calls.some(item => item.url.endsWith('/auth/logout'))).toBe(true);
+    expect(document.querySelector('.login-bmb-lockup')).not.toBeNull();
+  });
+
   it('uses the authenticated role for navigation and redirects unauthorized executive routes', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     globalThis.fetch = vi.fn(async input => {
@@ -66,32 +137,340 @@ describe('authenticated application flows', () => {
     expect(document.querySelector('.global-search')).toBeNull();
   });
 
-  it('switches role experience through the development-only preview without changing authentication', async () => {
+  it('does not expose a client-side role switcher', async () => {
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'admin', role:'administrator' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
-      if (url.endsWith('/alerts?page=1&limit=100')) return jsonResponse({ total:0, alerts:[] });
-      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:false } });
       return jsonResponse({});
     });
 
     await renderAt('/integrations');
     const preview = document.querySelector('[aria-label="Preview experience as role"]');
-    expect(preview).toBeTruthy();
+    expect(preview).toBeNull();
     expect(document.body.textContent).toContain('Integrations');
+    expect(document.body.textContent).toContain('Security Administrator');
+    expect(document.body.textContent).not.toContain('SOC Analyst preview');
+  });
 
-    await act(async () => {
-      preview.value = 'soc_analyst';
-      preview.dispatchEvent(new Event('change', { bubbles:true }));
+  it('shows evidence-backed SOC analytics only in the analyst workspace', async () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/analytics/security?hours=24')) return jsonResponse({
+        generated_at:new Date().toISOString(), window_hours:24, source:'stored_bmb_alerts',
+        summary:{ total_alerts:120, critical:12, high:28, triaged:90, unique_source_ips:14, unique_targets:9, correlation_decisions:44 },
+        trend:[{ bucket:'2026-07-29T08:00:00Z', total:20, critical:2, high:5, other:13, unique_sources:4 }],
+        severity:[{ name:'critical', count:12 },{ name:'high', count:28 }],
+        top_source_ips:[{ name:'198.51.100.24', count:18, high_risk:7 }],
+        top_destinations:[{ name:'WEBAPP01', count:22, high_risk:9 }],
+        top_datasets:[{ name:'web.application', count:30 }],
+        top_identities:[{ name:'maya.georges', count:16, high_risk:8 }],
+        mitre_tactics:[{ name:'initial_access', count:11 }],
+        top_detections:[{ name:'Suspicious PowerShell execution', count:14 }],
+        coverage:{ source_ip:true, destination:true, identity:true, mitre:true },
+      });
+      return jsonResponse({});
     });
+
+    await renderAt('/security-analytics');
+    expect(document.body.textContent).toContain('Security Analytics');
+    expect(document.body.textContent).toContain('Top source IPs');
+    expect(document.body.textContent).toContain('198.51.100.24');
+    expect(document.body.textContent).toContain('Most targeted destinations');
+    expect(document.body.textContent).toContain('ATT&CK tactic coverage');
+    expect(document.body.textContent).toContain('Stored Alerts');
+    expect(document.body.textContent).toContain('Critical & High');
+    expect(document.body.textContent).toContain('Unique Sources');
+    expect(document.body.textContent).not.toContain('Correlation decisions');
+    expect(document.body.textContent).toContain('Analytics');
+  });
+
+  it('renders both synchronized-visualization foundations only in the analyst workspace', async () => {
+    let topologyRequests = 0;
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/alerts?limit=100')) {
+        topologyRequests += 1;
+        return jsonResponse({ alerts:[
+          ...(topologyRequests > 1 ? [{
+            id:'two', timestamp:'2026-08-16T08:01:00Z', src_ip:'203.0.113.44', hostname:'WEB-SRV01',
+            target_db:'CUSTOMER-DB', rule_desc:'Suspicious database export', source_severity:'critical',
+          }] : []),
+          { id:'one', timestamp:'2026-08-16T08:00:00Z', src_ip:'203.0.113.44', hostname:'WEB-SRV01', target_db:'CUSTOMER-DB' },
+        ] });
+      }
+      if (url.endsWith('/alerts?page=1&limit=12&triage_status=triaged')) return jsonResponse({ alerts:[{
+        id:'elastic:replay-ready', timestamp:'2026-08-16T08:02:00Z', src_ip:'203.0.113.44',
+        hostname:'WEB-SRV01', rule_desc:'Suspicious web shell execution', source_severity:'critical',
+        triage_status:'triaged', verdict:{ verdict:'true_positive', confidence:.92 },
+      }] });
+      if (url.endsWith('/alerts/elastic%3Areplay-ready')) return jsonResponse({
+        id:'elastic:replay-ready', timestamp:'2026-08-16T08:02:00Z', src_ip:'203.0.113.44',
+        hostname:'WEB-SRV01', rule_desc:'Suspicious web shell execution', source_severity:'critical',
+        event_action:'process-started', process:'powershell.exe', mitre_tactics:['execution'],
+        mitre_techniques:['T1059.001'], triage_status:'triaged',
+        verdict:{ verdict:'true_positive', confidence:.92, key_findings:['PowerShell contacted an external address.'] },
+      });
+      if (url.endsWith('/alerts/elastic%3Areplay-ready/journey')) return jsonResponse({
+        stages:[
+          { stage:'triaged', status:'completed', model:'meta-llama/llama-3.3-70b-instruct', confidence:.92, reason:'The process and network evidence supported escalation.', output_summary:{ verdict:'true_positive' } },
+          { stage:'correlated', status:'completed', reason:'The host and identity matched related activity.', output_summary:{ decision:'linked' } },
+          { stage:'incident_decision', status:'completed', reason:'The alert was linked to an open incident.', output_summary:{ decision:'promoted' } },
+        ],
+        current_state:{ incident:{ id:9, title:'Web shell activity', severity:'critical', status:'open' } },
+        analyst_reviews:[],
+      });
+      return jsonResponse({});
+    });
+
+    await renderAt('/digital-twin');
+    const navLabels = [...document.querySelectorAll('.sidebar-nav .nav-link')].map(link => link.textContent.trim());
+    expect(navLabels.slice(0, 5)).toEqual(['Monitoring', 'Analytics', 'Digital Twin', 'Attack Simulator', 'Triage']);
+    expect(document.querySelector('.topbar-title h1')?.textContent).toBe('Digital Twin');
+    expect(document.body.textContent).toContain('Network Topology');
+    expect(document.querySelector('.digital-twin-canvas')?.getAttribute('aria-label')).toContain('3 nodes and 2 evidence links');
+    expect(document.body.textContent).toContain('No active events');
+
+    await act(async () => document.dispatchEvent(new Event('visibilitychange')));
+    await settle();
+    expect(document.body.textContent).toContain('Suspicious database export was observed on CUSTOMER-DB from 203.0.113.44');
+    expect(document.querySelector('.digital-twin-node.is-compromised')).not.toBeNull();
+    expect(document.querySelector('.digital-twin-edge.is-active-traversal')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Live attack narrative"]')).not.toBeNull();
+
+    const simulatorLink = [...document.querySelectorAll('.sidebar-nav .nav-link')]
+      .find(link => link.textContent.includes('Attack Simulator'));
+    await act(async () => simulatorLink.click());
     await vi.dynamicImportSettled();
     await settle();
+    expect(window.location.pathname).toBe('/attack-simulator');
+    expect(document.querySelector('.topbar-title h1')?.textContent).toBe('Attack Simulator');
+    expect(document.body.textContent).toContain('Real alert replay');
+    expect(document.body.textContent).toContain('Select a real alert');
+    expect(document.body.textContent).toContain('Suspicious web shell execution');
+    await act(async () => document.querySelector('.alert-replay-alert-list button').click());
+    await settle();
+    expect(window.location.search).toContain('alert=elastic%3Areplay-ready');
+    expect(document.body.textContent).toContain('AI investigation replay');
+    expect(document.body.textContent).toContain('Current phase evidence');
+    expect(document.body.textContent).toContain('Security action reconstructed');
+    expect(document.querySelector('.alert-replay-scene')).not.toBeNull();
+    const trainingMode = [...document.querySelectorAll('.attack-simulator-modebar button')]
+      .find(button => button.textContent === 'Training Mode');
+    await act(async () => trainingMode.click());
+    await settle();
+    expect(document.body.textContent).toContain('SIMULATION MODE');
+    const scenarioOptions = [...document.querySelectorAll('.attack-scenario-option')];
+    expect(scenarioOptions).toHaveLength(3);
+    expect(scenarioOptions.map(option => option.textContent)).toEqual(expect.arrayContaining([
+      expect.stringContaining('DMZ Web Server Compromise'),
+      expect.stringContaining('Credential Phishing → Lateral Movement'),
+      expect.stringContaining('Insider Data Exfiltration'),
+    ]));
+    await act(async () => scenarioOptions[2].click());
+    expect(scenarioOptions[2].getAttribute('aria-checked')).toBe('true');
+    expect(document.querySelector('.mitre-kill-chain-card')).toBeNull();
+    const runButton = document.querySelector('.attack-simulation-run');
+    expect(runButton.textContent).toContain('Run Simulation');
+    await act(async () => runButton.click());
+    expect(runButton.disabled).toBe(true);
+    expect(runButton.textContent).toContain('Simulation Running');
+    expect(scenarioOptions.every(option => option.disabled)).toBe(true);
+    expect(document.querySelector('.mitre-kill-chain-card')).not.toBeNull();
+    expect(document.querySelectorAll('.mitre-kill-chain li')).toHaveLength(5);
+    expect(document.querySelector('.mitre-kill-chain li.is-in-progress')?.textContent).toContain('Discovery');
+    expect(document.querySelector('.simulation-runtime-grid')).not.toBeNull();
+    expect(document.body.textContent).toContain('AI Recommended Response');
+    await settle();
+    expect(document.querySelector('[aria-label="Live simulation narrative"]')).not.toBeNull();
+    expect(document.body.textContent).toContain('A test analyst account queried restricted database schemas.');
+    expect(document.body.textContent).toContain('T1087.002 · Discovery');
+  });
 
-    expect(window.location.pathname).toBe('/live-monitoring');
-    expect(document.body.textContent).toContain('Security Operations');
-    expect(document.body.textContent).toContain('SOC Analyst preview');
-    expect(document.body.textContent).not.toContain('Administration');
+  it('maps observable matches through individual alerts into stored incident chains', async () => {
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.includes('/pivot?indicator=maya.georges')) return jsonResponse({
+        indicator:'maya.georges', alert_count:2, incident_count:1, threat_intel:null,
+        alerts:[
+          { id:'elastic:a', timestamp:'2026-07-29T08:00:00Z', username:'maya.georges', hostname:'HR-WS001', src_ip:'198.51.100.24', event_dataset:'edr.endpoint', source_severity:'critical', rule_desc:'Suspicious PowerShell execution' },
+          { id:'elastic:b', timestamp:'2026-07-29T08:05:00Z', username:'maya.georges', hostname:'HR-WS001', src_ip:'198.51.100.24', event_dataset:'ad.security', source_severity:'high', rule_desc:'Directory replication request' },
+        ],
+        incidents:[{ id:17, title:'Maya Georges identity compromise', severity:'critical', status:'open', alert_ids:['elastic:a','elastic:b'] }],
+      });
+      return jsonResponse({});
+    });
+
+    await renderAt('/threat-intelligence');
+    const input = document.querySelector('.intel-search input');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value').set.call(input, 'maya.georges');
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    await act(async () => document.querySelector('.intel-search').dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })));
+    await settle();
+
+    expect(document.body.textContent).toContain('Evidence relationship map');
+    expect(document.body.textContent).toContain('Alert evidence');
+    expect(document.body.textContent).toContain('Stored correlation chains');
+    expect(document.body.textContent).toContain('ALT-');
+    expect(document.body.textContent).toContain('INC-00017');
+    expect(document.body.textContent).toContain('identity: maya.georges');
+  });
+
+  it('presents alert-derived assets as a filterable evidence sample', async () => {
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.includes('/alerts?limit=100')) return jsonResponse({ alerts:[
+        { id:'elastic:asset-a', timestamp:'2026-08-11T08:00:00Z', hostname:'HR-WS001', username:'maya.georges', src_ip:'198.51.100.24', source_severity:'critical', triage_status:'triaged', rule_desc:'Suspicious PowerShell execution' },
+        { id:'elastic:asset-b', timestamp:'2026-08-11T08:05:00Z', hostname:'WEBAPP01', username:'svc-web', src_ip:'203.0.113.18', source_severity:'high', triage_status:'pending', rule_desc:'Repeated authentication failures' },
+      ] });
+      return jsonResponse({});
+    });
+
+    await renderAt('/assets');
+
+    expect(document.body.textContent).toContain('Evidence-derived sample from the latest 100 stored alerts');
+    expect(document.body.textContent).toContain('HR-WS001');
+    expect(document.body.textContent).toContain('maya.georges');
+    expect(document.body.textContent).toContain('198.51.100.24');
+    expect(document.body.textContent).toContain('Recent security activity');
+    expect(document.body.textContent).toContain('AI triaged');
+    expect(document.querySelector('.assets-list-v2 .ui-severity-badge')?.textContent).toContain('critical');
+  });
+
+  it('lets an administrator create a role-bound user from Users & Access', async () => {
+    const requests = [];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({
+        user:{ id:'3', username:'admin', display_name:'Security Administrator', role:'administrator' },
+        csrf:'csrf-token',
+      });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.endsWith('/admin/runtime')) return jsonResponse({
+        generated_at:new Date().toISOString(),
+        authentication:{
+          mode:'database_managed_rbac', current_user:'admin', current_user_id:'3',
+          current_role:'administrator', session_ttl_minutes:480,
+          directory:{ total:1, active:1, executives:0, analysts:0, administrators:1 },
+        },
+      });
+      if (url.endsWith('/admin/users') && String(options.method || 'GET').toUpperCase() === 'POST') {
+        const body = JSON.parse(options.body);
+        return jsonResponse({ user:{
+          id:'4', username:body.username, display_name:body.display_name, role:body.role,
+          active:true, created_by:'admin', created_at:new Date().toISOString(), last_login_at:null,
+        } }, 201);
+      }
+      if (url.endsWith('/admin/users')) return jsonResponse({
+        total:1,
+        users:[{
+          id:'3', username:'admin', display_name:'Security Administrator', role:'administrator',
+          active:true, created_by:'bootstrap', created_at:new Date().toISOString(), last_login_at:null,
+        }],
+      });
+      return jsonResponse({});
+    });
+
+    await renderAt('/users-access');
+    expect(document.body.textContent).toContain('Create role-bound account');
+    const [displayName, username, password] = document.querySelectorAll('.access-form input');
+    const role = document.querySelector('.access-form select');
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(globalThis.HTMLInputElement.prototype, 'value').set;
+      setter.call(displayName, 'Maya Georges');
+      displayName.dispatchEvent(new Event('input', { bubbles:true }));
+      setter.call(username, 'maya.georges');
+      username.dispatchEvent(new Event('input', { bubbles:true }));
+      setter.call(password, 'maya-secure-password');
+      password.dispatchEvent(new Event('input', { bubbles:true }));
+      role.value = 'soc_analyst';
+      role.dispatchEvent(new Event('change', { bubbles:true }));
+    });
+    await act(async () => document.querySelector('.access-form').dispatchEvent(new Event('submit', { bubbles:true, cancelable:true })));
+    await settle();
+
+    const create = requests.find(item =>
+      item.url.endsWith('/admin/users') && String(item.options.method).toUpperCase() === 'POST');
+    expect(JSON.parse(create.options.body)).toEqual({
+      display_name:'Maya Georges',
+      username:'maya.georges',
+      role:'soc_analyst',
+      password:'maya-secure-password',
+    });
+    expect(document.body.textContent).toContain('Maya Georges was created as SOC Analyst');
+  });
+
+  it('lets an administrator select an allowlisted model route without exposing a key field', async () => {
+    const requests = [];
+    const profiles = [
+      {
+        id:'gpt_5_6_sol', label:'GPT-5.6 Sol', provider:'Hermes default route',
+        model:'hermes-agent', credential:'Existing Hermes/Codex authentication',
+        description:'Existing route', active:true,
+      },
+      {
+        id:'llama_3_3_70b', label:'Meta Llama 3.3 70B', provider:'OpenRouter through Hermes',
+        model:'meta-llama/llama-3.3-70b-instruct',
+        credential:'OPENROUTER_API_KEY in the Hermes host environment',
+        description:'OpenRouter route', active:false,
+      },
+    ];
+    globalThis.fetch = vi.fn(async (input, options = {}) => {
+      const url = String(input);
+      requests.push({ url, options });
+      if (url.endsWith('/auth/session')) return jsonResponse({
+        user:{ id:'3', username:'admin', display_name:'Security Administrator', role:'administrator' },
+        csrf:'csrf-token',
+      });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({
+        status:'ok', source:'elastic', services:{ hermes:{ status:'online', safe:true } },
+      });
+      if (url.endsWith('/admin/runtime')) return jsonResponse({
+        ai_provider:{ provider:'Hermes', model:'hermes-agent', route:'Hermes default route', credential_configured:true },
+      });
+      if (url.endsWith('/settings')) return jsonResponse({ settings:{} });
+      if (url.endsWith('/agent/status')) return jsonResponse({ enabled:false, recent_operations:[] });
+      if (url.endsWith('/admin/ai-model') && options.method === 'PUT') {
+        return jsonResponse({
+          gateway:'Hermes', active_profile_id:'llama_3_3_70b',
+          profiles:profiles.map(profile => ({ ...profile, active:profile.id === 'llama_3_3_70b' })),
+        });
+      }
+      if (url.endsWith('/admin/ai-models')) {
+        return jsonResponse({ gateway:'Hermes', active_profile_id:'gpt_5_6_sol', profiles });
+      }
+      return jsonResponse({});
+    });
+
+    await renderAt('/ai-configuration');
+    expect(document.body.textContent).toContain('AI model routing');
+    expect(document.body.textContent).toContain('Meta Llama 3.3 70B');
+    expect(document.querySelector('input[name*="key"]')).toBeNull();
+
+    const llama = [...document.querySelectorAll('[role="radio"]')]
+      .find(button => button.textContent.includes('Meta Llama 3.3 70B'));
+    await act(async () => llama.click());
+    const activate = [...document.querySelectorAll('button')]
+      .find(button => button.textContent.includes('Activate for new runs'));
+    await act(async () => activate.click());
+    await settle();
+
+    const update = requests.find(item => item.url.endsWith('/admin/ai-model') && item.options.method === 'PUT');
+    expect(JSON.parse(update.options.body)).toEqual({ profile_id:'llama_3_3_70b' });
+    expect(update.options.headers['X-CSRF-Token']).toBe('csrf-token');
+    expect(document.body.textContent).toContain('active for new runs');
   });
 
   it('routes to alert search and loads the selected alert detail', async () => {
@@ -109,6 +488,28 @@ describe('authenticated application flows', () => {
         id:'alert-1', rule_desc:'Suspicious login', source_severity:'high',
         timestamp:'2026-07-15T10:00:00Z', triage_status:'pending',
       });
+      if (url.endsWith('/workflow-quality?days=30')) return jsonResponse({
+        generated_at:'2026-07-29T08:00:00Z', window_days:30,
+        summary:{
+          machine_decisions:12, reviewed:5, awaiting_review:7,
+          review_coverage_percent:41.7, analyst_agreement_percent:60,
+          confirmed:3, challenged:1, needs_more_evidence:1,
+        },
+        scopes:{
+          alerts:{ machine_decisions:10, reviewed:4, confirmed:3, challenged:1, needs_more_evidence:0, review_coverage_percent:40 },
+          incidents:{ machine_decisions:2, reviewed:1, confirmed:0, challenged:0, needs_more_evidence:1, review_coverage_percent:50 },
+        },
+        review_activity:[{ day:'2026-07-29', reviews:5, confirmed:3, challenged:1, needs_evidence:1 }],
+        recent_reviews:[{
+          id:8, entity_type:'alert', entity_id:'alert-1', decision:'challenged',
+          reason:'The process evidence is incomplete.', actor:'analyst',
+          title:'Suspicious login', severity:'high', created_at:'2026-07-29T08:00:00Z',
+        }],
+        methodology:{
+          accuracy_claim:false,
+          description:'Agreement is not independently verified ground truth or model accuracy.',
+        },
+      });
       return jsonResponse({});
     });
 
@@ -118,6 +519,14 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Suspicious login');
     expect(calls.some(url => url.includes('/alert-groups?') && url.includes('search=needle'))).toBe(true);
     expect(calls.some(url => url.endsWith('/alerts/alert-1'))).toBe(true);
+    expect(document.body.textContent).toContain('41.7% reviewed');
+
+    const assurance = document.querySelector('[aria-label="Open decision assurance"]');
+    await act(async () => assurance.click());
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.body.textContent).toContain('Agreement is not accuracy');
+    expect(document.body.textContent).toContain('60%');
+    expect(document.body.textContent).toContain('The process evidence is incomplete.');
   });
 
   it('loads the auditable executive contract without sampling a page of raw alerts', async () => {
@@ -161,13 +570,16 @@ describe('authenticated application flows', () => {
       const url = String(input);
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
-      if (url.endsWith('/alerts?page=1&limit=100')) return jsonResponse({ total:1, alerts:[{
-        id:'elastic:credential-1',
+      if (url.includes('/alert-groups?page=1&limit=100&from=')) return jsonResponse({ total:1, groups:[{
+        representative_alert_id:'elastic:credential-1', group_key:'credential-group', occurrence_count:1,
         rule_desc:'Critical Security Event Detected', event_action:'credential-dumping',
         source_severity:'high', rule_level:12, hostname:'DEV-WS002', event_dataset:'edr.endpoint',
         timestamp:new Date().toISOString(), triage_status:'pending',
       }] });
-      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:true } });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{
+        live_collection_enabled:true, live_collection_running:true,
+        scheduler_enabled:false, scheduler_running:false,
+      } });
       return jsonResponse({});
     });
 
@@ -177,6 +589,9 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Credential dumping attempt');
     expect(document.body.textContent).not.toContain('Critical Security Event Detected');
     expect(document.body.textContent).toContain('high');
+    expect(document.body.textContent).toContain('Elastic live ingest active');
+    expect(document.querySelector('a[title="Run alert replay"]')?.getAttribute('href'))
+      .toBe('/attack-simulator?alert=elastic%3Acredential-1&autoplay=1');
   });
 
   it('keeps live alerts visible when collector health is temporarily unavailable', async () => {
@@ -184,8 +599,9 @@ describe('authenticated application flows', () => {
       const url = String(input);
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'degraded', source:'elastic' });
-      if (url.endsWith('/alerts?page=1&limit=100')) return jsonResponse({ total:1, alerts:[{
-        id:'elastic:live-1', rule_desc:'Credential dumping detected', source_severity:'critical',
+      if (url.includes('/alert-groups?page=1&limit=100&from=')) return jsonResponse({ total:1, groups:[{
+        representative_alert_id:'elastic:live-1', group_key:'live-group', occurrence_count:1,
+        rule_desc:'Credential dumping detected', source_severity:'critical',
         hostname:'FIN-WS001', event_dataset:'edr.endpoint', timestamp:new Date().toISOString(),
       }] });
       if (url.endsWith('/collector/status')) return jsonResponse({ error:'Collector status timed out' }, 503);
@@ -198,26 +614,109 @@ describe('authenticated application flows', () => {
     expect(document.body.textContent).toContain('Alerts are live; collector health is unavailable');
   });
 
-  it('renders incident evidence read-only for an executive session', async () => {
+  it('keeps executives out of the technical incident workspace', async () => {
+    const requests = [];
     globalThis.fetch = vi.fn(async input => {
       const url = String(input);
+      requests.push(url);
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'ciso', role:'executive' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
-      if (url.includes('/incidents?status=open')) return jsonResponse({ total:1, incidents:[{
-        id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[], first_seen:new Date().toISOString(),
-      }] });
-      if (url.endsWith('/incidents/7')) return jsonResponse({
-        id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[], alerts:[],
-        first_seen:new Date().toISOString(), last_seen:new Date().toISOString(),
+      if (url.endsWith('/executive/overview?days=30')) return jsonResponse({
+        generated_at:new Date().toISOString(), window_days:30,
+        health:{ score:82, status:'guarded', drivers:[] },
+        business_risks:{ total:0, by_impact:{ critical:0, high:0, medium:0, low:0 }, items:[] },
+        automation:{ activities_seen:0, triaged:0, triage_rate:0 },
+        time_saved:{ hours:0, period_days:30 }, risk_trend:[], top_assets:[],
       });
+      if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:true } });
       return jsonResponse({});
     });
 
     await renderAt('/incidents?incident=7');
 
-    expect(document.body.textContent).toContain('Executive review');
-    expect(document.body.textContent).not.toContain('Close incident record');
-    expect(document.body.textContent).not.toContain('Assign to SOC Analyst');
+    expect(window.location.pathname).toBe('/dashboard');
+    expect(document.body.textContent).toContain('Risk, resilience, and required decisions');
+    expect(requests.some(url => /\/incidents(?:\/|\?)/.test(url))).toBe(false);
+  });
+
+  it('explains the recorded AI triage decision without inferring missing workflow stages', async () => {
+    const alert = {
+      id:'elastic:explain-1',
+      representative_alert_id:'elastic:explain-1',
+      group_key:'explain-group',
+      occurrence_count:1,
+      rule_desc:'Suspicious PowerShell execution',
+      source_severity:'critical',
+      event_dataset:'edr.endpoint',
+      hostname:'DEV-WS002',
+      username:'maya.georges',
+      timestamp:'2026-07-28T08:00:00.000Z',
+      triage_status:'triaged',
+      verdict:{
+        verdict:'needs_investigation',
+        confidence:0.84,
+        narrative:'PowerShell behavior and identity context require analyst validation.',
+        citations:[{ type:'alert', id:'elastic:explain-1' }],
+        limitations:['The command line was not supplied.'],
+      },
+    };
+    globalThis.fetch = vi.fn(async input => {
+      const url = String(input);
+      if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
+      if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'elastic' });
+      if (url.includes('/alert-groups?')) return jsonResponse({ total:1, groups:[alert] });
+      if (url.endsWith('/alerts/elastic%3Aexplain-1')) return jsonResponse(alert);
+      if (url.endsWith('/alerts/elastic%3Aexplain-1/journey')) return jsonResponse({
+        entity:{ type:'alert', id:alert.id },
+        stages:[
+          {
+            id:1, stage:'collected', status:'completed', executor_type:'system',
+            actor:'collector', reason:'Alert accepted from Elastic.',
+            input_summary:{ source:'elastic' }, output_summary:{ stored:true },
+            limitations:[], created_at:'2026-07-28T08:00:01.000Z', finished_at:'2026-07-28T08:00:01.000Z',
+          },
+          {
+            id:2, stage:'triaged', status:'completed', executor_type:'ai',
+            actor:'scheduler', provider:'hermes', model:'meta-llama/llama-3.3-70b-instruct',
+            confidence_kind:'triage', confidence:0.84,
+            reason:'PowerShell behavior and identity context require analyst validation.',
+            input_summary:{ triage_source:'hermes', cache_used:false },
+            output_summary:{ verdict:'needs_investigation', severity:'critical', citation_count:1 },
+            limitations:['The command line was not supplied.'],
+            created_at:'2026-07-28T08:00:05.000Z', finished_at:'2026-07-28T08:00:07.000Z',
+          },
+        ],
+        current_state:{
+          incident:{
+            id:17, title:'Linked PowerShell activity', severity:'critical', status:'open',
+          },
+          description:'The alert is currently stored as incident evidence.',
+        },
+        provenance:{ append_only:true, observed_events:2 },
+      });
+      return jsonResponse({});
+    });
+
+    await renderAt('/alerts?time_range=all');
+
+    expect(document.querySelector('.triage-queue .ui-status-chip')?.textContent).toContain('Triaged');
+    expect(document.body.textContent).toContain('Why this assessment?');
+    expect(document.body.textContent).toContain('PowerShell behavior and identity context require analyst validation.');
+    expect(document.body.textContent).toContain('meta-llama/llama-3.3-70b-instruct');
+    expect(document.body.textContent).toContain('84%');
+    expect(document.body.textContent).toContain('Known evidence limitations');
+    expect(document.body.textContent).toContain('The command line was not supplied.');
+    expect(document.body.textContent).toContain('This explains the recorded workflow; it does not independently prove the verdict is correct.');
+
+    const workflowTab = [...document.querySelectorAll('.detail-tabs button')].find(button => button.textContent === 'Workflow');
+    await act(async () => workflowTab.click());
+
+    expect(document.body.textContent).toContain('How this alert was processed');
+    expect(document.body.textContent).toContain('2 append-only events');
+    expect(document.body.textContent).toContain('Recorded workflow and current state');
+    expect(document.body.textContent).toContain('Currently linked to incident INC-00017');
+    expect(document.body.textContent).toContain('Current state');
+    expect(document.body.textContent).toContain('Not recorded');
   });
 
   it('uses one URL-backed executive drawer and closes it with Escape', async () => {
@@ -235,7 +734,19 @@ describe('authenticated application flows', () => {
       });
       if (url.endsWith('/agent/status')) return jsonResponse({ enabled:true, readiness:{}, recent_operations:[] });
       if (url.endsWith('/collector/status')) return jsonResponse({ collector:{ scheduler_enabled:true, scheduler_running:true } });
-      if (url.includes('/incidents?status=open&page=1&limit=100')) return jsonResponse({ total:1, incidents:[{ id:7, title:'Potential identity compromise', severity:'high', status:'open' }] });
+      if (url.includes('/executive/risks?page=1&limit=100')) return jsonResponse({ total:1, risks:[{
+        id:7, title:'Potential identity compromise', severity:'critical', business_impact:'high',
+        status:'open', owner:null, required_decision:'Assign an accountable incident owner',
+        last_seen:new Date().toISOString(),
+      }] });
+      if (url.endsWith('/executive/incidents/7')) return jsonResponse({
+        id:7, title:'Potential identity compromise', severity:'critical', business_impact:'high',
+        status:'open', owner:null, required_decision:'Assign an accountable incident owner',
+        executive_summary:'This incident remains open. Multiple correlated security signals support the record.',
+        impact_basis:'Stored incident severity; business-service criticality is not mapped.',
+        evidence_assurance:'Multiple correlated security signals support this incident record.',
+        containment_status:'not_recorded', technical_evidence_restricted:true,
+      });
       return jsonResponse({});
     });
 
@@ -245,8 +756,18 @@ describe('authenticated application flows', () => {
     await act(async () => trigger.click());
     await settle();
     expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
-    expect(document.body.textContent).toContain('Active business risks');
+    expect(document.body.textContent).toContain('Risks requiring attention');
     expect(window.location.search).toContain('detail=risk-summary');
+    expect(document.body.textContent).not.toContain('Open Technical Triage Board');
+
+    const risk = [...document.querySelectorAll('[role="dialog"] button')].find(button => button.textContent.includes('Potential identity compromise'));
+    expect(risk).toBeTruthy();
+    await act(async () => risk.click());
+    await settle();
+    expect(document.body.textContent).toContain('AI-assisted executive interpretation');
+    expect(document.body.textContent).toContain('Role-safe view');
+    expect(document.body.textContent).not.toContain('Correlation timeline');
+    expect(document.body.textContent).not.toContain('Selected evidence');
 
     await act(async () => document.dispatchEvent(new window.KeyboardEvent('keydown', { key:'Escape', bubbles:true })));
     await settle();
@@ -261,13 +782,76 @@ describe('authenticated application flows', () => {
       requests.push({ url, options });
       if (url.endsWith('/auth/session')) return jsonResponse({ user:{ username:'analyst', role:'soc_analyst' }, csrf:'csrf-token' });
       if (url.endsWith('/health/dependencies')) return jsonResponse({ status:'ok', source:'mock' });
-      if (url.includes('/incidents?status=')) return jsonResponse({ total:1, incidents:[{ id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[] }] });
+      if (url.includes('/incidents?status=')) return jsonResponse({ total:1, incidents:[{ id:7, title:'Credential attack', severity:'critical', status:'open', alert_ids:[] }] });
       if (url.endsWith('/incidents/7') && (options.method || 'GET') === 'PATCH') return jsonResponse({ id:7, status:'closed' });
-      if (url.endsWith('/incidents/7')) return jsonResponse({ id:7, title:'Credential attack', severity:'high', status:'open', alert_ids:[], alerts:[] });
+      if (url.endsWith('/workflow-reviews') && options.method === 'POST') return jsonResponse({
+        review:{
+          id:4, entity_type:'incident', entity_id:'7', decision:'confirmed',
+          reason:'Stored correlation evidence supports this incident.', actor:'analyst',
+          created_at:'2026-07-29T08:00:00Z',
+        },
+      }, 201);
+      if (url.endsWith('/incidents/7/journey')) return jsonResponse({
+        entity:{ id:7, alert_ids:['A','B'], confidence:0.88 },
+        analyst_reviews:[],
+        stages:[{
+          id:9, stage:'incident_decision', status:'completed', executor_type:'ai',
+          model:'meta-llama/llama-3.3-70b-instruct', confidence:0.88,
+          output_summary:{ persistence_status:'created' },
+          reason:'The validated alert group created this incident.',
+        }],
+        correlation:{
+          coverage:{ total_alerts:2, correlation_recorded:2, incident_decision_recorded:2 },
+          alert_outcomes:[
+            { alert_id:'A', stage:'correlated', status:'completed', reason:'Shared identity and host.' },
+            { alert_id:'A', stage:'incident_decision', status:'completed' },
+            { alert_id:'B', stage:'correlated', status:'completed', reason:'Shared identity and host.' },
+            { alert_id:'B', stage:'incident_decision', status:'completed' },
+          ],
+        },
+      });
+      if (url.endsWith('/incidents/7')) return jsonResponse({ id:7, title:'Credential attack', severity:'critical', status:'open', alert_ids:[], alerts:[] });
       return jsonResponse({});
     });
 
     await renderAt('/incidents');
+    expect(document.body.textContent).toContain('Select a security story to review its evidence, ownership, and containment plan.');
+    expect(document.body.textContent).toContain('Credential attack');
+    expect(document.body.textContent).toContain('Correlated alerts');
+    expect(document.body.textContent).toContain('Updated');
+    expect(document.querySelector('.incident-list-v2 .ui-severity-badge')?.textContent).toContain('critical');
+    expect(document.querySelector('.incident-list-v2 .ui-severity-badge')?.textContent).not.toContain('low');
+    expect(document.body.textContent).not.toContain('Close incident record');
+
+    const openButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Open incident'));
+    expect(openButton).toBeTruthy();
+    await act(async () => openButton.click());
+    await settle();
+
+    expect(document.body.textContent).toContain('Why were these alerts grouped?');
+    expect(document.body.textContent).toContain('Created this incident');
+    expect(document.body.textContent).toContain('2/2 ledger records');
+    expect(document.body.textContent).toContain('No analyst decision recorded');
+
+    const reviewButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Record review'));
+    await act(async () => reviewButton.click());
+    const reviewReason = document.querySelector('.analyst-review-reason textarea');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(globalThis.HTMLTextAreaElement.prototype, 'value').set.call(
+        reviewReason, 'Stored correlation evidence supports this incident.'
+      );
+      reviewReason.dispatchEvent(new Event('input', { bubbles:true }));
+    });
+    const recordButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Record analyst review'));
+    await act(async () => recordButton.click());
+    await settle();
+    expect(document.body.textContent).toContain('Confirm by analyst');
+    const reviewRequest = requests.find(item => item.url.endsWith('/workflow-reviews') && item.options.method === 'POST');
+    expect(JSON.parse(reviewRequest.options.body)).toMatchObject({
+      entity_type:'incident', entity_id:'7', decision:'confirmed',
+    });
+    expect(reviewRequest.options.headers['X-CSRF-Token']).toBe('csrf-token');
+
     const closeButton = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Close incident record'));
     expect(closeButton).toBeTruthy();
     await act(async () => closeButton.click());
@@ -394,7 +978,8 @@ describe('authenticated application flows', () => {
     const requests = [];
     const item = {
       id:7, title:'Credential attack', severity:'high', status:'open', owner:null,
-      alert_ids:['alert-1'], first_seen:new Date().toISOString(), notes:[], note_count:0,
+      alert_ids:['alert-1'], first_seen:new Date().toISOString(), last_seen:new Date().toISOString(),
+      updated_at:new Date().toISOString(), narrative:'Credential activity linked across stored evidence.', notes:[], note_count:0,
     };
     globalThis.fetch = vi.fn(async (input, options = {}) => {
       const url = String(input);
@@ -420,6 +1005,8 @@ describe('authenticated application flows', () => {
     expect(JSON.parse(patch.options.body)).toEqual({ owner:'SOC Analyst' });
     expect(patch.options.headers['X-CSRF-Token']).toBe('csrf-token');
     expect(document.body.textContent).toContain('Durable ownership');
+    expect(document.body.textContent).toContain('Analyst timeline');
+    expect(document.body.textContent).toContain('1 linked alerts');
   });
 
   it('reviews and approves a sensitive Hermes action through the protected approval queue', async () => {
@@ -489,14 +1076,15 @@ describe('authenticated application flows', () => {
 
     await renderAt('/responses');
     expect(document.body.textContent).toContain('Safe Response Simulation');
+    expect(document.body.textContent).toContain('Validate the AI recommendation without affecting production');
     expect(document.body.textContent).toContain('server-1');
-    expect(document.body.textContent).toContain('active confirmed in the BMB simulation ledger');
+    expect(document.body.textContent).toContain('active state confirmed; external side effects remain false.');
     const textarea = document.querySelector('.response-rollback textarea');
     await act(async () => {
       Object.getOwnPropertyDescriptor(globalThis.HTMLTextAreaElement.prototype, 'value').set.call(textarea, 'Exercise completed safely');
       textarea.dispatchEvent(new Event('input', { bubbles:true }));
     });
-    const rollback = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Request rollback review'));
+    const rollback = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Request rollback approval'));
     await act(async () => rollback.click());
     await settle();
 

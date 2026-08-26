@@ -94,7 +94,10 @@ test('completed correlation links output incidents and usage to its Hermes run a
   await store.completeCorrelation({
     runId:'11111111-1111-4111-8111-111111111111', actor:'scheduler', requestId:'request-complete',
     output:{ incidents:[{ alert_ids:['A','B'] }] }, incidentIds:[17],
-    persistence:{ created:1, updated:0, unchanged:0 },
+    persistence:{
+      created:1, updated:0, unchanged:0,
+      results:[{ incident_id:17, status:'created', alert_ids:['A','B'] }],
+    },
     hermes:{
       model:'hermes-agent', runId:'hermes-17', capabilities:{ safe:true },
       usage:{ prompt_tokens:20, completion_tokens:10, total_tokens:30 }, attempts:1, latencyMs:8,
@@ -102,9 +105,83 @@ test('completed correlation links output incidents and usage to its Hermes run a
   });
   assert.ok(queries.some(call => call.sql.includes("status='completed'")));
   assert.ok(queries.some(call => call.sql.includes("'incident',$2,'output'") && call.params[1] === '17'));
+  assert.equal(
+    queries.filter(call => call.sql.includes('INSERT INTO workflow_stage_events')).length,
+    5
+  );
+  assert.ok(queries.some(call => call.sql.includes("'correlated','completed'")));
+  assert.equal(
+    queries.filter(call => call.sql.includes("'alert',$1::text,'incident_decision','completed'")).length,
+    2
+  );
+  assert.ok(queries.some(call => call.sql.includes("'incident',$1::text,'incident_decision','completed'")));
   assert.ok(queries.some(call => call.sql.includes("'agent.run.completed'")));
   assert.equal(queries[0].sql, 'BEGIN');
   assert.equal(queries.at(-1).sql, 'COMMIT');
+});
+
+test('completed correlation records a final decision for candidates outside validated groups', async () => {
+  const queries = [];
+  const client = {
+    async query(sql, params) {
+      const text = String(sql);
+      queries.push({ sql:text, params });
+      if (text.includes('SELECT evidence_id FROM agent_evidence_links')) {
+        return { rows:[{ evidence_id:'A' }, { evidence_id:'B' }, { evidence_id:'C' }], rowCount:3 };
+      }
+      return { rows:[], rowCount:1 };
+    },
+    release() {},
+  };
+  const store = createAgentStore({ async connect() { return client; } });
+  await store.completeCorrelation({
+    runId:'11111111-1111-4111-8111-111111111111', actor:'scheduler', requestId:'request-candidates',
+    output:{ incidents:[{ alert_ids:['A','B'], severity:'high' }] }, incidentIds:[17],
+    persistence:{
+      created:0, updated:1, unchanged:0,
+      results:[{ incident_id:17, status:'updated', alert_ids:['A','B'] }],
+    },
+    hermes:{
+      model:'hermes-agent', runId:'hermes-17', capabilities:{ safe:true },
+      usage:{ prompt_tokens:20, completion_tokens:10, total_tokens:30 }, attempts:1, latencyMs:8,
+    },
+  });
+  const skippedCorrelation = queries.find(call =>
+    call.sql.includes("'correlated','skipped'") && call.params?.[0] === 'C'
+  );
+  const skippedDecision = queries.find(call =>
+    call.sql.includes("'incident_decision','skipped'") && call.params?.[0] === 'C'
+  );
+  assert.ok(skippedCorrelation);
+  assert.ok(skippedDecision);
+  assert.ok(queries.some(call =>
+    call.sql.includes("'incident_decision','completed'") &&
+    call.params?.[0] === 'A' &&
+    call.params?.[6]?.includes('"decision":"updated"')
+  ));
+});
+
+test('failed correlation records both the failed correlation and blocked incident decision', async () => {
+  const queries = [];
+  const database = {
+    async query(sql, params) { queries.push({ sql:String(sql), params }); return { rows:[], rowCount:1 }; },
+    async connect() {
+      return {
+        async query() { return { rows:[], rowCount:1 }; },
+        release() {},
+      };
+    },
+  };
+  const store = createAgentStore(database);
+  await store.failCorrelation({
+    runId:'11111111-1111-4111-8111-111111111111',
+    actor:'scheduler',
+    requestId:'request-failure',
+    error:{ code:'HERMES_INVALID_OUTPUT', message:'invalid correlation output' },
+    fetchRunId:7,
+  });
+  assert.ok(queries.some(call => call.sql.includes("'correlated','failed'")));
+  assert.ok(queries.some(call => call.sql.includes("'incident_decision','skipped'")));
 });
 
 test('grounded tool completion persists a bounded summary, evidence links, and an audit event atomically', async () => {

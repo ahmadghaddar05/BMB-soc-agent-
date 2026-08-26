@@ -4,11 +4,38 @@ const { Router } = require('express');
 const db = require('../db');
 const { runtimeConfig } = require('../config');
 const { requireRoles } = require('../middleware/auth');
+const {
+  SETTING_KEY,
+  listAiModelProfiles,
+  profileDefinition,
+  resolveAiModelProfile,
+  routingOptions,
+} = require('../services/ai-model-profiles');
+const { defaultHermesClient } = require('../services/hermes/client');
+const { publicHermesError } = require('../services/hermes/errors');
+const {
+  CONFIRMATION: RETENTION_CONFIRMATION,
+  policyFromSettings,
+  previewRetention,
+  recentRetentionRuns,
+  runRetention,
+} = require('../services/alert-retention');
+const {
+  displayNameError,
+  hashPassword,
+  passwordError,
+  publicUser,
+  roleError,
+  usernameError,
+} = require('../services/user-directory');
+const connectorRoutes = require('./connectors');
+const { activeConnector, managerAvailable } = require('../services/connectors');
 
 const router = Router();
 const AUDIT_OUTCOMES = new Set(['success','failure','denied','cancelled']);
 
 router.use(requireRoles('administrator'));
+router.use('/connectors', connectorRoutes);
 
 function pageOptions(query) {
   const page = Number(query.page ?? 1);
@@ -25,40 +52,278 @@ function boundedText(value, name, max = 120) {
 }
 
 router.get('/runtime', async (req, res) => {
+  try {
+    const config = runtimeConfig();
+    const settings = await db.getAllSettings();
+    const managedSource = await activeConnector();
+    const sourceType = managedSource?.source || config.alertSource;
+    const sourceConnection = managedSource?.connection || null;
+    const selectedModel = resolveAiModelProfile(settings, config);
+    const directory = config.authDisabled
+      ? { rows:[{ total:0, active:0, executives:0, analysts:0, administrators:0 }] }
+      : await db.query(
+        `SELECT COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE active)::int AS active,
+                COUNT(*) FILTER (WHERE active AND role='executive')::int AS executives,
+                COUNT(*) FILTER (WHERE active AND role='soc_analyst')::int AS analysts,
+                COUNT(*) FILTER (WHERE active AND role='administrator')::int AS administrators
+         FROM app_users`
+      );
+    res.json({
+      generated_at:new Date().toISOString(),
+      authentication:{
+        mode:config.authDisabled ? 'development_disabled' : 'database_managed_rbac',
+        current_user:req.user?.username || null,
+        current_user_id:req.user?.id || null,
+        current_role:req.user?.role || null,
+        directory:directory.rows[0],
+        session_ttl_minutes:config.sessionTtlMinutes,
+        secure_cookie:config.cookieSecure,
+        allowed_origins_count:config.allowedOrigins.length,
+        service_api_key_configured:Boolean(config.apiKey),
+        multi_user_directory_supported:!config.authDisabled,
+        multi_role_accounts_supported:true,
+      },
+      alert_source:{
+        type:sourceType,
+        configuration_source:managedSource ? 'managed_connector' : 'environment_fallback',
+        connector_manager_available:managerAvailable(),
+        active_connector_id:managedSource?.id || null,
+        active_connector_name:managedSource?.name || null,
+        elastic_configured:sourceType === 'elastic'
+          ? Boolean(sourceConnection ? sourceConnection.url && sourceConnection.apiKey : config.elasticUrl && config.elasticApiKey) : null,
+        elastic_event_indices:sourceType === 'elastic' ? sourceConnection?.eventIndices || config.elasticEventIndices : null,
+        splunk_configured:sourceType === 'splunk'
+          ? Boolean(sourceConnection ? sourceConnection.url && sourceConnection.token : config.splunkUrl && config.splunkToken) : null,
+        splunk_index:sourceType === 'splunk' ? sourceConnection?.index || config.splunkIndex : null,
+        splunk_server:sourceType === 'splunk'
+          ? new URL(sourceConnection?.url || config.splunkUrl).host : null,
+        splunk_auth_scheme:sourceType === 'splunk' ? sourceConnection?.authScheme || config.splunkAuthScheme : null,
+        tls_verification:sourceType === 'elastic'
+          ? sourceConnection?.verifyTls ?? config.elasticVerifyTls
+          : sourceType === 'splunk' ? sourceConnection?.verifyTls ?? config.splunkVerifyTls : null,
+        ca_certificate_configured:sourceType === 'elastic'
+          ? Boolean(sourceConnection?.caCert || config.elasticCaCert)
+          : sourceType === 'splunk' ? Boolean(sourceConnection?.caCert || config.splunkCaCert) : null,
+        wazuh_configured:sourceType === 'wazuh'
+          ? Boolean(sourceConnection ? sourceConnection.url && sourceConnection.password : config.wazuhUrl && config.wazuhPassword) : null,
+      },
+      ai_provider:{
+        provider:'Hermes',
+        model:selectedModel.hermesModel,
+        profile_id:selectedModel.id,
+        route:selectedModel.providerLabel,
+        required:config.hermesRequired,
+        credential_configured:Boolean(config.hermesApiKey),
+        strict_capabilities:config.hermesStrictCapabilities,
+        safe_toolsets_enforced:config.hermesEnforceSafeToolsets,
+        tool_less_profile_required:config.hermesRequireToollessProfile,
+        request_timeout_ms:config.hermesRequestTimeoutMs,
+        run_timeout_ms:config.hermesTimeoutMs,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error:error.message });
+  }
+});
+
+router.get('/ai-models', async (_req, res) => {
+  try {
+    const settings = await db.getAllSettings();
+    res.json({
+      generated_at:new Date().toISOString(),
+      gateway:'Hermes',
+      switching_scope:'new_runs_only',
+      fallback_policy:'disabled',
+      credentials_storage:'Hermes host environment only',
+      ...listAiModelProfiles(settings, runtimeConfig()),
+    });
+  } catch (error) {
+    res.status(500).json({ error:error.message });
+  }
+});
+
+router.put('/ai-model', async (req, res) => {
+  const profileId = typeof req.body?.profile_id === 'string' ? req.body.profile_id : '';
+  if (!profileDefinition(profileId)) {
+    return res.status(400).json({ error:'Unsupported AI model profile' });
+  }
+  try {
+    await db.setSettingsAtomic([[SETTING_KEY, profileId]], {
+      actor:req.user?.username || 'unknown',
+      requestId:req.id || null,
+    });
+    const settings = await db.getAllSettings();
+    res.json({
+      ok:true,
+      message:'The selected model will be used for new chat, triage, and correlation runs.',
+      ...listAiModelProfiles(settings, runtimeConfig()),
+    });
+  } catch (error) {
+    res.status(500).json({ error:error.message });
+  }
+});
+
+router.post('/ai-models/test', async (req, res) => {
+  const profileId = typeof req.body?.profile_id === 'string' ? req.body.profile_id : '';
+  if (!profileDefinition(profileId)) {
+    return res.status(400).json({ error:'Unsupported AI model profile' });
+  }
   const config = runtimeConfig();
-  res.json({
-    generated_at:new Date().toISOString(),
-    authentication:{
-      mode:config.authDisabled ? 'development_disabled' : 'single_user',
-      current_user:req.user?.username || null,
-      current_role:req.user?.role || null,
-      configured_role:config.userRole,
-      session_ttl_minutes:config.sessionTtlMinutes,
-      secure_cookie:config.cookieSecure,
-      allowed_origins_count:config.allowedOrigins.length,
-      service_api_key_configured:Boolean(config.apiKey),
-      multi_user_directory_supported:false,
-    },
-    alert_source:{
-      type:config.alertSource,
-      elastic_configured:Boolean(config.elasticUrl && config.elasticApiKey),
-      elastic_event_indices:config.alertSource === 'elastic' ? config.elasticEventIndices : null,
-      tls_verification:config.alertSource === 'elastic' ? config.elasticVerifyTls : null,
-      ca_certificate_configured:config.alertSource === 'elastic' ? Boolean(config.elasticCaCert) : null,
-      wazuh_configured:config.alertSource === 'wazuh' ? Boolean(config.wazuhUrl && config.wazuhPassword) : null,
-    },
-    ai_provider:{
-      provider:'Hermes',
-      model:config.hermesModel,
-      required:config.hermesRequired,
-      credential_configured:Boolean(config.hermesApiKey),
-      strict_capabilities:config.hermesStrictCapabilities,
-      safe_toolsets_enforced:config.hermesEnforceSafeToolsets,
-      tool_less_profile_required:config.hermesRequireToollessProfile,
-      request_timeout_ms:config.hermesRequestTimeoutMs,
-      run_timeout_ms:config.hermesTimeoutMs,
-    },
-  });
+  const profile = resolveAiModelProfile({ [SETTING_KEY]:profileId }, config);
+  const started = Date.now();
+  try {
+    const result = await defaultHermesClient().runAgent({
+      ...routingOptions(profile),
+      input:'Reply with the single word READY.',
+      instructions:'This is a bounded connectivity test. Do not call tools. Do not include secrets or additional text.',
+      sessionKey:`bmb-model-test:${req.user?.username || 'administrator'}`,
+      idempotencyKey:`${req.id || 'model-test'}:${profileId}`,
+    });
+    await db.query(
+      `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+       VALUES($1,'ai.model_route.tested','ai_model_profile',$2,'success',$3,$4)`,
+      [
+        req.user?.username || 'unknown', profileId, req.id || null,
+        {
+          requested_model:profile.hermesModel,
+          requested_provider:profile.hermesProvider || 'gateway_default',
+          returned_model:result.model,
+          route_verified:result.route?.verified === true,
+          latency_ms:result.latencyMs,
+          total_tokens:result.usage?.total_tokens || 0,
+        },
+      ]
+    );
+    res.json({
+      ok:true,
+      profile_id:profile.id,
+      label:profile.label,
+      provider:profile.providerLabel,
+      requested_model:profile.hermesModel,
+      returned_model:result.model,
+      route_verified:result.route?.verified === true,
+      latency_ms:result.latencyMs,
+      total_tokens:result.usage?.total_tokens || 0,
+      tested_at:new Date().toISOString(),
+    });
+  } catch (error) {
+    try {
+      await db.query(
+        `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+         VALUES($1,'ai.model_route.tested','ai_model_profile',$2,'failure',$3,$4)`,
+        [
+          req.user?.username || 'unknown', profileId, req.id || null,
+          {
+            requested_model:profile.hermesModel,
+            requested_provider:profile.hermesProvider || 'gateway_default',
+            error_code:error?.code || 'HERMES_UNAVAILABLE',
+            latency_ms:Date.now() - started,
+          },
+        ]
+      );
+    } catch {
+      // The route error remains authoritative if audit persistence also fails.
+    }
+    const response = publicHermesError(error, req.id);
+    res.status(response.status).json(response.body);
+  }
+});
+
+router.get('/users', async (_req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id,username,display_name,role,active,created_by,created_at,updated_at,last_login_at
+       FROM app_users ORDER BY active DESC,role,LOWER(username)`
+    );
+    res.json({ users:result.rows.map(publicUser), total:result.rows.length });
+  } catch (error) {
+    res.status(500).json({ error:error.message });
+  }
+});
+
+router.post('/users', async (req, res) => {
+  const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+  const displayName = typeof req.body?.display_name === 'string' ? req.body.display_name.trim() : '';
+  const role = typeof req.body?.role === 'string' ? req.body.role : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const validation = usernameError(username) || displayNameError(displayName) ||
+    roleError(role) || passwordError(password);
+  if (validation) return res.status(400).json({ error:validation });
+
+  let client;
+  try {
+    const passwordHash = await hashPassword(password);
+    client = await db.connect();
+    await client.query('BEGIN');
+    const created = await client.query(
+      `INSERT INTO app_users(username,display_name,role,password_hash,created_by)
+       VALUES($1,$2,$3,$4,$5)
+       RETURNING id,username,display_name,role,active,created_by,created_at,updated_at,last_login_at`,
+      [username, displayName, role, passwordHash, req.user.username]
+    );
+    await client.query(
+      `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+       VALUES($1,'user.created','app_user',$2,'success',$3,$4)`,
+      [req.user.username, String(created.rows[0].id), req.id, { username, display_name:displayName, role }]
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ user:publicUser(created.rows[0]) });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    if (error.code === '23505') return res.status(409).json({ error:'Username already exists' });
+    res.status(500).json({ error:error.message });
+  } finally {
+    client?.release();
+  }
+});
+
+router.delete('/users/:id', async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error:'User ID must be numeric' });
+  let client;
+  try {
+    client = await db.connect();
+    await client.query('BEGIN');
+    const target = await client.query(
+      `SELECT id,username,display_name,role,active
+       FROM app_users WHERE id=$1 FOR UPDATE`,
+      [req.params.id]
+    );
+    const user = target.rows[0];
+    if (!user) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error:'User not found' });
+    }
+    if (String(user.id) === String(req.user.id)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error:'You cannot remove your own account' });
+    }
+    if (user.role === 'administrator' && user.active) {
+      const administrators = await client.query(
+        `SELECT COUNT(*)::int AS total FROM app_users
+         WHERE role='administrator' AND active=TRUE`
+      );
+      if (Number(administrators.rows[0]?.total || 0) <= 1) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error:'The last active administrator cannot be removed' });
+      }
+    }
+    await client.query(
+      `INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+       VALUES($1,'user.removed','app_user',$2,'success',$3,$4)`,
+      [req.user.username, String(user.id), req.id, {
+        username:user.username, display_name:user.display_name, role:user.role,
+      }]
+    );
+    await client.query('DELETE FROM app_users WHERE id=$1', [user.id]);
+    await client.query('COMMIT');
+    res.json({ ok:true, removed_user:{ id:String(user.id), username:user.username, role:user.role } });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    res.status(500).json({ error:error.message });
+  } finally {
+    client?.release();
+  }
 });
 
 router.get('/audit-events', async (req, res) => {
@@ -93,12 +358,15 @@ router.get('/audit-events', async (req, res) => {
 router.get('/data-governance', async (_, res) => {
   try {
     const settings = await db.getAllSettings();
-    const [alerts, audit, runs, cache] = await Promise.all([
+    const [alerts, audit, runs, cache, retentionPreview, retentionRuns] = await Promise.all([
       db.query('SELECT COUNT(*)::int AS total,MIN(timestamp) AS oldest,MAX(timestamp) AS newest FROM alerts'),
       db.query('SELECT COUNT(*)::int AS total,MIN(created_at) AS oldest,MAX(created_at) AS newest FROM audit_events'),
       db.query('SELECT COUNT(*)::int AS total,MIN(started_at) AS oldest,MAX(started_at) AS newest FROM fetch_runs'),
       db.query('SELECT COUNT(*)::int AS total,MIN(expires_at) AS next_expiry,MAX(expires_at) AS last_expiry FROM triage_cache'),
+      previewRetention({ mode:'policy' }),
+      recentRetentionRuns(10),
     ]);
+    const retentionPolicy = policyFromSettings(settings);
     res.json({
       generated_at:new Date().toISOString(),
       stores:{
@@ -108,14 +376,50 @@ router.get('/data-governance', async (_, res) => {
         triage_cache:cache.rows[0] || { total:0, next_expiry:null, last_expiry:null },
       },
       policies:{
-        postgres_automatic_retention_configured:false,
+        postgres_automatic_retention_configured:retentionPolicy.enabled,
         audit_retention_configured:false,
-        alert_retention_configured:false,
+        alert_retention_configured:true,
+        alert_retention_enabled:retentionPolicy.enabled,
+        alert_retention:retentionPolicy,
         elastic_source_lifecycle:'managed_outside_bmb',
         triage_cache_ttl_hours:Number(settings.triage_cache_ttl_hours || 168),
       },
+      retention_preview:retentionPreview,
+      recent_retention_runs:retentionRuns,
+      purge_confirmation:RETENTION_CONFIRMATION,
     });
   } catch (error) { res.status(500).json({ error:error.message }); }
+});
+
+router.post('/data-governance/retention/preview', async (req, res) => {
+  try {
+    const mode = req.body?.mode || 'policy';
+    res.json(await runRetention({
+      mode,
+      dryRun:true,
+      actor:req.user?.username || 'administrator',
+      requestId:req.id || null,
+    }));
+  } catch (error) {
+    res.status(error.message.includes('Unsupported') ? 400 : 500).json({ error:error.message });
+  }
+});
+
+router.post('/data-governance/retention/run', async (req, res) => {
+  try {
+    const result = await runRetention({
+      mode:req.body?.mode || 'policy',
+      dryRun:false,
+      confirmation:req.body?.confirmation,
+      actor:req.user?.username || 'administrator',
+      requestId:req.id || null,
+    });
+    res.json(result);
+  } catch (error) {
+    const status = error.code === 'RETENTION_CONFIRMATION_REQUIRED'
+      || error.message.includes('Unsupported') ? 400 : 500;
+    res.status(status).json({ error:error.message, code:error.code || 'RETENTION_FAILED' });
+  }
 });
 
 module.exports = router;

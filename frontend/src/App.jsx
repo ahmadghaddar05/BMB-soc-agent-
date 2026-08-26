@@ -1,19 +1,22 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, Moon, Search, Sun } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, Moon, Search, Sun, UserRound } from 'lucide-react';
 import ChatWidget from './components/ChatWidget';
-import DataTrustBanner from './components/DataTrustBanner';
 import LoginPage from './components/LoginPage';
 import PermissionGuard from './components/PermissionGuard';
 import RoleAwareSidebar from './components/RoleAwareSidebar';
-import RolePreviewSelector from './components/RolePreviewSelector';
 import SelectionAssistant from './components/SelectionAssistant';
+import { HeaderStatusChip, SkeletonLoader } from './components/ui';
 import { api, setCsrfToken } from './lib/api';
 import { getRoleLanding, normalizeRole, ROLE_LABELS, ROLES } from './lib/roles';
 import './index.css';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const LiveMonitoring = lazy(() => import('./pages/LiveMonitoring'));
+const SOCAnalytics = lazy(() => import('./pages/SOCAnalytics'));
+const DigitalTwin = lazy(() => import('./pages/DigitalTwin'));
+const AttackSimulator = lazy(() => import('./pages/AttackSimulator'));
+const MitreCoverage = lazy(() => import('./pages/MitreCoverage'));
 const Alerts = lazy(() => import('./pages/Alerts'));
 const Incidents = lazy(() => import('./pages/Incidents'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
@@ -36,32 +39,40 @@ const DataRetention = lazy(() => import('./pages/DataRetention'));
 
 const PAGE_META = {
   '/dashboard': ['Security Overview', 'Business risk, response performance, and source trust'],
-  '/live-monitoring': ['Live Monitoring', 'Newest-first Elastic security activity'],
-  '/alerts': ['Technical Triage', 'Prioritize and review security activity'],
-  '/incidents': ['Incident Command', 'Correlated attack story and containment'],
-  '/ai-triage': ['AI-assisted Triage', 'Evidence-grounded alert prioritization'],
-  '/threat-intelligence': ['Entity Intelligence', 'Indicator and entity context'],
-  '/assets': ['Asset Intelligence', 'Observed hosts, users, and services'],
+  '/live-monitoring': ['Live Monitoring', 'Security activity from connected sources'],
+  '/security-analytics': ['Security Analytics', 'Attack patterns and telemetry trends'],
+  '/digital-twin': ['Digital Twin', 'Live topology and observed attack paths'],
+  '/attack-simulator': ['Attack Simulator', 'Animated alert reconstruction and AI decision replay'],
+  '/mitre-coverage': ['MITRE Coverage', 'Map alerts to ATT&CK tactics and identify detection gaps'],
+  '/alerts': ['Technical Triage', 'Prioritized security activity for analyst review'],
+  '/incidents': ['Incident Command', 'Correlated attack evidence and containment'],
+  '/ai-triage': ['AI-assisted Triage', 'Evidence-grounded prioritization'],
+  '/threat-intelligence': ['Entity Intelligence', 'Relationships across observed entities'],
+  '/assets': ['Asset Intelligence', 'Observed hosts, identities, and services'],
   '/vulnerabilities': ['Vulnerabilities', 'Exposure and affected-asset context'],
-  '/investigations': ['Investigations', 'Search, select, and document evidence'],
-  '/reports': ['Reports', 'Security intelligence and evidence'],
-  '/cases': ['Cases', 'Analyst-owned incident workflows'],
-  '/approvals': ['Approval Queue', 'Human review for proposed workflow actions'],
-  '/responses': ['Safe Response Simulation', 'Non-production response verification and rollback'],
+  '/investigations': ['Investigations', 'Build and document evidence'],
+  '/reports': ['Reports', 'Durable security evidence'],
+  '/cases': ['Cases', 'Owned investigation workflows'],
+  '/approvals': ['Approval Queue', 'Human review for proposed actions'],
+  '/responses': ['Safe Response Simulation', 'Non-production response validation'],
   '/playbooks': ['Playbooks', 'Recommended response procedures'],
-  '/integrations': ['Integrations', 'Collector and enrichment connections'],
-  '/collector-health': ['Collector Health', 'Collection state, ingestion position, and cycle history'],
-  '/ai-configuration': ['AI Configuration', 'Hermes health and evidence-grounded workflow policies'],
-  '/users-access': ['Users & Access', 'Authentication mode and role boundaries'],
-  '/audit-governance': ['Audit & Governance', 'Durable administrative and workflow activity'],
-  '/data-retention': ['Data Retention', 'Stored coverage and lifecycle ownership'],
-  '/settings': ['Settings', 'Advanced platform configuration'],
+  '/integrations': ['Integrations', 'Telemetry and enrichment connections'],
+  '/collector-health': ['Collector Health', 'Ingestion state and collection history'],
+  '/ai-configuration': ['AI Configuration', 'Model routing and workflow policies'],
+  '/users-access': ['Users & Access', 'Authentication and role boundaries'],
+  '/audit-governance': ['Audit & Governance', 'Administrative and workflow activity'],
+  '/data-retention': ['Data Retention', 'Coverage and lifecycle policy'],
+  '/settings': ['Settings', 'Platform configuration'],
 };
 
 function BmbLogo({ compact = false }) {
   return (
     <div className={`bmb-brand ${compact ? 'is-compact' : ''}`} aria-label="BMB">
-      <span className="bmb-logo-original" aria-hidden="true" />
+      <img
+        src={compact ? '/bmb-mark.png?v=6' : '/bmb-logo.png?v=6'}
+        alt=""
+        aria-hidden="true"
+      />
     </div>
   );
 }
@@ -72,15 +83,11 @@ function Shell({ session, onLogout }) {
   const [search, setSearch] = useState('');
   const [platformHealth, setPlatformHealth] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem('bmb-theme') || 'dark');
-  const [previewRole, setPreviewRole] = useState(() => {
-    const stored = localStorage.getItem('bmb-experience-preview');
-    return Object.values(ROLES).includes(stored) ? stored : null;
-  });
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const authenticatedRole = normalizeRole(session.user.role);
-  const canPreviewExperiences = import.meta.env.DEV || authenticatedRole === ROLES.ADMINISTRATOR;
-  const role = canPreviewExperiences && previewRole ? previewRole : authenticatedRole;
+  const role = normalizeRole(session.user.role);
   const landing = getRoleLanding(role);
   const [title, subtitle] = PAGE_META[location.pathname] || PAGE_META[landing];
 
@@ -108,24 +115,31 @@ function Shell({ session, onLogout }) {
     localStorage.setItem('bmb-theme', theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (!profileOpen) return undefined;
+    const closeOnOutsideClick = event => {
+      if (!profileRef.current?.contains(event.target)) setProfileOpen(false);
+    };
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') {
+        setProfileOpen(false);
+        profileRef.current?.querySelector('.analyst-profile')?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [profileOpen]);
+
   function submitSearch(event) {
     event.preventDefault();
     const value = search.trim();
     if (!value) return;
     navigate(`/alerts?search=${encodeURIComponent(value)}`);
     setMobileOpen(false);
-  }
-
-  function changePreviewRole(nextRole) {
-    if (nextRole === authenticatedRole) {
-      localStorage.removeItem('bmb-experience-preview');
-      setPreviewRole(null);
-    } else {
-      localStorage.setItem('bmb-experience-preview', nextRole);
-      setPreviewRole(nextRole);
-    }
-    setMobileOpen(false);
-    navigate(getRoleLanding(nextRole));
   }
 
   const protect = element => <PermissionGuard role={role}>{element}</PermissionGuard>;
@@ -157,28 +171,50 @@ function Shell({ session, onLogout }) {
             </form>
           )}
           <div className="topbar-actions">
-            <RolePreviewSelector enabled={canPreviewExperiences} role={role} onChange={changePreviewRole} />
+            <HeaderStatusChip health={platformHealth} />
             <button type="button" className="theme-toggle" onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
               {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
             </button>
-            <button type="button" className="analyst-profile" onClick={onLogout} title={previewRole ? `Sign out · authenticated as ${ROLE_LABELS[authenticatedRole]}` : 'Sign out'}>
-              <div><strong>{session.user.username}</strong><small>{previewRole ? `${ROLE_LABELS[role]} preview` : ROLE_LABELS[role]}</small></div>
-              <span className="avatar">{session.user.username.slice(0, 2).toUpperCase()}<i /></span>
-            </button>
+            <div className="profile-menu" ref={profileRef}>
+              <button
+                type="button"
+                className="analyst-profile"
+                onClick={() => setProfileOpen(value => !value)}
+                aria-expanded={profileOpen}
+                aria-haspopup="menu"
+                aria-label={`Open account menu for ${session.user.username}`}
+              >
+                <div><strong>{session.user.display_name || session.user.username}</strong><small>{ROLE_LABELS[role]}</small></div>
+                <span className="avatar">{session.user.username.slice(0, 2).toUpperCase()}<i /></span>
+                <ChevronDown className={profileOpen ? 'profile-chevron open' : 'profile-chevron'} aria-hidden="true" />
+              </button>
+              {profileOpen && (
+                <div className="profile-dropdown" role="menu">
+                  <div className="profile-identity">
+                    <span><UserRound /></span>
+                    <div><small>Signed in as</small><strong>{session.user.display_name || session.user.username}</strong><p>{session.user.username} · {ROLE_LABELS[role]}</p></div>
+                  </div>
+                  <button type="button" role="menuitem" onClick={onLogout}><LogOut /> Sign out</button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
         <main className="workspace-scroll">
-          <DataTrustBanner health={platformHealth} />
-          <Suspense fallback={<div className="auth-loading" role="status"><span /><p>Loading workspace…</p></div>}>
+          <Suspense fallback={<div className="workspace-loading"><SkeletonLoader lines={6} /></div>}>
             <Routes>
               <Route path="/" element={<Navigate to={landing} replace />} />
               <Route path="/dashboard" element={protect(<Dashboard />)} />
               <Route path="/live-monitoring" element={protect(<LiveMonitoring />)} />
+              <Route path="/security-analytics" element={protect(<SOCAnalytics />)} />
+              <Route path="/digital-twin" element={protect(<DigitalTwin />)} />
+              <Route path="/attack-simulator" element={protect(<AttackSimulator />)} />
+              <Route path="/mitre-coverage" element={protect(<MitreCoverage />)} />
               <Route path="/alerts" element={protect(<Alerts />)} />
               <Route path="/ai-triage" element={protect(<AITriage />)} />
               <Route path="/investigations" element={protect(<Investigations />)} />
-              <Route path="/incidents" element={protect(<Incidents readOnly={role === ROLES.EXECUTIVE} />)} />
+              <Route path="/incidents" element={protect(<Incidents />)} />
               <Route path="/cases" element={protect(<Cases />)} />
               <Route path="/approvals" element={protect(<Approvals />)} />
               <Route path="/responses" element={protect(<Responses />)} />
@@ -199,7 +235,11 @@ function Shell({ session, onLogout }) {
           </Suspense>
         </main>
       </section>
-      <ChatWidget role={role} pageContext={{ path: `${location.pathname}${location.search}`, title, subtitle }} />
+      <ChatWidget
+        role={role}
+        accountKey={`${session.user.id || session.user.username}:${role}`}
+        pageContext={{ path: `${location.pathname}${location.search}`, title, subtitle }}
+      />
       <SelectionAssistant />
     </div>
   );
@@ -256,10 +296,21 @@ function AuthenticatedApp() {
   }
 
   if (loading) return <div className="auth-loading"><span /><p>Checking secure session…</p></div>;
-  if (!session) return <><LoginPage onAuthenticated={value => { setCsrfToken(value.csrf); setSession(value); }} /><ApiErrorBanner /></>;
-  return <BrowserRouter><Shell session={session} onLogout={logout} /><ApiErrorBanner /></BrowserRouter>;
+  if (!session) {
+    const authenticate = value => { setCsrfToken(value.csrf); setSession(value); };
+    return (
+      <>
+        <Routes>
+          <Route path="/login" element={<LoginPage onAuthenticated={authenticate} />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+        <ApiErrorBanner />
+      </>
+    );
+  }
+  return <><Shell session={session} onLogout={logout} /><ApiErrorBanner /></>;
 }
 
 export default function App() {
-  return <AuthenticatedApp />;
+  return <BrowserRouter><AuthenticatedApp /></BrowserRouter>;
 }

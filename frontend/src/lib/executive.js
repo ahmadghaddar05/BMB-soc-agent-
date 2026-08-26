@@ -201,22 +201,3 @@ export function pipelineState(agent = {}, collector = {}) {
   if (asNumber(agent.pending_approvals) > 0) return { stage:'approval', message:`Waiting for analyst review on ${agent.pending_approvals} approval request${asNumber(agent.pending_approvals) === 1 ? '' : 's'}`, active:false };
   return { stage:'monitor', message:'Monitoring continuously — no AI-assisted work is currently queued', active:false };
 }
-
-export function technicalLink(selection = {}, detail = {}) {
-  if (selection.type === 'risk-summary') return '/incidents?status=open';
-  if (selection.type === 'metric') {
-    if (detail.evidence_type === 'assets') return '/assets';
-    if (detail.evidence_type === 'automation') return '/reports';
-    return '/incidents?status=open';
-  }
-  const operation = selection.type === 'automation' ? { ...(selection.seed || {}), ...(detail || {}) } : null;
-  if (selection.type === 'incident' || operation?.source_type === 'case') {
-    const id = selection.type === 'incident' ? selection.id : operation.source_id;
-    return `/incidents?incident=${encodeURIComponent(id)}`;
-  }
-  const id = operation?.source_id || detail.id || selection.seed?.representative_alert_id || selection.seed?.source_id || selection.id;
-  const minutes = selection.type === 'asset' && [7,30,90].includes(Number(detail.window_days))
-    ? Number(detail.window_days) * 1440
-    : 'all';
-  return `/alerts?time_range=${minutes}&search=${encodeURIComponent(id || '')}`;
-}

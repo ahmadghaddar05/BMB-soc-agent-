@@ -28,6 +28,47 @@ python3 -m unittest -v test_generators.py
 
 The dry-run summary must report an `alert_ratio` between `0.13` and `0.15`.
 
+## Evidence-rich telemetry
+
+Every runtime generator and finite scenario passes its event through
+`evidence_context.py` before transmission. The shared layer preserves each
+source's existing ECS document and adds the evidence an analyst normally needs:
+
+- EDR and Linux process ancestry, command lines, executable paths, hashes,
+  signatures, sessions, and sensor/audit state.
+- AD logon type, authentication protocol, session, source workstation, failure
+  status, and directory-replication rights.
+- Email sender authentication, delivery action, message and attachment
+  identifiers, attachment hashes, and sandbox observations.
+- Web request/response sizes, status, full URL, session, TLS, and WAF action.
+- Database query, operation, transaction, duration, rows, client, and export
+  artifact context.
+
+The layer never emits `expected_verdict`, `ground_truth`, `true_positive`, or
+`false_positive` answer fields. Hermes must determine a verdict from the
+observed evidence. Policy activity remains non-alert telemetry, and the
+standalone and finite-run alert ratios remain between 13% and 15%.
+
+## MITRE Coverage and incident-path contract
+
+Every generated security alert now carries canonical, observed ATT&CK data in
+both ECS-style `threat.*` fields and the generator's `attack.*` context:
+
+- tactic ID, tactic name, stable tactic order, and normalized stage;
+- technique/sub-technique ID and name;
+- an observation-specific campaign ID for standalone random alerts;
+- a shared campaign and correlation session only for coordinated scenarios;
+- sensor-observed control disposition (`detected` or `blocked`) without an AI
+  verdict or ground-truth label.
+
+The `full_attack_chain` scenario follows a real ordered path across Initial
+Access, Execution, Persistence, Credential Access, Discovery, Lateral
+Movement, Collection, Command and Control, Exfiltration, and Impact. Its alert
+records share `correlation.session_id` and include `path_position` /
+`path_length`, while sparse scenarios still contain only two or three relevant
+alerts. The BMB backend remains responsible for deciding whether those linked
+observations qualify as an incident.
+
 ## Send a coordinated exercise
 
 Point `--host` at the server receiving the existing UDP inputs:

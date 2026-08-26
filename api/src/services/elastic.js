@@ -35,6 +35,18 @@ function normalizeTactic(value) {
     .replace(/[\s-]+/g, '_');
 }
 
+const TACTIC_NAMES_BY_ID = {
+  TA0043:'Reconnaissance', TA0001:'Initial Access', TA0002:'Execution',
+  TA0003:'Persistence', TA0004:'Privilege Escalation', TA0006:'Credential Access',
+  TA0007:'Discovery', TA0008:'Lateral Movement', TA0009:'Collection',
+  TA0011:'Command and Control', TA0010:'Exfiltration', TA0040:'Impact',
+};
+
+function uniqueFieldValues(fields, names) {
+  return [...new Set(names.flatMap(name => values(fields, name))
+    .map(value => String(value).trim()).filter(Boolean))];
+}
+
 /*
  * The current dashboard still expects the old rule_level field.
  * This temporary mapping keeps the existing interface working:
@@ -55,15 +67,26 @@ function severityToLegacyLevel(severity) {
   return levels[String(severity || '').toLowerCase()] || 0;
 }
 
-function readCaCertificate() {
-  const caPath = process.env.ELASTIC_CA_CERT;
-  const verifyTls = process.env.ELASTIC_VERIFY_TLS !== 'false';
+function connectionConfig(connection = null) {
+  return connection || {
+    url:process.env.ELASTICSEARCH_URL || '',
+    apiKey:process.env.ELASTIC_API_KEY || '',
+    alertAlias:process.env.ELASTIC_ALERT_ALIAS || '.alerts-security.alerts-default',
+    eventIndices:process.env.ELASTIC_EVENT_INDICES || 'logs-*',
+    verifyTls:process.env.ELASTIC_VERIFY_TLS !== 'false',
+    caCert:process.env.ELASTIC_CA_CERT || '',
+  };
+}
+
+function readCaCertificate(config) {
+  const caPath = config.caCert;
+  const verifyTls = config.verifyTls;
 
   if (!verifyTls) return undefined;
 
-  if (!caPath) {
-    throw new Error('ELASTIC_CA_CERT is required when ELASTIC_VERIFY_TLS is enabled');
-  }
+  if (!caPath) return undefined;
+
+  if (caPath.includes('BEGIN CERTIFICATE')) return caPath;
 
   if (!fs.existsSync(caPath)) {
     throw new Error(
@@ -74,12 +97,13 @@ function readCaCertificate() {
   return fs.readFileSync(caPath);
 }
 
-function requestJson(urlString, body, { method = 'POST' } = {}) {
+function requestJson(urlString, body, { method = 'POST', connection = null } = {}) {
   return new Promise((resolve, reject) => {
+    const config = connectionConfig(connection);
     const target = new URL(urlString);
     const client = target.protocol === 'https:' ? https : http;
     const payload = body == null ? '' : JSON.stringify(body);
-    const ca = target.protocol === 'https:' ? readCaCertificate() : undefined;
+    const ca = target.protocol === 'https:' ? readCaCertificate(config) : undefined;
 
     const request = client.request(
       {
@@ -89,12 +113,12 @@ function requestJson(urlString, body, { method = 'POST' } = {}) {
         method,
         ...(target.protocol === 'https:' && ca ? { ca } : {}),
         ...(target.protocol === 'https:' ? {
-          rejectUnauthorized: process.env.ELASTIC_VERIFY_TLS !== 'false',
+          rejectUnauthorized: config.verifyTls,
         } : {}),
         timeout: 30000,
         headers: {
           Authorization:
-            `ApiKey ${process.env.ELASTIC_API_KEY}`,
+            `ApiKey ${config.apiKey}`,
           'Content-Type': 'application/json',
           Accept: 'application/json',
           ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
@@ -157,6 +181,28 @@ function requestJson(urlString, body, { method = 'POST' } = {}) {
 
 function normalizeAlert(hit, groupWindowMinutes = 5) {
   const fields = hit.fields || {};
+
+  const mitreTechniques = uniqueFieldValues(fields, [
+    'threat.technique.id',
+    'kibana.alert.rule.threat.technique.id',
+    'attack.technique_id',
+  ]).map(value => value.toUpperCase());
+  const tacticIds = uniqueFieldValues(fields, [
+    'threat.tactic.id',
+    'kibana.alert.rule.threat.tactic.id',
+    'attack.tactic_id',
+    'attack.tactic',
+  ]).map(value => value.toUpperCase());
+  const tacticNames = uniqueFieldValues(fields, [
+    'threat.tactic.name',
+    'kibana.alert.rule.threat.tactic.name',
+    'attack.tactic_name',
+    'attack.stage',
+  ]);
+  const mitreTactics = [...new Set([
+    ...tacticNames,
+    ...tacticIds.map(id => TACTIC_NAMES_BY_ID[id]).filter(Boolean),
+  ].map(normalizeTactic))];
 
   const timestamp =
     first(fields, '@timestamp') ||
@@ -236,15 +282,9 @@ function normalizeAlert(hit, groupWindowMinutes = 5) {
     target_db:
       first(fields, 'database.name'),
 
-    mitre_techniques: values(
-      fields,
-      'threat.technique.id'
-    ).map(value => String(value).toUpperCase()),
+    mitre_techniques: mitreTechniques,
 
-    mitre_tactics: values(
-      fields,
-      'threat.tactic.name'
-    ).map(normalizeTactic),
+    mitre_tactics: mitreTactics,
 
     source_system: 'elastic',
     source_index: hit._index,
@@ -295,24 +335,18 @@ function normalizeAlert(hit, groupWindowMinutes = 5) {
   return normalized;
 }
 
-function validateConfiguration() {
-  const required = [
-    'ELASTICSEARCH_URL',
-    'ELASTIC_API_KEY',
-  ];
-
-  for (const key of required) {
-    if (!process.env[key]) {
-      throw new Error(`${key} is not configured`);
-    }
-  }
+function validateConfiguration(connection = null) {
+  const config = connectionConfig(connection);
+  if (!config.url) throw new Error('ELASTICSEARCH_URL is not configured');
+  if (!config.apiKey) throw new Error('ELASTIC_API_KEY is not configured');
+  return config;
 }
 
-async function checkHealth() {
-  validateConfiguration();
-  const baseUrl = process.env.ELASTICSEARCH_URL.replace(/\/$/, '');
+async function checkHealth(connection = null) {
+  const config = validateConfiguration(connection);
+  const baseUrl = config.url.replace(/\/$/, '');
   const started = Date.now();
-  const response = await requestJson(`${baseUrl}/`, null, { method: 'GET' });
+  const response = await requestJson(`${baseUrl}/`, null, { method: 'GET', connection:config });
   return {
     status: 'online', configured: true, reachable: true,
     latency_ms: Date.now() - started,
@@ -329,14 +363,14 @@ async function searchAlerts({
   severities = ['high', 'critical'],
   excludeRules = [],
   groupWindowMinutes = 5,
-} = {}) {
-  validateConfiguration();
+} = {}, connection = null) {
+  const config = validateConfiguration(connection);
 
   const baseUrl =
-    process.env.ELASTICSEARCH_URL.replace(/\/$/, '');
+    config.url.replace(/\/$/, '');
 
   const alias =
-    process.env.ELASTIC_ALERT_ALIAS ||
+    config.alertAlias ||
     '.alerts-security.alerts-default';
 
   if (!/^[A-Za-z0-9._*-]+$/.test(alias)) {
@@ -410,16 +444,136 @@ async function searchAlerts({
 
       'process.name',
       'process.executable',
+      'process.command_line',
+      'process.args',
+      'process.working_directory',
+      'process.entity_id',
+      'process.pid',
+      'process.hash.sha256',
+      'process.code_signature.trusted',
+      'process.code_signature.subject_name',
+      'process.parent.name',
+      'process.parent.executable',
+      'process.parent.command_line',
+      'process.parent.args',
+      'process.parent.entity_id',
+      'process.parent.pid',
+      'process.parent.hash.sha256',
 
       'file.name',
       'file.path',
+      'file.size',
+      'file.mime_type',
+      'file.hash.sha256',
+      'file.code_signature.trusted',
+      'file.code_signature.subject_name',
+
+      'network.direction',
+      'network.transport',
+      'network.protocol',
+      'dns.question.name',
+      'dns.resolved_ip',
+      'url.domain',
+      'url.path',
+      'url.original',
 
       'database.name',
+      'database.operation',
+      'database.query',
+      'database.query_id',
+      'database.transaction_id',
+      'database.duration_ms',
+      'database.rows_affected',
+      'database.schema',
+      'database.table',
+
+      'authentication.type',
+      'authentication.result',
+      'authentication.logon_type',
+      'authentication.mfa',
+      'authentication.session_id',
+      'authentication.failure_reason',
+
+      'winlog.event_id',
+      'winlog.event_data.TargetUserName',
+      'winlog.event_data.IpAddress',
+      'winlog.event_data.WorkstationName',
+      'winlog.event_data.LogonType',
+      'winlog.event_data.AuthenticationPackageName',
+      'winlog.event_data.FailureReason',
+      'winlog.event_data.Status',
+      'winlog.event_data.SubStatus',
+
+      'email.subject',
+      'email.message_id',
+      'email.direction',
+      'email.delivery_action',
+      'email.from.address',
+      'email.to.address',
+      'email.security.spf',
+      'email.security.dkim',
+      'email.security.dmarc',
+      'email.security.reputation',
+      'email.sandbox.status',
+      'email.sandbox.verdict',
+      'email.sandbox.score',
+      'email.sandbox.observed_behaviors',
+
+      'http.request.method',
+      'http.request.bytes',
+      'http.response.status_code',
+      'http.response.bytes',
+      'url.original',
+      'url.query',
+      'user_agent.original',
+      'session.id',
+      'network.transport',
+      'network.protocol',
+      'network.direction',
+
+      'evidence.profile',
+      'evidence.provenance',
+      'evidence.answer_key_included',
+      'evidence.assessment_basis',
+      'evidence.context_completeness',
+      'evidence.observed_context',
+
+      'attack.campaign_id',
+      'attack.stage',
+      'attack.stage_order',
+      'attack.tactic',
+      'attack.tactic_id',
+      'attack.tactic_name',
+      'attack.technique_id',
+      'attack.technique_name',
+      'attack.observed_state',
+      'correlation.session_id',
+      'correlation.sequence',
+      'correlation.join_keys',
+      'correlation.path_position',
+      'correlation.path_length',
+      'security_control.status',
+      'security_control.action',
+      'security_control.observed',
+
+      'policy.id',
+      'policy.category',
+      'policy.violation',
+      'policy.authorized',
+      'policy.security_alert',
+      'policy.disposition',
+      'policy.reason',
+      'change.id',
+      'change.approved',
 
       'threat.tactic.id',
       'threat.tactic.name',
       'threat.technique.id',
       'threat.technique.name',
+      'kibana.alert.rule.threat.tactic.id',
+      'kibana.alert.rule.threat.tactic.name',
+      'kibana.alert.rule.threat.technique.id',
+      'kibana.alert.rule.threat.technique.name',
     ],
 
     query: {
@@ -461,7 +615,8 @@ async function searchAlerts({
 
   const data = await requestJson(
     `${baseUrl}/${alias}/_search`,
-    body
+    body,
+    { connection:config }
   );
 
   const alerts = (
@@ -524,8 +679,8 @@ async function searchAlertsCursor({
   severities = ['high', 'critical'],
   excludeRules = [],
   groupWindowMinutes = 5,
-} = {}) {
-  validateConfiguration();
+} = {}, connection = null) {
+  const config = validateConfiguration(connection);
 
   const safeCursor = validateCursor(cursor);
 
@@ -553,10 +708,10 @@ async function searchAlertsCursor({
   ).toISOString();
 
   const baseUrl =
-    process.env.ELASTICSEARCH_URL.replace(/\/$/, '');
+    config.url.replace(/\/$/, '');
 
   const alias =
-    process.env.ELASTIC_ALERT_ALIAS ||
+    config.alertAlias ||
     '.alerts-security.alerts-default';
 
   if (!/^[A-Za-z0-9._*-]+$/.test(alias)) {
@@ -623,6 +778,28 @@ async function searchAlertsCursor({
     'threat.tactic.name',
     'threat.technique.id',
     'threat.technique.name',
+    'kibana.alert.rule.threat.tactic.id',
+    'kibana.alert.rule.threat.tactic.name',
+    'kibana.alert.rule.threat.technique.id',
+    'kibana.alert.rule.threat.technique.name',
+
+    'attack.campaign_id',
+    'attack.stage',
+    'attack.stage_order',
+    'attack.tactic',
+    'attack.tactic_id',
+    'attack.tactic_name',
+    'attack.technique_id',
+    'attack.technique_name',
+    'attack.observed_state',
+    'correlation.session_id',
+    'correlation.sequence',
+    'correlation.join_keys',
+    'correlation.path_position',
+    'correlation.path_length',
+    'security_control.status',
+    'security_control.action',
+    'security_control.observed',
   ];
 
   const collectedHits = [];
@@ -699,7 +876,8 @@ async function searchAlertsCursor({
 
     const data = await requestJson(
       `${baseUrl}/${alias}/_search`,
-      body
+      body,
+      { connection:config }
     );
 
     const hits = data.hits?.hits || [];
@@ -775,8 +953,8 @@ async function searchAlertsCursor({
  * This function matches the interface expected by pipeline.js.
  * We will activate it only after the independent test succeeds.
  */
-async function fetchAlerts(options = {}) {
-  const result = await searchAlerts(options);
+async function fetchAlerts(options = {}, connection = null) {
+  const result = await searchAlerts(options, connection);
   return result.alerts;
 }
 
@@ -784,11 +962,37 @@ const RAW_EVENT_FIELDS = [
   '@timestamp', 'message', 'event.id', 'event.kind', 'event.dataset',
   'event.category', 'event.type', 'event.action', 'event.outcome', 'event.severity',
   'user.name', 'host.name', 'agent.name', 'source.ip', 'destination.ip',
-  'process.name', 'process.executable', 'process.command_line',
-  'url.domain', 'url.path', 'database.name',
+  'process.name', 'process.executable', 'process.command_line', 'process.entity_id',
+  'process.args', 'process.working_directory', 'process.pid', 'process.hash.sha256',
+  'process.code_signature.trusted', 'process.code_signature.subject_name',
+  'process.parent.name', 'process.parent.executable', 'process.parent.command_line',
+  'process.parent.args', 'process.parent.entity_id', 'process.parent.pid',
+  'process.parent.hash.sha256', 'file.name', 'file.path', 'file.size',
+  'file.mime_type', 'file.hash.sha256', 'file.code_signature.trusted',
+  'file.code_signature.subject_name', 'dns.question.name', 'dns.resolved_ip',
+  'url.domain', 'url.path', 'url.original', 'url.query', 'database.name',
+  'database.operation', 'database.query', 'database.query_id', 'database.transaction_id',
+  'database.duration_ms', 'database.rows_affected', 'database.schema', 'database.table',
+  'authentication.type', 'authentication.result', 'authentication.logon_type',
+  'authentication.mfa', 'authentication.session_id', 'authentication.failure_reason',
+  'email.subject', 'email.message_id', 'email.direction', 'email.delivery_action',
+  'email.from.address', 'email.to.address', 'email.security.spf', 'email.security.dkim',
+  'email.security.dmarc', 'email.security.reputation', 'email.sandbox.status',
+  'email.sandbox.verdict', 'email.sandbox.score', 'email.sandbox.observed_behaviors',
+  'http.request.method', 'http.request.bytes', 'http.response.status_code',
+  'http.response.bytes', 'user_agent.original', 'session.id', 'network.transport',
+  'network.protocol', 'network.direction', 'evidence.profile', 'evidence.provenance',
+  'evidence.answer_key_included', 'evidence.assessment_basis',
+  'evidence.context_completeness', 'evidence.observed_context',
+  'correlation.session_id', 'correlation.sequence', 'correlation.join_keys',
   'policy.id', 'policy.domain', 'policy.category', 'policy.violation',
   'policy.authorized', 'policy.security_alert', 'policy.disposition', 'policy.reason',
-  'change.id', 'change.approved', 'attack.campaign_id', 'attack.stage', 'attack.tactic',
+  'change.id', 'change.approved', 'attack.campaign_id', 'attack.stage',
+  'attack.stage_order', 'attack.tactic', 'attack.tactic_id', 'attack.tactic_name',
+  'attack.technique_id', 'attack.technique_name', 'attack.observed_state',
+  'threat.tactic.id', 'threat.tactic.name', 'threat.technique.id', 'threat.technique.name',
+  'security_control.status', 'security_control.action', 'security_control.observed',
+  'correlation.path_position', 'correlation.path_length',
 ];
 
 function normalizeRawEvent(hit) {
@@ -838,15 +1042,25 @@ function normalizeRawEvent(hit) {
       id: first(fields, 'attack.campaign_id'),
       stage: first(fields, 'attack.stage'),
       tactic: first(fields, 'attack.tactic'),
+      tactic_id: first(fields, 'attack.tactic_id') || first(fields, 'threat.tactic.id'),
+      tactic_name: first(fields, 'attack.tactic_name') || first(fields, 'threat.tactic.name'),
+      technique_id: first(fields, 'attack.technique_id') || first(fields, 'threat.technique.id'),
+      technique_name: first(fields, 'attack.technique_name') || first(fields, 'threat.technique.name'),
+      observed_state: first(fields, 'attack.observed_state'),
+    },
+    security_control: {
+      status: first(fields, 'security_control.status'),
+      action: first(fields, 'security_control.action'),
+      observed: first(fields, 'security_control.observed'),
     },
     message: first(fields, 'message'),
   };
 }
 
-async function searchEvents(options = {}, { request = requestJson } = {}) {
-  validateConfiguration();
-  const baseUrl = process.env.ELASTICSEARCH_URL.replace(/\/$/, '');
-  const indices = process.env.ELASTIC_EVENT_INDICES || 'logs-*';
+async function searchEvents(options = {}, { request = requestJson, connection = null } = {}) {
+  const config = validateConfiguration(connection);
+  const baseUrl = config.url.replace(/\/$/, '');
+  const indices = config.eventIndices || 'logs-*';
   if (!/^[A-Za-z0-9._,*-]{1,300}$/.test(indices)) {
     throw new Error('ELASTIC_EVENT_INDICES contains invalid characters');
   }
@@ -880,7 +1094,8 @@ async function searchEvents(options = {}, { request = requestJson } = {}) {
       sort: [{ '@timestamp': { order: 'desc', unmapped_type: 'date' } }],
       fields: RAW_EVENT_FIELDS,
       query: { bool: { filter: filters } },
-    }
+    },
+    { connection:config }
   );
   return (data.hits?.hits || []).map(normalizeRawEvent);
 }
@@ -893,5 +1108,6 @@ module.exports = {
   normalizeAlert,
   normalizeRawEvent,
   checkHealth,
+  connectionConfig,
   validateConfiguration,
 };

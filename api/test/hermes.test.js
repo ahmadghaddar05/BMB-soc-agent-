@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { createHermesClient } = require('../src/services/hermes/client');
 const { HermesError } = require('../src/services/hermes/errors');
 const { parseAnalystTurn, parseChatOutput, validateCitations } = require('../src/services/hermes/schemas');
-const { chatHermes } = require('../src/services/hermes/chat');
+const { chatHermes, specsForAuthorization } = require('../src/services/hermes/chat');
 
 const config = {
   hermesUrl: 'http://hermes.test:8642/v1', hermesApiKey: 'secret-key', hermesModel: 'hermes-agent',
@@ -15,6 +15,23 @@ const config = {
   hermesRequireToollessProfile: true,
   hermesForbiddenTools: ['terminal', 'write_file', 'web_search', 'delegate_task'],
 };
+
+test('executive assistant receives only the aggregate posture tool', () => {
+  const specs = [
+    { name:'get_executive_summary' },
+    { name:'search_alerts' },
+    { name:'get_incident' },
+    { name:'request_soc_action' },
+  ];
+  assert.deepEqual(
+    specsForAuthorization(specs, { role:'executive' }).map(item => item.name),
+    ['get_executive_summary']
+  );
+  assert.deepEqual(
+    specsForAuthorization(specs, { role:'soc_analyst' }).map(item => item.name),
+    specs.map(item => item.name)
+  );
+});
 
 function jsonResponse(body, status = 200, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -120,12 +137,16 @@ test('Hermes retries transient responses with an idempotency key', async () => {
 
 test('Hermes run polling returns normalized usage and model output', async () => {
   let polls = 0;
+  let submittedBody = null;
   const client = createHermesClient({
     config, sleepImpl: async () => {},
     fetchImpl: async (url, options) => {
       const capability = handshakeResponse(url);
       if (capability) return capability;
-      if (url.endsWith('/runs') && options.method === 'POST') return jsonResponse({ run_id: 'run-1', status: 'started' }, 202);
+      if (url.endsWith('/runs') && options.method === 'POST') {
+        submittedBody = JSON.parse(options.body);
+        return jsonResponse({ run_id: 'run-1', status: 'started' }, 202);
+      }
       if (url.endsWith('/runs/run-1')) {
         polls += 1;
         return jsonResponse(polls === 1
@@ -147,6 +168,168 @@ test('Hermes run polling returns normalized usage and model output', async () =>
   assert.deepEqual(submitted, ['run-1']);
   assert.equal(result.usage.total_tokens, 15);
   assert.equal(result.output.includes('Investigate'), true);
+  assert.equal(submittedBody.model, 'hermes-agent');
+  assert.equal(Object.hasOwn(submittedBody, 'provider'), false);
+});
+
+test('Hermes submits an explicit allowlisted provider and model override per run', async () => {
+  let submittedBody = null;
+  const client = createHermesClient({
+    config, sleepImpl: async () => {},
+    fetchImpl: async (url, options) => {
+      const capability = handshakeResponse(url);
+      if (capability) return capability;
+      if (url.endsWith('/runs') && options.method === 'POST') {
+        submittedBody = JSON.parse(options.body);
+        return jsonResponse({ run_id:'run-openrouter', status:'started' }, 202);
+      }
+      if (url.endsWith('/runs/run-openrouter')) {
+        return jsonResponse({
+          object:'hermes.run',
+          run_id:'run-openrouter',
+          status:'completed',
+          model:'meta-llama/llama-3.3-70b-instruct',
+          output:'READY',
+          usage:{ input_tokens:3, output_tokens:1, total_tokens:4 },
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    },
+  });
+  const result = await client.runAgent({
+    input:'test',
+    instructions:'test',
+    provider:'openrouter',
+    model:'meta-llama/llama-3.3-70b-instruct',
+  });
+  assert.equal(submittedBody.provider, 'openrouter');
+  assert.equal(submittedBody.model, 'meta-llama/llama-3.3-70b-instruct');
+  assert.equal(result.model, 'meta-llama/llama-3.3-70b-instruct');
+  assert.equal(result.route.verified, true);
+});
+
+test('Hermes fails closed when an explicit provider route does not report its executed model', async () => {
+  const client = createHermesClient({
+    config, sleepImpl: async () => {},
+    fetchImpl: async (url, options) => {
+      const capability = handshakeResponse(url);
+      if (capability) return capability;
+      if (url.endsWith('/runs') && options.method === 'POST') {
+        return jsonResponse({ run_id:'run-unverified', status:'started' }, 202);
+      }
+      if (url.endsWith('/runs/run-unverified')) {
+        return jsonResponse({
+          object:'hermes.run',
+          run_id:'run-unverified',
+          status:'completed',
+          output:'READY',
+          usage:{ input_tokens:3, output_tokens:1, total_tokens:4 },
+        });
+      }
+      if (url.endsWith('/runs/run-unverified/stop')) return jsonResponse({ status:'stopping' });
+      throw new Error(`Unexpected URL ${url}`);
+    },
+  });
+  await assert.rejects(
+    client.runAgent({
+      input:'test',
+      instructions:'test',
+      provider:'openrouter',
+      model:'meta-llama/llama-3.3-70b-instruct',
+    }),
+    error => error.code === 'HERMES_ROUTE_UNVERIFIED'
+  );
+});
+
+test('Hermes fails closed when an explicit provider route reports another model', async () => {
+  const client = createHermesClient({
+    config, sleepImpl: async () => {},
+    fetchImpl: async (url, options) => {
+      const capability = handshakeResponse(url);
+      if (capability) return capability;
+      if (url.endsWith('/runs') && options.method === 'POST') {
+        return jsonResponse({ run_id:'run-mismatch', status:'started' }, 202);
+      }
+      if (url.endsWith('/runs/run-mismatch')) {
+        return jsonResponse({
+          object:'hermes.run',
+          run_id:'run-mismatch',
+          status:'completed',
+          model:'gpt-5.6-sol',
+          output:'READY',
+          usage:{ input_tokens:3, output_tokens:1, total_tokens:4 },
+        });
+      }
+      if (url.endsWith('/runs/run-mismatch/stop')) return jsonResponse({ status:'stopping' });
+      throw new Error(`Unexpected URL ${url}`);
+    },
+  });
+  await assert.rejects(
+    client.runAgent({
+      input:'test',
+      instructions:'test',
+      provider:'openrouter',
+      model:'meta-llama/llama-3.3-70b-instruct',
+    }),
+    error => error.code === 'HERMES_ROUTE_MISMATCH'
+  );
+});
+
+test('Hermes failed runs retain a safe provider reason without leaking credentials', async () => {
+  const client = createHermesClient({
+    config, sleepImpl: async () => {},
+    fetchImpl: async (url, options) => {
+      const capability = handshakeResponse(url);
+      if (capability) return capability;
+      if (url.endsWith('/runs') && options.method === 'POST') {
+        return jsonResponse({ run_id: 'run-failed', status: 'started' }, 202);
+      }
+      if (url.endsWith('/runs/run-failed')) {
+        return jsonResponse({
+          object: 'hermes.run',
+          run_id: 'run-failed',
+          status: 'failed',
+          error: {
+            code: 'insufficient_quota',
+            message: 'Provider quota exhausted for token sk-super-secret-value',
+          },
+        });
+      }
+      if (url.endsWith('/runs/run-failed/stop')) return jsonResponse({ status: 'failed' });
+      throw new Error(`Unexpected URL ${url}`);
+    },
+  });
+
+  await assert.rejects(
+    client.runAgent({ input: 'question', instructions: 'instructions' }),
+    error => {
+      assert.equal(error.code, 'HERMES_RUN_FAILED');
+      assert.match(error.message, /Provider quota exhausted/);
+      assert.doesNotMatch(error.message, /sk-super-secret-value/);
+      assert.equal(error.details.code, 'insufficient_quota');
+      assert.equal(error.hermesRunId, 'run-failed');
+      return true;
+    }
+  );
+});
+
+test('Hermes HTTP failures retain a safe structured provider reason', async () => {
+  const client = createHermesClient({
+    config,
+    fetchImpl: async () => jsonResponse({
+      error: { code: 'model_unavailable', message: 'Configured model is temporarily unavailable' },
+    }, 503),
+    sleepImpl: async () => {},
+  });
+
+  await assert.rejects(
+    client.request('/test', { retries: 0 }),
+    error => {
+      assert.equal(error.code, 'HERMES_HTTP_ERROR');
+      assert.match(error.message, /Configured model is temporarily unavailable/);
+      return true;
+    }
+  );
 });
 
 test('cancelling a submitted Hermes run invokes the stop endpoint', async () => {
@@ -171,6 +354,12 @@ test('cancelling a submitted Hermes run invokes the stop endpoint', async () => 
 
 test('structured chat output rejects invalid JSON and hallucinated evidence IDs', () => {
   assert.throws(() => parseChatOutput('not-json'), error => error.code === 'HERMES_INVALID_OUTPUT');
+  assert.equal(parseChatOutput(`Here is the requested JSON:
+{"answer":"No stored evidence was found.","citations":[],"confidence":"low"}`).confidence, 'low');
+  assert.throws(
+    () => parseChatOutput('{"answer":"one","citations":[],"confidence":"low"} {"answer":"two","citations":[],"confidence":"low"}'),
+    error => error.code === 'HERMES_INVALID_OUTPUT'
+  );
   const output = parseChatOutput(JSON.stringify({
     answer: 'Unsupported citation', citations: [{ type: 'alert', id: 'missing' }], confidence: 'low',
   }));
@@ -245,6 +434,62 @@ test('grounded chat persists every Hermes step, tool trace, evidence, and final 
   assert.deepEqual(result.citations, [{ type: 'alert', id: 'A' }]);
   assert.match(inputs[0].instructions, /untrusted SOC data/i);
   assert.match(inputs[1].input, /\\u003c\/untrusted_soc_data\\u003e/);
+});
+
+test('model identity answers are grounded in Hermes run metadata, not generated self-identification', async () => {
+  let completed = null;
+  let submittedInstructions = '';
+  const store = {
+    async beginChat() {
+      return { conversationId:'conversation', runId:'local-run', idempotencyKey:'key', history:[] };
+    },
+    async attachHermesRun() {},
+    async recordHermesStep() {},
+    async completeChat(value) { completed = value; },
+    async failChat() {},
+  };
+  const client = {
+    async runAgent(options) {
+      submittedInstructions = options.instructions;
+      await options.onSubmitted('hermes-run-llama');
+      return {
+        runId:'hermes-run-llama',
+        model:'meta-llama/llama-3.3-70b-instruct',
+        attempts:1,
+        latencyMs:2,
+        capabilities:{ safe:true },
+        usage:{ prompt_tokens:3, completion_tokens:4, total_tokens:7 },
+        output:'I am GPT-5.6 Sol through openai-codex.',
+      };
+    },
+  };
+
+  const result = await chatHermes('Which model are you using?', {
+    actor:'administrator',
+    requestId:'request-model-identity',
+    client,
+    store,
+    toolkit:{ specs:[] },
+    settings:{ ai_model_profile:'llama_3_3_70b' },
+    authorization:{ canReadSoc:true, role:'administrator' },
+    config:{
+      hermesModel:'hermes-agent',
+      hermesAnalystMaxToolCalls:1,
+      hermesAnalystTimeoutMs:1000,
+    },
+  });
+
+  assert.equal(
+    result.answer,
+    'This request ran through the Hermes gateway using meta-llama/llama-3.3-70b-instruct.'
+  );
+  assert.equal(result.model, 'meta-llama/llama-3.3-70b-instruct');
+  assert.equal(result.confidence, 'high');
+  assert.deepEqual(result.citations, []);
+  assert.match(result.limitations[0], /Hermes run metadata/i);
+  assert.equal(completed.output.answer, result.answer);
+  assert.match(submittedInstructions, /server selected the requested runtime route/i);
+  assert.doesNotMatch(result.answer, /GPT-5\.6/i);
 });
 
 test('invalid grounded output records the submitted Hermes sub-run as failed', async () => {

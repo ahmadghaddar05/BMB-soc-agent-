@@ -7,6 +7,7 @@ const { validate } = require('./schemas');
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const RETRIABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const FAILURE_DETAIL_LIMIT = 240;
 
 function normalizedBaseUrl(value) {
   const trimmed = String(value || '').replace(/\/+$/, '');
@@ -70,6 +71,87 @@ function isForbiddenTool(toolName, forbidden) {
   });
 }
 
+function redactFailureText(value) {
+  return String(value || '')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/gi, '[redacted]')
+    .replace(/\b(?:api[_ -]?key|authorization|bearer|token|secret)\s*[:=]\s*[^\s,;]+/gi, '[redacted]')
+    .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/gi, '$1[redacted]@')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, FAILURE_DETAIL_LIMIT);
+}
+
+function failureSummary(value, depth = 0) {
+  if (depth > 2 || value == null) return null;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const message = redactFailureText(value);
+    return message ? { message } : null;
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const code = redactFailureText(value.code || value.type || value.status || '');
+  const direct = value.message || value.detail || value.reason || value.error_description;
+  const message = redactFailureText(direct || '');
+  if (message || code) return { ...(code ? { code } : {}), ...(message ? { message } : {}) };
+  return failureSummary(value.error, depth + 1);
+}
+
+function normalizeRouteValue(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function verifyRequestedRoute(state, { model, provider } = {}) {
+  // The gateway default is intentionally allowed to resolve its own model.
+  // An explicit provider selection is different: accepting absent or mismatched
+  // runtime metadata could silently bill the gateway's default provider.
+  if (!provider) {
+    return {
+      verified: Boolean(normalizeRouteValue(state?.model)),
+      requested_model: model || null,
+      requested_provider: null,
+      returned_model: state?.model || null,
+    };
+  }
+
+  const requestedModel = normalizeRouteValue(model);
+  const returnedModel = normalizeRouteValue(state?.model);
+  if (!returnedModel) {
+    throw new HermesError(
+      'HERMES_ROUTE_UNVERIFIED',
+      'Hermes did not report the model that executed the explicitly selected provider route',
+      {
+        status: 503,
+        details: {
+          requested_provider: provider,
+          requested_model: model,
+          returned_model: null,
+        },
+      }
+    );
+  }
+  if (returnedModel !== requestedModel) {
+    throw new HermesError(
+      'HERMES_ROUTE_MISMATCH',
+      'Hermes executed a different model than the explicitly selected provider route',
+      {
+        status: 503,
+        details: {
+          requested_provider: provider,
+          requested_model: model,
+          returned_model: state.model,
+        },
+      }
+    );
+  }
+  return {
+    verified: true,
+    requested_model: model,
+    requested_provider: provider,
+    returned_model: state.model,
+  };
+}
+
 function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch, sleepImpl = null } = {}) {
   if (typeof fetchImpl !== 'function') throw new Error('A fetch implementation is required');
   const baseUrl = normalizedBaseUrl(config.hermesUrl);
@@ -123,15 +205,18 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
       }
 
       if (!response.ok) {
-        response.body?.cancel?.().catch(() => {});
+        let responseFailure = null;
+        try { responseFailure = failureSummary(await readJson(response)); }
+        catch { response.body?.cancel?.().catch(() => {}); }
         cleanup();
         const retriable = RETRIABLE_STATUSES.has(response.status);
+        const reason = responseFailure?.message || responseFailure?.code;
         lastError = new HermesError(
           response.status === 401 || response.status === 403 ? 'HERMES_AUTH_FAILED' : 'HERMES_HTTP_ERROR',
           response.status === 401 || response.status === 403
             ? 'Hermes authentication failed'
-            : `Hermes request failed with HTTP ${response.status}`,
-          { status: response.status === 429 ? 503 : 502, retriable }
+            : `Hermes request failed with HTTP ${response.status}${reason ? `: ${reason}` : ''}`,
+          { status: response.status === 429 ? 503 : 502, retriable, details: responseFailure }
         );
         lastError.attempts = attempt + 1;
         if (!retriable || attempt >= maxRetries) throw lastError;
@@ -227,16 +312,27 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
     } catch { return false; }
   }
 
-  async function runAgent({ input, instructions, sessionId, sessionKey, conversationHistory = [], signal, idempotencyKey, onSubmitted } = {}) {
+  async function runAgent({
+    input, instructions, sessionId, sessionKey, conversationHistory = [], signal,
+    idempotencyKey, onSubmitted, model, provider,
+  } = {}) {
     const startedAt = Date.now();
     let runId = null;
     let attempts = 0;
+    const selectedModel = model || config.hermesModel;
+    if (!/^[A-Za-z0-9._:/-]{1,200}$/.test(selectedModel)) {
+      throw new HermesError('HERMES_MODEL_INVALID', 'The requested Hermes model is invalid', { status: 400 });
+    }
+    if (provider != null && !/^[A-Za-z0-9._-]{1,80}$/.test(provider)) {
+      throw new HermesError('HERMES_PROVIDER_INVALID', 'The requested Hermes provider is invalid', { status: 400 });
+    }
     try {
       const capabilitySnapshot = await handshake({ signal });
       const submit = await request('/runs', {
         method: 'POST',
         body: {
-          model: config.hermesModel,
+          model: selectedModel,
+          ...(provider ? { provider } : {}),
           input,
           instructions,
           session_id: sessionId,
@@ -245,6 +341,7 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
         headers: {
           ...(sessionId ? { 'X-Hermes-Session-Id': sessionId } : {}),
           ...(sessionKey ? { 'X-Hermes-Session-Key': sessionKey } : {}),
+          ...(provider ? { 'X-Hermes-Model': selectedModel } : {}),
         },
         signal,
         idempotencyKey: idempotencyKey || crypto.randomUUID(),
@@ -270,13 +367,15 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
           if (typeof state.output !== 'string' || !state.output.trim()) {
             throw new HermesError('HERMES_INVALID_OUTPUT', 'Hermes returned an empty response', { status: 502 });
           }
+          const route = verifyRequestedRoute(state, { model: selectedModel, provider });
           const usage = {
             prompt_tokens: state.usage?.input_tokens || 0,
             completion_tokens: state.usage?.output_tokens || 0,
             total_tokens: state.usage?.total_tokens || 0,
           };
           return {
-            runId, output: state.output, model: state.model || config.hermesModel,
+            runId, output: state.output, model: state.model || selectedModel,
+            provider: provider || null, route,
             usage, attempts, latencyMs: Date.now() - startedAt, capabilities: capabilitySnapshot,
           };
         }
@@ -284,7 +383,13 @@ function createHermesClient({ config = runtimeConfig(), fetchImpl = global.fetch
           throw new HermesError('HERMES_APPROVAL_REQUIRED', 'Hermes requested an unsupported host-tool approval', { status: 503 });
         }
         if (state.status === 'failed') {
-          throw new HermesError('HERMES_RUN_FAILED', 'Hermes could not complete the run', { status: 502 });
+          const failure = failureSummary(state.error);
+          const reason = failure?.message || failure?.code;
+          throw new HermesError(
+            'HERMES_RUN_FAILED',
+            `Hermes could not complete the run${reason ? `: ${reason}` : ''}`,
+            { status: 502, details: failure }
+          );
         }
         if (state.status === 'cancelled') throw abortError();
       }
@@ -321,4 +426,7 @@ function defaultHermesClient() {
   return singleton;
 }
 
-module.exports = { createHermesClient, defaultHermesClient, isForbiddenTool, normalizedBaseUrl };
+module.exports = {
+  createHermesClient, defaultHermesClient, failureSummary, isForbiddenTool, normalizedBaseUrl,
+  verifyRequestedRoute,
+};

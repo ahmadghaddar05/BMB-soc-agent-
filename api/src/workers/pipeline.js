@@ -2,11 +2,14 @@
 const crypto = require('crypto');
 const db = require('../db');
 const { fetchAlerts: fetchWazuhAlerts } = require('../services/wazuh');
+const { fetchAlerts: fetchSplunkAlerts } = require('../services/splunk');
+const { activeConnector } = require('../services/connectors');
 const {
   fetchAlerts: fetchElasticAlerts,
   searchAlertsCursor,
 } = require('../services/elastic');
 const { runtimeConfig } = require('../config');
+const { modelIdentity, resolveAiModelProfile } = require('../services/ai-model-profiles');
 const {
   OUTPUT_SCHEMA_VERSION,
   PROMPT_VERSION,
@@ -78,7 +81,8 @@ async function ingestAlerts(alerts, runId) {
         (String(a.id).startsWith('mock-') ? 'mock' : 'wazuh');
 
       const r = await db.query(
-        `INSERT INTO alerts
+        `WITH inserted AS (
+         INSERT INTO alerts
            (id, timestamp, rule_id, rule_level, rule_desc, rule_groups,
             decoder, agent_id, agent_name, full_log,
             src_ip, dst_ip, username, hostname, target_db, process,
@@ -91,7 +95,40 @@ async function ingestAlerts(alerts, runId) {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
                  $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
                  $31,$32,$33,'pending','pending',$34,NOW())
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT (id) DO NOTHING
+         RETURNING id,source_system,source_index,fetched_at
+       ), collected AS (
+         INSERT INTO workflow_stage_events(
+           entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+           input_summary,output_summary,reason,idempotency_key,finished_at
+         )
+         SELECT 'alert',id,'collected','completed','system','system:collector',$34::integer,
+                jsonb_build_object(
+                  'source_system',source_system,
+                  'source_index',source_index
+                ),
+                jsonb_build_object('stored',true,'fetched_at',fetched_at),
+                'Alert was collected from the configured security source.',
+                CONCAT('fetch:',$34::integer,':alert:',id,':collected'),NOW()
+         FROM inserted
+         ON CONFLICT(idempotency_key) DO NOTHING
+       ), normalized AS (
+         INSERT INTO workflow_stage_events(
+           entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+           input_summary,output_summary,reason,idempotency_key,finished_at
+         )
+         SELECT 'alert',id,'normalized','completed','system','system:normalizer',$34::integer,
+                jsonb_build_object('source_system',source_system),
+                jsonb_build_object(
+                  'canonical_alert_id',id,
+                  'source_index',source_index
+                ),
+                'Source evidence was mapped into the canonical BMB alert schema.',
+                CONCAT('fetch:',$34::integer,':alert:',id,':normalized'),NOW()
+         FROM inserted
+         ON CONFLICT(idempotency_key) DO NOTHING
+       )
+       SELECT id FROM inserted`,
         [
           a.id, a.timestamp, a.rule_id, a.rule_level, a.rule_desc,
           a.rule_groups || [], a.decoder, a.agent_id, a.agent_name,
@@ -133,7 +170,9 @@ async function ingestAlerts(alerts, runId) {
 }
 
 // ── Enrich pending alerts ─────────────────────────────────────────────────
-async function enrichPending(limit = 100) {
+async function enrichPending(limit = 100, {
+  fetchRunId = null, actor = 'system:enrichment',
+} = {}) {
   const { rows } = await db.query(
     `SELECT id, src_ip, username, hostname, dst_ip, timestamp
      FROM alerts WHERE enrichment_status='pending'
@@ -145,21 +184,56 @@ async function enrichPending(limit = 100) {
     try {
       const ctx = await enrichAlert(row);
       // Store as JSONB -- pass object directly, pg handles serialization
+      const eventKey = `enrichment:${fetchRunId || 'standalone'}:${row.id}:${crypto.randomUUID()}`;
       await db.query(
-        `UPDATE alerts
-         SET enrichment=$1, enrichment_status='enriched', enriched_at=NOW()
-         WHERE id=$2`,
-        [ctx, row.id]          // pg will serialize the object to JSONB
+        `WITH changed AS (
+           UPDATE alerts
+           SET enrichment=$1, enrichment_status='enriched', enriched_at=NOW()
+           WHERE id=$2
+           RETURNING id,enriched_at
+         ), recorded AS (
+           INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+             input_summary,output_summary,reason,idempotency_key,finished_at
+           )
+           SELECT 'alert',id,'enriched','completed','system',$3::text,$4::integer,
+                  jsonb_build_object('service','security_enrichment'),
+                  jsonb_build_object('context_available',true),
+                  'Identity, asset, endpoint, threat-intelligence, and vulnerability context was requested.',
+                  $5::text,enriched_at
+           FROM changed
+           ON CONFLICT(idempotency_key) DO NOTHING
+         )
+         SELECT id FROM changed`,
+        [ctx, row.id, actor, fetchRunId, eventKey]
       );
       return 'enriched';
     } catch (err) {
       const msg = safeError(err);
       console.error(`[enrich] failed for ${row.id}:`, msg);
+      const eventKey = `enrichment:${fetchRunId || 'standalone'}:${row.id}:${crypto.randomUUID()}`;
       await db.query(
-        `UPDATE alerts
-         SET enrichment_status='enrichment_failed', enrichment_error=$1
-         WHERE id=$2`,
-        [msg.slice(0, 500), row.id]
+        `WITH changed AS (
+           UPDATE alerts
+           SET enrichment_status='enrichment_failed', enrichment_error=$1
+           WHERE id=$2
+           RETURNING id
+         ), recorded AS (
+           INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+             input_summary,output_summary,reason,error_code,error_message,
+             idempotency_key,finished_at
+           )
+           SELECT 'alert',id,'enriched','failed','system',$3::text,$4::integer,
+                  jsonb_build_object('service','security_enrichment'),
+                  '{}'::jsonb,
+                  'Enrichment context could not be persisted as a completed stage.',
+                  'ENRICHMENT_FAILED',$1::text,$5::text,NOW()
+           FROM changed
+           ON CONFLICT(idempotency_key) DO NOTHING
+         )
+         SELECT id FROM changed`,
+        [msg.slice(0, 500), row.id, actor, fetchRunId, eventKey]
       );
       return 'failed';
     }
@@ -172,7 +246,7 @@ async function enrichPending(limit = 100) {
 
 // ── Triage enriched alerts ────────────────────────────────────────────────
 async function triagePending(settings, limit = 50, alertId = null, {
-  actor = 'system:scheduler', bypassCache = false,
+  actor = 'system:scheduler', bypassCache = false, fetchRunId = null,
 } = {}) {
   const scopedCondition = alertId ? 'AND id=$1' : '';
   const queryParams = alertId ? [alertId, limit] : [limit];
@@ -202,10 +276,12 @@ async function triagePending(settings, limit = 50, alertId = null, {
   let llm_tokens = 0, prompt_tokens = 0, completion_tokens = 0;
   let agentic_escalations = 0, budget_exhausted = false;
   const config = runtimeConfig();
+  const activeModel = resolveAiModelProfile(settings, config);
+  const activeModelIdentity = modelIdentity(activeModel);
 
   for (const row of rows) {
     const sig = alertSignature(row);
-    const { cacheKey, enrichmentHash } = triageCacheIdentity(row, sig, config.hermesModel);
+    const { cacheKey, enrichmentHash } = triageCacheIdentity(row, sig, activeModelIdentity);
     try {
       let verdict, source, triageRunId = null;
 
@@ -218,7 +294,7 @@ async function triagePending(settings, limit = 50, alertId = null, {
              AND output_schema_version=$5 AND model=$6
              AND expires_at>NOW() AND agent_run_id IS NOT NULL`,
           [cacheKey, sig, enrichmentHash, PROMPT_VERSION,
-            OUTPUT_SCHEMA_VERSION, config.hermesModel]
+            OUTPUT_SCHEMA_VERSION, activeModelIdentity]
         );
         if (c.rows.length) {
           verdict = c.rows[0].verdict;
@@ -273,7 +349,7 @@ async function triagePending(settings, limit = 50, alertId = null, {
                agent_run_id=EXCLUDED.agent_run_id,
                expires_at=EXCLUDED.expires_at,updated_at=NOW()`,
             [cacheKey, row.rule_id, verdict, sig, PROMPT_VERSION,
-              OUTPUT_SCHEMA_VERSION, config.hermesModel, enrichmentHash,
+              OUTPUT_SCHEMA_VERSION, activeModelIdentity, enrichmentHash,
               triageRunId, String(cacheTtlHours)]
           );
         }
@@ -282,20 +358,76 @@ async function triagePending(settings, limit = 50, alertId = null, {
       const storedVerdict = {
         ...verdict, signature: sig, triage_source: source, cluster_size: 1,
       };
+      const confidence = Number.isFinite(Number(verdict.confidence))
+        ? Math.min(1, Math.max(0, Number(verdict.confidence))) : null;
+      const limitations = Array.isArray(verdict.limitations) ? verdict.limitations : [];
       await db.query(
-        `UPDATE alerts SET verdict=$1,triage_status='triaged',triaged_at=NOW(),
-           auto_closed=false,auto_close_reason=NULL,signature=$2,triage_run_id=$3
-         WHERE id=$4`,
-        [storedVerdict, sig, triageRunId, row.id]
+        `WITH changed AS (
+           UPDATE alerts SET verdict=$1,triage_status='triaged',triaged_at=NOW(),
+             auto_closed=false,auto_close_reason=NULL,signature=$2,triage_run_id=$3
+           WHERE id=$4
+           RETURNING id,triaged_at
+         ), recorded AS (
+           INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+             agent_run_id,provider,model,confidence_kind,confidence,
+             input_summary,output_summary,reason,limitations,idempotency_key,finished_at
+           )
+           SELECT 'alert',id,'triaged','completed',$5::text,$6::text,$16::integer,$3::uuid,'hermes',$7::text,
+                  'triage',$8::double precision,
+                  jsonb_build_object('triage_source',$9::text,'cache_used',$5::text='cache'),
+                  jsonb_build_object(
+                    'verdict',$10::text,
+                    'severity',$11::text,
+                    'attack_stage',$12::text,
+                    'citation_count',$13::integer
+                  ),
+                  $14::text,$15::jsonb,
+                  CONCAT('triage:',$3::uuid,':alert:',id,':',$9::text),triaged_at
+           FROM changed
+           ON CONFLICT(idempotency_key) DO NOTHING
+         )
+         SELECT id FROM changed`,
+        [
+          storedVerdict, sig, triageRunId, row.id,
+          source === 'cache' ? 'cache' : 'ai', actor,
+          verdict.model || activeModelIdentity,
+          confidence, source, verdict.verdict || null, verdict.severity || null,
+          verdict.attack_stage || null,
+          Array.isArray(verdict.citations) ? verdict.citations.length : 0,
+          verdict.narrative || 'Evidence-grounded triage completed.',
+          JSON.stringify(limitations),
+          fetchRunId,
+        ]
       );
       triaged++;
     } catch (err) {
       const msg = safeError(err);
       console.error(`[triage] alert ${row.id} failed:`, msg);
       await db.query(
-        `UPDATE alerts SET triage_status='triage_failed',triage_error=$1,
-           signature=$2,auto_closed=false,auto_close_reason=NULL WHERE id=$3`,
-        [msg.slice(0, 500), sig, row.id]
+        `WITH changed AS (
+           UPDATE alerts SET triage_status='triage_failed',triage_error=$1,
+             signature=$2,auto_closed=false,auto_close_reason=NULL WHERE id=$3
+           RETURNING id
+         ), recorded AS (
+           INSERT INTO workflow_stage_events(
+             entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+             input_summary,output_summary,reason,error_code,error_message,
+             idempotency_key,finished_at
+           )
+           SELECT 'alert',id,'triaged','failed','ai',$4::text,$7::integer,
+                  jsonb_build_object('mode',$5::text),
+                  '{}'::jsonb,
+                  'AI triage did not produce a valid persisted verdict.',
+                  'TRIAGE_FAILED',$1::text,$6::text,NOW()
+           FROM changed
+           ON CONFLICT(idempotency_key) DO NOTHING
+         )
+         SELECT id FROM changed`,
+        [
+          msg.slice(0, 500), sig, row.id, actor, mode,
+          `triage-failed:${row.id}:${crypto.randomUUID()}`, fetchRunId,
+        ]
       );
       failed++;
     }
@@ -337,9 +469,17 @@ async function retriageAlert(id, settings, { actor = 'system:retriage' } = {}) {
 }
 
 // ── Full run cycle ────────────────────────────────────────────────────────
-async function runCycle(trigger = 'scheduler') {
+async function runCycle(trigger = 'scheduler', options = {}) {
+  const collect = options.collect ?? true;
+  const processStored = options.process ?? true;
+
+  if (!collect && !processStored) {
+    throw new Error('A pipeline cycle must collect alerts, process stored alerts, or both');
+  }
   const settings = await db.getAllSettings();
-  const source   = process.env.ALERT_SOURCE || settings.alert_source || 'mock';
+  const managedConnector = await activeConnector();
+  const source = managedConnector?.source || process.env.ALERT_SOURCE || settings.alert_source || 'mock';
+  const sourceConnection = managedConnector?.connection || null;
 
   const minutes = source === 'elastic'
     ? parseInt(settings.elastic_lookback_minutes || 1)
@@ -355,8 +495,11 @@ async function runCycle(trigger = 'scheduler') {
     ? parseInt(settings.elastic_limit || 20)
     : parseInt(settings.limit || 200);
 
-  const mode =
-    settings.triage_mode || 'pipeline';
+  const configuredMode = settings.triage_mode || 'pipeline';
+  const mode = collect && processStored
+    ? configuredMode
+    : collect ? 'collection'
+      : 'processing';
 
   const runId = await db.startFetchRun(trigger, mode);
   console.log(`[cycle] run #${runId} started (trigger=${trigger})`);
@@ -374,28 +517,33 @@ async function runCycle(trigger = 'scheduler') {
   };
 
   try {
-    // 1. Fetch from the selected source
-    let alerts;
-    let elasticCursorResult = null;
+    // 1. Fetch and persist source alerts. The automatic live collector calls
+    // this stage independently from AI processing so monitoring stays current
+    // even while triage/correlation is disabled or still running.
+    if (collect) {
+      let alerts;
+      let elasticCursorResult = null;
 
-    if (source === 'elastic') {
-      const statuses = (
-        settings.elastic_alert_statuses ||
-        'open,acknowledged'
-      )
-        .split(',')
-        .map(value => value.trim())
-        .filter(Boolean);
+      if (source === 'elastic') {
+        const statuses = (
+          settings.elastic_alert_statuses ||
+          'open,acknowledged'
+        )
+          .split(',')
+          .map(value => value.trim())
+          .filter(Boolean);
 
-      const excludeRules = (
-        settings.elastic_exclude_rules || ''
-      )
-        .split(',')
-        .map(value => value.trim())
-        .filter(Boolean);
+        const excludeRules = (
+          settings.elastic_exclude_rules || ''
+        )
+          .split(',')
+          .map(value => value.trim())
+          .filter(Boolean);
 
-      const cursorEnabled =
-        (settings.elastic_cursor_enabled || 'false') === 'true';
+        // Dashboard-managed Elastic connectors always use their own durable
+        // cursor. The legacy setting only governs environment configuration.
+        const cursorEnabled = Boolean(managedConnector) ||
+          (settings.elastic_cursor_enabled || 'false') === 'true';
 
       /*
        * Automatic Elastic collection must always use the persistent
@@ -404,148 +552,164 @@ async function runCycle(trigger = 'scheduler') {
        *
        * Manual runs may still use the non-cursor mode for testing.
        */
-      if (
-        trigger === 'scheduler' &&
-        !cursorEnabled
-      ) {
-        throw new Error(
-          'Automatic Elastic collection requires ' +
-          'elastic_cursor_enabled=true; refusing unsafe fallback'
-        );
-      }
-
-      const commonElasticOptions = {
-        minRiskScore,
-        statuses,
-        severities: ['high', 'critical'],
-        excludeRules,
-        groupWindowMinutes: parseInt(
-          settings.elastic_group_window_minutes || 5,
-          10
-        ),
-      };
-
-      if (cursorEnabled) {
-        let cursor;
-
-        try {
-          cursor = JSON.parse(
-            settings.elastic_cursor_json || ''
-          );
-        } catch {
+        if (
+          ['scheduler', 'live-collector'].includes(trigger) &&
+          !cursorEnabled
+        ) {
           throw new Error(
-            'elastic_cursor_json is not valid JSON'
+            'Automatic Elastic collection requires ' +
+            'elastic_cursor_enabled=true; refusing unsafe fallback'
           );
         }
 
-        elasticCursorResult =
-          await searchAlertsCursor({
+        const commonElasticOptions = {
+          minRiskScore,
+          statuses,
+          severities: ['high', 'critical'],
+          excludeRules,
+          groupWindowMinutes: parseInt(
+            settings.elastic_group_window_minutes || 5,
+            10
+          ),
+        };
+
+        if (cursorEnabled) {
+          let cursor;
+
+          try {
+            cursor = managedConnector
+              ? managedConnector.collectionState?.elastic_cursor || [
+                new Date(Date.now() - minutes * 60 * 1000).toISOString(),
+                '00000000-0000-0000-0000-000000000000',
+              ]
+              : JSON.parse(settings.elastic_cursor_json || '');
+          } catch {
+            throw new Error(
+              'elastic_cursor_json is not valid JSON'
+            );
+          }
+
+          elasticCursorResult =
+            await searchAlertsCursor({
+              ...commonElasticOptions,
+              cursor,
+
+              pageSize: parseInt(
+                settings.elastic_cursor_page_size || 20,
+                10
+              ),
+
+              maxPages: parseInt(
+                settings.elastic_cursor_max_pages || 5,
+                10
+              ),
+
+              delaySeconds: parseInt(
+                settings.elastic_cursor_delay_seconds || 15,
+                10
+              ),
+            }, sourceConnection);
+
+          alerts = elasticCursorResult.alerts;
+
+          console.log(
+            `[cycle] cursor pages=${elasticCursorResult.pages} ` +
+            `window_matches=${elasticCursorResult.total} ` +
+            `upper_bound=${elasticCursorResult.upperBound}`
+          );
+        } else {
+          alerts = await fetchElasticAlerts({
             ...commonElasticOptions,
-            cursor,
-
-            pageSize: parseInt(
-              settings.elastic_cursor_page_size || 20,
-              10
-            ),
-
-            maxPages: parseInt(
-              settings.elastic_cursor_max_pages || 5,
-              10
-            ),
-
-            delaySeconds: parseInt(
-              settings.elastic_cursor_delay_seconds || 15,
-              10
-            ),
-          });
-
-        alerts = elasticCursorResult.alerts;
-
-        console.log(
-          `[cycle] cursor pages=${elasticCursorResult.pages} ` +
-          `window_matches=${elasticCursorResult.total} ` +
-          `upper_bound=${elasticCursorResult.upperBound}`
-        );
-      } else {
-        alerts = await fetchElasticAlerts({
-          ...commonElasticOptions,
+            minutes,
+            limit,
+          }, sourceConnection);
+        }
+      } else if (source === 'splunk') {
+        alerts = await fetchSplunkAlerts({
           minutes,
           limit,
-        });
+        }, sourceConnection);
+      } else {
+        alerts = await fetchWazuhAlerts({
+          minutes,
+          minLevel,
+          limit,
+        }, sourceConnection);
       }
-    } else {
-      alerts = await fetchWazuhAlerts({
-        minutes,
-        minLevel,
-        limit,
-      });
-    }
 
-    stats.fetched = alerts.length;
-
-    console.log(
-      `[cycle] source=${source} fetched=${alerts.length}`
-    );
-
-    // 2. Ingest (dedup)
-    if (alerts.length) {
-      const r = await ingestAlerts(
-        alerts,
-        runId
-      );
-
-      stats.stored = r.stored;
-      stats.duplicates = r.duplicates;
-
-      if (r.failed) {
-        throw new Error(`Failed to persist ${r.failed} of ${alerts.length} fetched alerts`);
-      }
+      stats.fetched = alerts.length;
 
       console.log(
-        `[cycle] stored=${r.stored} ` +
-        `duplicates=${r.duplicates}`
+        `[cycle] source=${source} fetched=${alerts.length}`
       );
+
+      // 2. Ingest (dedup)
+      if (alerts.length) {
+        const r = await ingestAlerts(
+          alerts,
+          runId
+      );
+
+        stats.stored = r.stored;
+        stats.duplicates = r.duplicates;
+
+        if (r.failed) {
+          throw new Error(`Failed to persist ${r.failed} of ${alerts.length} fetched alerts`);
+        }
+
+        console.log(
+          `[cycle] stored=${r.stored} ` +
+          `duplicates=${r.duplicates}`
+        );
 
       /*
        * Cursor safety:
        * advance only if every fetched alert was either inserted
        * successfully or already existed as a duplicate.
        */
-      if (elasticCursorResult) {
-        const processed =
-          r.stored + r.duplicates;
+        if (elasticCursorResult) {
+          const processed =
+            r.stored + r.duplicates;
 
-        if (processed !== alerts.length) {
-          throw new Error(
-            `Cursor not advanced: fetched=${alerts.length}, ` +
-            `processed=${processed}`
-          );
-        }
+          if (processed !== alerts.length) {
+            throw new Error(
+              `Cursor not advanced: fetched=${alerts.length}, ` +
+              `processed=${processed}`
+            );
+          }
 
-        const previousCursor =
-          elasticCursorResult.previousCursor;
+          const previousCursor =
+            elasticCursorResult.previousCursor;
 
-        const nextCursor =
-          elasticCursorResult.nextCursor;
+          const nextCursor =
+            elasticCursorResult.nextCursor;
 
-        if (
-          JSON.stringify(nextCursor) !==
-          JSON.stringify(previousCursor)
-        ) {
-          await db.setSetting(
-            'elastic_cursor_json',
-            JSON.stringify(nextCursor)
-          );
+          if (
+            JSON.stringify(nextCursor) !==
+            JSON.stringify(previousCursor)
+          ) {
+            if (managedConnector) {
+              await db.query(
+                `UPDATE source_connectors
+                 SET collection_state=jsonb_set(collection_state,'{elastic_cursor}',$2::jsonb,TRUE),updated_at=NOW()
+                 WHERE id=$1 AND active=TRUE`,
+                [managedConnector.id, JSON.stringify(nextCursor)]
+              );
+            } else {
+              await db.setSetting('elastic_cursor_json', JSON.stringify(nextCursor));
+            }
 
-          console.log(
-            '[cycle] Elastic cursor advanced to ' +
-            JSON.stringify(nextCursor)
-          );
+            console.log(
+              '[cycle] Elastic cursor advanced to ' +
+              JSON.stringify(nextCursor)
+            );
+          }
         }
       }
     }
 
-    // 3. Enrich pending alerts, including any previous backlog.
+    if (processStored) {
+      // 3. Enrich pending alerts, including any previous backlog.
     const enrichmentBatchSize = Math.min(
       Math.max(
         parseInt(
@@ -557,9 +721,10 @@ async function runCycle(trigger = 'scheduler') {
       1000
     );
 
-    const er = await enrichPending(
-      enrichmentBatchSize
-    );
+    const er = await enrichPending(enrichmentBatchSize, {
+      fetchRunId: runId,
+      actor: `system:${trigger}`,
+    });
 
     stats.enriched = er.enriched;
     stats.enrichment_failed = er.failed;
@@ -574,7 +739,10 @@ async function runCycle(trigger = 'scheduler') {
       (settings.triage_enabled || 'false') === 'true';
 
     if (triageEnabled) {
-      const tr = await triagePending(settings, 50);
+      const tr = await triagePending(settings, 50, null, {
+        actor: `system:${trigger}`,
+        fetchRunId: runId,
+      });
       stats.triaged = tr.triaged;
       stats.triage_failed = tr.failed;
       stats.llm_calls = tr.llm_calls || 0;
@@ -622,7 +790,7 @@ async function runCycle(trigger = 'scheduler') {
     // already-validated triage/correlation records and reuses Phase 7's
     // allowlisted, audited, idempotent actions. No external response action is
     // available to this worker.
-    if ((settings.autonomous_agent_enabled || 'false') === 'true') {
+      if ((settings.autonomous_agent_enabled || 'false') === 'true') {
       const autonomous = await runAutonomousAgent(settings, runId, {
         trigger, actor: `system:autonomous-agent`,
       });
@@ -637,8 +805,9 @@ async function runCycle(trigger = 'scheduler') {
         `investigations=${stats.investigations_created} notes=${stats.case_notes_added} ` +
         `approvals=${stats.approvals_requested} failures=${stats.autonomous_failures}`
       );
-    } else {
-      console.log('[cycle] Autonomous SOC agent disabled');
+      } else {
+        console.log('[cycle] Autonomous SOC agent disabled');
+      }
     }
 
     await db.finishFetchRun(runId, stats, 'ok');

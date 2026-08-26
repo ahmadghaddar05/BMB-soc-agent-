@@ -122,6 +122,118 @@ test('raw-event evidence migration preserves existing evidence types and adds du
   assert.match(sql, /ADD CONSTRAINT agent_evidence_links_evidence_type_check/);
 });
 
+test('executive metric migration adds durable service mappings and response milestones', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/011_executive_metrics.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS business_service_mappings/);
+  assert.match(sql, /Identity & Authentication/);
+  assert.match(sql, /Core Banking/);
+  assert.match(sql, /incidents ADD COLUMN IF NOT EXISTS first_response_at/);
+  assert.match(sql, /incidents ADD COLUMN IF NOT EXISTS resolved_at/);
+  assert.match(sql, /incident\.status_updated','case\.updated','case\.note_added/);
+});
+
+test('database RBAC migration creates role-bound users without storing plaintext passwords', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/012_database_rbac_users.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS app_users/);
+  assert.match(sql, /role IN \('executive', 'soc_analyst', 'administrator'\)/);
+  assert.match(sql, /password_hash TEXT NOT NULL/);
+  assert.match(sql, /session_version INTEGER NOT NULL/);
+  assert.match(sql, /UNIQUE INDEX IF NOT EXISTS app_users_username_unique[\s\S]+LOWER\(username\)/);
+  assert.doesNotMatch(sql, /password\s+TEXT/i);
+});
+
+test('AI model profile migration selects the existing Hermes route by default', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/013_ai_model_profiles.sql'), 'utf8');
+  assert.match(sql, /ai_model_profile/);
+  assert.match(sql, /gpt_5_6_sol/);
+  assert.match(sql, /ON CONFLICT\(key\) DO NOTHING/);
+  assert.doesNotMatch(sql, /API_KEY\s*=/);
+});
+
+test('live collection migration enables AI-independent alert ingestion by default', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/014_live_elastic_collection.sql'), 'utf8');
+  assert.match(sql, /live_collection_enabled','true/);
+  assert.match(sql, /live_collection_interval_seconds','15/);
+  assert.match(sql, /ON CONFLICT\(key\) DO NOTHING/);
+});
+
+test('workflow provenance migration creates an append-only explainability ledger', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/015_workflow_provenance.sql'), 'utf8');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS workflow_stage_events/);
+  for (const stage of [
+    'collected', 'normalized', 'enriched', 'triaged',
+    'correlated', 'incident_decision',
+  ]) {
+    assert.match(sql, new RegExp(`'${stage}'`));
+  }
+  for (const executor of ['system', 'ai', 'analyst', 'cache']) {
+    assert.match(sql, new RegExp(`'${executor}'`));
+  }
+  assert.match(sql, /idempotency_key TEXT NOT NULL UNIQUE/);
+  assert.match(sql, /confidence >= 0 AND confidence <= 1/);
+  assert.match(sql, /REFERENCES agent_runs\(id\) ON DELETE SET NULL/);
+  assert.match(sql, /REFERENCES fetch_runs\(id\) ON DELETE SET NULL/);
+});
+
+test('alert retention migration defines severity policy and a durable run ledger', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '../src/db/migrations/016_alert_retention.sql'), 'utf8');
+  assert.match(sql, /alert_retention_critical_days','14'/);
+  assert.match(sql, /alert_retention_high_days','10'/);
+  assert.match(sql, /alert_retention_default_days','7'/);
+  assert.match(sql, /alert_retention_enabled','false'/);
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS alert_retention_runs/);
+  assert.match(sql, /initial_7_day_purge/);
+  assert.match(sql, /COALESCE\(last_seen,timestamp,fetched_at\)/);
+});
+
+test('correlation workflow completion migration activates correlation and replays recent triage', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/017_correlation_workflow_completion.sql'),
+    'utf8'
+  );
+  assert.match(sql, /VALUES \('correlation_enabled','true',NOW\(\)\)/);
+  assert.match(sql, /VALUES \('correlation_cursor_json','',NOW\(\)\)/);
+  assert.match(sql, /ON CONFLICT\(key\) DO UPDATE/);
+});
+
+test('analyst review migration creates an append-only correction ledger', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/018_analyst_decision_reviews.sql'),
+    'utf8'
+  );
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS analyst_decision_reviews/);
+  assert.match(sql, /'confirmed','challenged','needs_more_evidence'/);
+  assert.match(sql, /char_length\(reason\) BETWEEN 10 AND 1000/);
+  assert.match(sql, /idx_analyst_decision_reviews_entity/);
+});
+
+test('correlation capacity migration matches triage throughput and replays unprocessed alerts', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/019_correlation_backlog_capacity.sql'),
+    'utf8'
+  );
+  assert.match(sql, /correlation_enabled','true'/);
+  assert.match(sql, /correlation_new_alerts_per_cycle','50'/);
+  assert.match(sql, /correlation_initial_alerts','40'/);
+  assert.match(sql, /NOT EXISTS/);
+  assert.match(sql, /w\.stage='correlated'/);
+  assert.match(sql, /INTERVAL '7 days'/);
+  assert.match(sql, /correlation_cursor_json/);
+});
+
+test('managed connector migration stores encrypted credentials and enforces one active source', () => {
+  const sql = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/020_managed_connectors.sql'),
+    'utf8'
+  );
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS source_connectors/);
+  assert.match(sql, /secret_ciphertext TEXT NOT NULL/);
+  assert.match(sql, /secret_iv TEXT NOT NULL/);
+  assert.match(sql, /secret_tag TEXT NOT NULL/);
+  assert.match(sql, /collection_state JSONB NOT NULL/);
+  assert.match(sql, /WHERE active = TRUE/);
+});
+
 test('migration runner records every unapplied migration in one transaction', async () => {
   const calls = [];
   let released = false;

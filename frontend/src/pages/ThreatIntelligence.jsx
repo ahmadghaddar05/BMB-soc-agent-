@@ -1,30 +1,35 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Ban, BellRing, Bot, Copy, Database, Globe2, Network, Plus, Radar, Search, ShieldAlert, Star, UserRound } from 'lucide-react';
-import { api, fmtTs, sevClass } from '../lib/api';
+import { Bot, Copy, Globe2, Search, ShieldAlert, Star, UserRound } from 'lucide-react';
+import { api, fmtTs } from '../lib/api';
 import { copyText, parseJson, readLocal, saveLocal, severityOf } from '../lib/soc';
 import { activityTitle, alertReference } from '../lib/executive';
-
-const SAMPLE_IOC = '185.199.110.153';
+import EntityRelationshipGraph from '../components/EntityRelationshipGraph';
+import {
+  Button, Card, EmptyState, SeverityBadge, SkeletonLoader, StatusChip,
+} from '../components/ui';
 
 function classifyObservable(value, alerts = []) {
   const observable = String(value || '').trim();
-  if (alerts.some(alert => [alert.username, alert.user_email].filter(Boolean).includes(observable))) return { kind: 'identity', label: 'Identity / username' };
-  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(observable)) return { kind: 'identity', label: 'Email address' };
-  if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(observable)) return { kind: 'network', label: 'IPv4 address' };
-  if (/^[a-f0-9]{32,64}$/i.test(observable)) return { kind: 'hash', label: 'File hash' };
-  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(observable)) return { kind: 'domain', label: 'Domain name' };
-  if (/^[a-z0-9._-]+$/i.test(observable)) return { kind: 'identity', label: 'Identity / username' };
-  return { kind: 'generic', label: 'Security observable' };
+  if (alerts.some(alert => [alert.username, alert.user_email].filter(Boolean).includes(observable))) return { kind:'identity', label:'Identity / username' };
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(observable)) return { kind:'identity', label:'Email address' };
+  if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(observable)) return { kind:'network', label:'IPv4 address' };
+  if (/^[a-f0-9]{32,64}$/i.test(observable)) return { kind:'hash', label:'File hash' };
+  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(observable)) return { kind:'domain', label:'Domain name' };
+  if (/^[a-z0-9._-]+$/i.test(observable)) return { kind:'identity', label:'Identity / username' };
+  return { kind:'generic', label:'Security observable' };
 }
 
-function GraphNode({ className, icon: Icon, label, value }) {
-  return <article className={`relation-node ${className}`}><Icon /><span>{label}</span><strong>{value}</strong></article>;
+function reputationState(reputation) {
+  if (['malicious', 'critical', 'high'].includes(reputation)) return { tone:'error', label:'Malicious' };
+  if (['clean', 'benign'].includes(reputation)) return { tone:'active', label:'No known threat match' };
+  if (reputation === 'observed') return { tone:'neutral', label:'Observed internally' };
+  return { tone:'neutral', label:'Unknown' };
 }
 
 export default function ThreatIntelligence() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState(SAMPLE_IOC);
+  const [query, setQuery] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,17 +37,32 @@ export default function ThreatIntelligence() {
 
   async function search(event) {
     event?.preventDefault();
-    const value = query.trim(); if (!value) return;
-    setLoading(true); setError('');
-    try { setResult(await api(`/pivot?indicator=${encodeURIComponent(value)}`)); }
-    catch (e) { setError(e.message); setResult(null); }
-    finally { setLoading(false); }
+    const value = query.trim();
+    if (!value) return;
+    setLoading(true);
+    setError('');
+    try {
+      setResult(await api(`/pivot?indicator=${encodeURIComponent(value)}`));
+    } catch (searchError) {
+      setError(searchError.message || 'The observable pivot could not be completed.');
+      setResult(null);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function toggleList(key, list, setter) {
-    const value = result?.indicator || query.trim(); if (!value) return;
-    const next = list.includes(value) ? list.filter(item => item !== value) : [...list, value];
-    setter(next); saveLocal(key, next);
+  function toggleWatchlist() {
+    const value = result?.indicator || query.trim();
+    if (!value) return;
+    const next = watchlist.includes(value) ? watchlist.filter(item => item !== value) : [...watchlist, value];
+    setWatchlist(next);
+    saveLocal('bmb-threat-watchlist', next);
+  }
+
+  function selectSaved(value) {
+    setQuery(value);
+    setResult(null);
+    setError('');
   }
 
   const model = useMemo(() => {
@@ -56,47 +76,80 @@ export default function ThreatIntelligence() {
     const hosts = [...new Set(alerts.map(alert => alert.hostname || alert.agent_name).filter(Boolean))];
     const users = [...new Set(alerts.map(alert => alert.username).filter(Boolean))];
     const techniques = [...new Set(alerts.flatMap(alert => alert.mitre_techniques || []))];
-    const timestamps = alerts.map(alert => new Date(alert.timestamp).getTime()).filter(Number.isFinite).sort((a,b) => a-b);
+    const timestamps = alerts.map(alert => new Date(alert.timestamp).getTime()).filter(Number.isFinite).sort((left, right) => left - right);
     const timeSpan = timestamps.length > 1 ? Math.max(1, Math.round((timestamps.at(-1) - timestamps[0]) / 3600000)) : 0;
-    const highRisk = alerts.filter(alert => ['critical','high'].includes(severityOf(alert))).length;
-    const relationshipDensity = Math.min(99, Math.round((alerts.length ? 35 : 0) + Math.min(25, hosts.length * 5) + Math.min(15, users.length * 5) + Math.min(15, techniques.length * 3) + (result.incident_count ? 10 : 0)));
-    return { intel, alerts, primary, confidence, reputation, observableType: classifyObservable(result.indicator, alerts), correlation: { hosts, users, techniques, timeSpan, highRisk, density: relationshipDensity } };
+    const highRisk = alerts.filter(alert => ['critical', 'high'].includes(severityOf(alert))).length;
+    return {
+      intel, alerts, primary, confidence, reputation,
+      observableType:classifyObservable(result.indicator, alerts),
+      correlation:{ hosts, users, techniques, timeSpan, highRisk },
+    };
   }, [result]);
 
   const indicator = result?.indicator || query.trim();
   const isWatched = watchlist.includes(indicator);
   const ObservableIcon = model?.observableType.kind === 'identity' ? UserRound : Globe2;
+  const reputation = reputationState(model?.reputation);
+  const threatSources = model?.intel?.sources || [];
+  const incidents = result?.incidents || [];
 
-  return <div className="module-page intel-page">
-    <div className="module-hero compact"><div><span className="eyebrow"><Radar />Observable intelligence</span><h2>Threat Intelligence</h2><p>Pivot across alerts, incidents, enrichment sources, identities, and hosts.</p></div><span className="live-pill"><i />Stored-evidence pivot ready</span></div>
+  return (
+    <div className="intel-page-v2 ui-page-enter">
+      <form className="intel-search intel-search-v2" onSubmit={search}>
+        <Search size={16} strokeWidth={1.5} aria-hidden="true" />
+        <input value={query} onChange={event => { setQuery(event.target.value); if (!event.target.value.trim()) { setResult(null); setError(''); } }} placeholder="Search an IP, domain, hash, email, username, or host" aria-label="Search security observable" />
+        <Button type="submit" variant="primary" disabled={loading || !query.trim()}>{loading ? 'Searching…' : 'Investigate observable'}</Button>
+      </form>
 
-    <form className="intel-search" onSubmit={search}><Search /><input value={query} onChange={e => { setQuery(e.target.value); if (!e.target.value.trim()) { setResult(null); setError(''); } }} placeholder="Search any IOC: IP, domain, hash, URL, email, username…" /><button disabled={loading || !query.trim()}>{loading ? 'Searching…' : 'Investigate IOC'}</button></form>
-    {error && <div className="module-notice danger" role="alert"><span>{error}</span><button type="button" onClick={search} disabled={loading || !query.trim()}>Retry</button></div>}
+      {error && <div className="intel-error-v2" role="alert"><ShieldAlert size={16} strokeWidth={1.5} aria-hidden="true" /><span>{error}</span><button type="button" onClick={search} disabled={loading || !query.trim()}>Retry</button></div>}
+      {loading && <Card className="intel-loading-v2"><SkeletonLoader lines={7} /></Card>}
 
-    {!model ? !error && <section className="intel-welcome"><Globe2 /><h3>Start an intelligence pivot</h3><p>Search an observable to build its relationship map and find related security activity.</p><div>{watchlist.slice(0,6).map(item => <button key={item} onClick={() => setQuery(item)}>{item}</button>)}</div></section> : <>
-      <section className="intel-summary module-panel">
-        <div className="observable-icon"><ObservableIcon /></div><div className="observable-title"><small>{model.observableType.label}</small><strong>{indicator}</strong><span>Last searched now</span></div>
-        <dl><div><dt>Reputation</dt><dd className={`reputation-${model.reputation}`}>{model.reputation}</dd></div><div><dt>Confidence</dt><dd>{model.confidence || '—'}{model.confidence ? '%' : ''}</dd></div><div><dt>Alerts</dt><dd>{result.alert_count}</dd></div><div><dt>Incidents</dt><dd>{result.incident_count}</dd></div></dl>
-        <div className="intel-actions"><button className={isWatched ? 'active' : ''} onClick={() => toggleList('bmb-threat-watchlist', watchlist, setWatchlist)}><Star />{isWatched ? 'Saved locally' : 'Save locally'}</button><button className="danger" disabled title="A response integration and approval workflow are required before blocking"><Ban />Blocking unavailable</button><button onClick={() => copyText(indicator)}><Copy />Copy</button><button onClick={() => navigate(`/investigations?search=${encodeURIComponent(indicator)}`)}><Plus />Open investigation</button><button onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant', { detail:{ prompt:`Investigate ${indicator}. Summarize related alerts and incidents, explain the risk, and state any missing evidence.`, autoSend:true } }))}><Bot />Ask AI</button></div>
-      </section>
+      {!loading && !model && !error && (
+        <Card className="intel-welcome-v2">
+          <EmptyState icon={Globe2} message="Search an observable to build its evidence map" />
+          {watchlist.length > 0 && <div className="intel-saved-pivots"><span>Saved on this browser</span><div>{watchlist.slice(0, 8).map(item => <button key={item} type="button" onClick={() => selectSaved(item)}>{item}</button>)}</div></div>}
+        </Card>
+      )}
 
-      <section className="module-panel relationship-panel"><div className="panel-heading"><div><Network /><span><strong>Entity relationship graph</strong><small>How stored evidence connects to this observable and its security outcomes</small></span></div><span className="legend"><i className="observed" />Evidence link <i className="triggered" />Alert match <i className="correlated" />Incident correlation</span></div>
-        <div className="relation-flow">
-          <div className="relation-group"><small>Observed evidence</small>{model.primary.username && <GraphNode icon={UserRound} label="User" value={model.primary.username} />}{model.primary.process && <GraphNode icon={Database} label="Process" value={model.primary.process} />}{model.primary.hostname && <GraphNode icon={Database} label="Host" value={model.primary.hostname} />}{!model.primary.username && !model.primary.process && !model.primary.hostname && <GraphNode icon={BellRing} label="Elastic evidence" value={`${result.alert_count} matching records`} />}</div>
-          <div className="relation-connector observed"><span>contains</span></div>
-          <div className="relation-focus"><small>Investigated observable</small><GraphNode icon={ObservableIcon} label={model.observableType.label} value={indicator} /></div>
-          <div className="relation-connector triggered"><span>matched by</span></div>
-          <div className="relation-group outcomes"><small>Security outcomes</small><GraphNode className="alert" icon={ShieldAlert} label="Related alerts" value={`${result.alert_count} matched`} /><GraphNode className="incident" icon={AlertTriangle} label="Correlated incidents" value={`${result.incident_count} found`} /></div>
+      {!loading && model && <>
+        <Card className="intel-summary-v2">
+          <header className="intel-observable-header">
+            <span className="intel-observable-icon"><ObservableIcon aria-hidden="true" /></span>
+            <div><span>{model.observableType.label}</span><h2>{indicator}</h2><p>Evidence-grounded pivot across stored alerts, incidents, and enrichment</p></div>
+            <StatusChip status={reputation.tone}>{reputation.label}</StatusChip>
+          </header>
+          <dl className="intel-facts-v2"><div><dt>Confidence</dt><dd>{model.confidence ? `${model.confidence}%` : '—'}</dd></div><div><dt>Related alerts</dt><dd>{result.alert_count || 0}</dd></div><div><dt>Incidents</dt><dd>{result.incident_count || 0}</dd></div><div><dt>High-risk alerts</dt><dd>{model.correlation.highRisk}</dd></div></dl>
+          <div className="intel-actions-v2"><Button variant="primary" icon={Search} onClick={() => navigate(`/investigations?search=${encodeURIComponent(indicator)}`)}>Build investigation</Button><Button icon={Star} className={isWatched ? 'is-watched' : ''} onClick={toggleWatchlist}>{isWatched ? 'Remove saved pivot' : 'Save pivot'}</Button><Button icon={Bot} onClick={() => window.dispatchEvent(new CustomEvent('open-soc-assistant', { detail:{ prompt:`Investigate ${indicator}. Summarize related alerts and incidents, explain the risk, and state any missing evidence.`, autoSend:true } }))}>Ask AI Analyst</Button><Button icon={Copy} onClick={() => copyText(indicator)}>Copy observable</Button></div>
+        </Card>
+
+        <EntityRelationshipGraph indicator={indicator} observableType={model.observableType} alerts={model.alerts} incidents={incidents} navigate={navigate} />
+
+        <div className="intel-context-grid-v2">
+          {model.alerts.length > 0 && <Card title={`Related alerts (${result.alert_count || model.alerts.length})`} caption="Latest stored detections containing this observable" className="intel-related-card-v2">
+            <ol>{model.alerts.slice(0, 8).map(alert => <li key={alert.id}><button type="button" onClick={() => navigate(`/alerts?search=${encodeURIComponent(alert.id)}`)}><span><strong>{activityTitle(alert)}</strong><small>{alertReference(alert)} · {fmtTs(alert.timestamp)}</small></span><SeverityBadge severity={severityOf(alert)} /></button></li>)}</ol>
+            <Button onClick={() => navigate(`/alerts?search=${encodeURIComponent(indicator)}`)}>View all matching alerts</Button>
+          </Card>}
+
+          {incidents.length > 0 && <Card title={`Related incidents (${result.incident_count || incidents.length})`} caption="Stored incidents whose evidence includes this observable" className="intel-related-card-v2">
+            <ol>{incidents.slice(0, 6).map(incident => <li key={incident.id}><button type="button" onClick={() => navigate(`/incidents?incident=${encodeURIComponent(incident.id)}`)}><span><strong>{incident.title}</strong><small>{String(incident.status || 'open').replaceAll('_', ' ')} · {fmtTs(incident.last_seen)}</small></span><SeverityBadge severity={incident.severity} /></button></li>)}</ol>
+          </Card>}
+
+          {(threatSources.length > 0 || model.intel.found || model.intel.notes) && <Card title="Threat-intelligence context" caption="Recorded enrichment results for this observable" className="intel-source-card-v2">
+            {threatSources.length > 0 && <ul>{threatSources.map(source => <li key={source}><span>{source}</span><StatusChip status={model.intel.found ? 'error' : 'neutral'}>{model.intel.found ? 'Match' : 'Checked'}</StatusChip></li>)}</ul>}
+            {model.intel.notes && <p>{model.intel.notes}</p>}
+          </Card>}
+
+          <Card title="Observable profile" caption="Recorded classification and activity window" className="intel-profile-card-v2">
+            <dl><div><dt>Indicator</dt><dd>{indicator}</dd></div><div><dt>Categories</dt><dd>{(model.intel.categories || []).join(', ') || 'Unclassified'}</dd></div><div><dt>Sharing level</dt><dd>{model.intel.tlp || 'Internal'}</dd></div><div><dt>Last seen</dt><dd>{fmtTs(model.intel.last_seen || model.primary.timestamp)}</dd></div></dl>
+            <Button icon={Copy} onClick={() => copyText(JSON.stringify(result, null, 2))}>Copy pivot JSON</Button>
+          </Card>
+
+          {model.alerts.length > 0 && <Card title="Correlation context" caption="Observed entities and techniques across matching alerts" className="intel-correlation-card-v2">
+            <dl><div><dt>Hosts</dt><dd>{model.correlation.hosts.length}</dd></div><div><dt>Identities</dt><dd>{model.correlation.users.length}</dd></div><div><dt>High-risk alerts</dt><dd>{model.correlation.highRisk}</dd></div><div><dt>Activity span</dt><dd>{model.correlation.timeSpan ? `${model.correlation.timeSpan}h` : '—'}</dd></div></dl>
+            {model.correlation.techniques.length > 0 && <div className="intel-techniques-v2">{model.correlation.techniques.slice(0, 8).map(item => <span key={item}>{item}</span>)}</div>}
+          </Card>}
         </div>
-      </section>
-
-      <div className="intel-card-grid">
-        <section className="module-panel intel-card"><h3>Threat intelligence sources</h3><p className="intel-card-description">Where this observable was seen or enriched.</p>{(model.intel.sources || ['BMB enrichment', 'Elastic evidence']).map(source => <div className="intel-list-row" key={source}><span><i className={model.intel.found ? 'danger' : model.alerts.length ? 'good' : ''} />{source}</span><b>{model.intel.found ? 'Match' : model.alerts.length ? 'Observed internally' : 'No match'}</b></div>)}<footer>{model.intel.notes || 'No external threat match was returned. Absence of a match does not establish that the observable is safe.'}</footer></section>
-        <section className="module-panel intel-card"><h3>Related alerts ({result.alert_count})</h3><p className="intel-card-description">Latest detections containing this observable.</p>{model.alerts.slice(0,6).map(alert => <button className="intel-event" key={alert.id} onClick={() => navigate(`/alerts?search=${encodeURIComponent(alert.id)}`)}><ShieldAlert /><span><strong>{activityTitle(alert)}</strong><small>{alertReference(alert)} · {fmtTs(alert.timestamp)}</small></span><em className={sevClass(severityOf(alert))}>{severityOf(alert)}</em></button>)}{!model.alerts.length && <p className="mini-empty">No alert evidence found.</p>}<footer><button onClick={() => navigate(`/alerts?search=${encodeURIComponent(indicator)}`)}>View matching alerts</button></footer></section>
-        <section className="module-panel intel-card"><h3>Related incidents ({result.incident_count})</h3>{(result.incidents || []).slice(0,4).map(incident => <button className="intel-event" key={incident.id} onClick={() => navigate(`/incidents?incident=${encodeURIComponent(incident.id)}`)}><AlertTriangle /><span><strong>{incident.title}</strong><small>{incident.status} · {fmtTs(incident.last_seen)}</small></span><em className={sevClass(incident.severity)}>{incident.severity}</em></button>)}{!result.incidents?.length && <p className="mini-empty">No correlated incidents found.</p>}</section>
-        <section className="module-panel intel-card"><h3>Observable profile</h3><dl className="profile-list"><div><dt>Indicator</dt><dd>{indicator}</dd></div><div><dt>Categories</dt><dd>{(model.intel.categories || []).join(', ') || 'Not classified'}</dd></div><div><dt>TLP</dt><dd>{model.intel.tlp || 'Internal'}</dd></div><div><dt>Last seen</dt><dd>{fmtTs(model.intel.last_seen || model.primary.timestamp)}</dd></div></dl><footer><button onClick={() => copyText(JSON.stringify(result, null, 2))}>Copy intelligence JSON</button></footer></section>
-        <section className="module-panel intel-card correlation-card"><h3>Correlation context</h3><div className="correlation-strength"><span><b style={{width:`${model.correlation.density}%`}} /></span><strong>{model.correlation.density}% relationship density</strong></div><p className="intel-card-description">Count-based density of related alerts, hosts, identities, techniques, and incidents; not a threat-confidence score.</p><div className="correlation-metrics"><article><strong>{model.correlation.hosts.length}</strong><span>hosts</span></article><article><strong>{model.correlation.users.length}</strong><span>identities</span></article><article><strong>{model.correlation.highRisk}</strong><span>high-risk alerts</span></article><article><strong>{model.correlation.timeSpan ? `${model.correlation.timeSpan}h` : '—'}</strong><span>activity span</span></article></div><div className="correlation-techniques">{model.correlation.techniques.slice(0,6).map(item => <span key={item}>{item}</span>)}{!model.correlation.techniques.length && <em>No MITRE techniques mapped yet</em>}</div><footer><button onClick={() => navigate(`/investigations?search=${encodeURIComponent(indicator)}`)}>Build correlated investigation</button></footer></section>
-      </div>
-    </>}
-  </div>;
+      </>}
+    </div>
+  );
 }

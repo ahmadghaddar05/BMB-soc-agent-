@@ -1,4 +1,3 @@
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -47,15 +46,19 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-socagent}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-socagent}
       ENRICHMENT_URL: http://enrichment:3001
       ALERT_SOURCE: ${ALERT_SOURCE:-mock}
-      # Temporary Phase 1 access boundary (full RBAC follows in a later phase)
+      # Initial RBAC accounts, imported only when the database user directory is empty.
       SOC_AUTH_DISABLED: "false"
+      SOC_EXECUTIVE_USERNAME: ${SOC_EXECUTIVE_USERNAME:-executive}
+      SOC_EXECUTIVE_PASSWORD: ${SOC_EXECUTIVE_PASSWORD:-}
+      SOC_ANALYST_USERNAME: ${SOC_ANALYST_USERNAME:-analyst}
+      SOC_ANALYST_PASSWORD: ${SOC_ANALYST_PASSWORD:-}
       SOC_ADMIN_USERNAME: ${SOC_ADMIN_USERNAME:-admin}
       SOC_ADMIN_PASSWORD: ${SOC_ADMIN_PASSWORD:-}
-      SOC_USER_ROLE: ${SOC_USER_ROLE:-administrator}
       SOC_SESSION_SECRET: ${SOC_SESSION_SECRET:-}
       SOC_SESSION_TTL_MINUTES: ${SOC_SESSION_TTL_MINUTES:-480}
       SOC_COOKIE_SECURE: ${SOC_COOKIE_SECURE:-false}
       SOC_API_KEY: ${SOC_API_KEY:-}
+      CONNECTOR_ENCRYPTION_KEY: ${CONNECTOR_ENCRYPTION_KEY:-}
       SOC_ALLOWED_ORIGINS: ${SOC_ALLOWED_ORIGINS:-}
       # Elastic Security — read only
       ELASTICSEARCH_URL: ${ELASTICSEARCH_URL}
@@ -72,6 +75,16 @@ services:
       WAZUH_INDEXER_PASS: ${WAZUH_INDEXER_PASS:-}
       WAZUH_VERIFY_TLS: ${WAZUH_VERIFY_TLS:-false}
       WAZUH_INDEX: ${WAZUH_INDEX:-wazuh-alerts-*}
+
+      # AI provider selection (hermes | nous)
+      LLM_PROVIDER: ${LLM_PROVIDER:-hermes}
+      # Nous / hy3:free provider (OpenAI-compatible fallback)
+      NOUS_BASE_URL: ${NOUS_BASE_URL:-https://api.nousresearch.com/v1}
+      NOUS_API_KEY: ${NOUS_API_KEY:-}
+      NOUS_MODEL: ${NOUS_MODEL:-hy3:free}
+      NOUS_JSON_MODE: ${NOUS_JSON_MODE:-true}
+      NOUS_REQUEST_TIMEOUT_MS: ${NOUS_REQUEST_TIMEOUT_MS:-120000}
+
       # Hermes AI analyst, triage, and correlation (backend-only; no fallback)
       HERMES_REQUIRED: ${HERMES_REQUIRED:-true}
       HERMES_API_URL: ${HERMES_API_URL:-http://host.docker.internal:8642/v1}
@@ -93,6 +106,17 @@ services:
       HERMES_ENFORCE_SAFE_TOOLSETS: ${HERMES_ENFORCE_SAFE_TOOLSETS:-true}
       HERMES_REQUIRE_TOOLLESS_PROFILE: ${HERMES_REQUIRE_TOOLLESS_PROFILE:-true}
       HERMES_FORBIDDEN_TOOLS: ${HERMES_FORBIDDEN_TOOLS:-terminal,execute_code,write_file,patch,delete_file,move_file,browser,web_search,web_extract,delegate_task,cronjob,shell,ssh}
+      # Splunk
+      SPLUNK_URL: ${SPLUNK_URL:-}
+      SPLUNK_TOKEN: ${SPLUNK_TOKEN:-}
+      SPLUNK_INDEX: ${SPLUNK_INDEX:-alerts}
+      SPLUNK_SEARCH: ${SPLUNK_SEARCH:-}
+      SPLUNK_COLLECTION_MODE: ${SPLUNK_COLLECTION_MODE:-index}
+      SPLUNK_NAMESPACE_OWNER: ${SPLUNK_NAMESPACE_OWNER:--}
+      SPLUNK_NAMESPACE_APP: ${SPLUNK_NAMESPACE_APP:-search}
+      SPLUNK_AUTH_SCHEME: ${SPLUNK_AUTH_SCHEME:-Bearer}
+      SPLUNK_VERIFY_TLS: ${SPLUNK_VERIFY_TLS:-true}
+      SPLUNK_CA_CERT: ${SPLUNK_CA_CERT:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "elastictrainee:host-gateway"

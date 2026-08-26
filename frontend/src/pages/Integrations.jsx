@@ -57,11 +57,19 @@ export default function Integrations() {
   const collector = data.collector?.collector || {};
   const connectors = useMemo(() => [
     {
-      id:'source', icon:CloudCog, name:source.type === 'elastic' ? 'Elastic Security' : source.type === 'wazuh' ? 'Wazuh' : 'Lab alert source',
+      id:'source', icon:CloudCog, name:source.type === 'elastic' ? 'Elastic Security' : source.type === 'splunk' ? 'Splunk' : source.type === 'wazuh' ? 'Wazuh' : 'Lab alert source',
       category:'Security telemetry', service:services.alert_source,
-      state:connectorState(services.alert_source, { configured:source.type === 'elastic' ? source.elastic_configured : source.type === 'wazuh' ? source.wazuh_configured : true, simulated:source.type === 'mock' }),
+      state:connectorState(services.alert_source, { configured:source.type === 'elastic' ? source.elastic_configured : source.type === 'wazuh' ? source.wazuh_configured : source.type === 'splunk' ? source.splunk_configured : true, simulated:source.type === 'mock' }),
       detail:'Source used by the BMB collector to retrieve security detections. Credentials remain environment-managed and are never returned to the browser.',
-      facts:[['Source',source.type],['Indices',source.elastic_event_indices],['TLS verification',source.tls_verification == null ? 'Not applicable' : source.tls_verification ? 'Enabled' : 'Disabled'],['Last collection',fmtTs(data.collector?.latest_run?.finished_at || data.collector?.latest_run?.started_at)]],
+      facts:[
+        ['Source',source.type],
+        ['Server',source.type === 'splunk' ? source.splunk_server : null],
+        ['Indices', source.type === 'elastic' ? source.elastic_event_indices : source.type === 'splunk' ? source.splunk_index : 'Not applicable'],
+        ['Authentication',source.type === 'splunk' ? `${source.splunk_auth_scheme || 'Bearer'} token` : 'Environment managed'],
+        ['TLS verification',source.tls_verification == null ? 'Not applicable' : source.tls_verification ? 'Enabled' : 'Disabled'],
+        ['Custom CA',source.type === 'splunk' ? source.ca_certificate_configured ? 'Configured' : 'System trust store' : null],
+        ['Last collection',fmtTs(data.collector?.latest_run?.finished_at || data.collector?.latest_run?.started_at)],
+      ].filter(([,value]) => value != null),
       error:services.alert_source?.error, action:'Review collector health', path:'/collector-health',
     },
     {

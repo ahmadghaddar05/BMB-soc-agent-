@@ -4,33 +4,25 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: 'var(--color-bg-canvas)',
+        canvas: 'var(--bg-base)',
         panel: {
-          DEFAULT: 'var(--color-panel)',
-          raised: 'var(--color-panel-raised)',
-          muted: 'var(--color-panel-muted)',
+          DEFAULT: 'var(--bg-surface)',
+          raised: 'var(--bg-surface-2)',
+          muted: 'var(--bg-surface-2)',
         },
         content: {
-          DEFAULT: 'var(--color-text-primary)',
-          secondary: 'var(--color-text-secondary)',
-          muted: 'var(--color-text-muted)',
+          DEFAULT: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          muted: 'var(--text-tertiary)',
         },
-        product: 'var(--color-accent)',
-        ai: 'var(--color-ai)',
-        dark: {
-          900: '#0a0e1a',
-          800: '#0f1623',
-          700: '#151d2e',
-          600: '#1c2638',
-          500: '#243044',
-        },
-        accent: { DEFAULT: '#3b82f6', hover: '#2563eb' },
+        product: 'var(--accent)',
+        accent: { DEFAULT: 'var(--accent)', hover: 'var(--accent)' },
         sev: {
-          critical: '#ef4444',
-          high:     '#f97316',
-          medium:   '#eab308',
-          low:      '#22c55e',
-          info:     '#6b7280',
+          critical: 'var(--severity-critical)',
+          high:     'var(--severity-high)',
+          medium:   'var(--severity-medium)',
+          low:      'var(--severity-low)',
+          info:     'var(--text-secondary)',
         }
       }
     }

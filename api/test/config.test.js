@@ -6,7 +6,9 @@ const { runtimeConfig, validateStartupConfig } = require('../src/config');
 
 const base = {
   NODE_ENV:'test', DATABASE_URL:'postgres://test', ALERT_SOURCE:'mock',
-  SOC_ADMIN_PASSWORD:'correct-horse-battery',
+  SOC_EXECUTIVE_USERNAME:'ciso', SOC_EXECUTIVE_PASSWORD:'executive-horse-battery',
+  SOC_ANALYST_USERNAME:'analyst', SOC_ANALYST_PASSWORD:'analyst-horse-battery',
+  SOC_ADMIN_USERNAME:'admin', SOC_ADMIN_PASSWORD:'admin-horse-battery',
   SOC_SESSION_SECRET:'0123456789abcdef0123456789abcdef',
 };
 
@@ -31,12 +33,14 @@ test('production cannot disable authentication and warns when HTTPS cookies are 
   assert.ok(result.warnings.some(message => message.includes('SOC_COOKIE_SECURE')));
 });
 
-test('authenticated dashboard role is restricted to supported experiences', () => {
-  const valid = validateStartupConfig(runtimeConfig({ ...base, SOC_USER_ROLE:'soc_analyst' }));
-  assert.equal(valid.ok, true);
-  const invalid = validateStartupConfig(runtimeConfig({ ...base, SOC_USER_ROLE:'superuser' }));
-  assert.equal(invalid.ok, false);
-  assert.ok(invalid.errors.includes('SOC_USER_ROLE must be executive, soc_analyst, or administrator'));
+test('all role accounts require strong passwords and unique usernames', () => {
+  const weak = validateStartupConfig(runtimeConfig({ ...base, SOC_ANALYST_PASSWORD:'short' }));
+  assert.equal(weak.ok, false);
+  assert.ok(weak.errors.includes('SOC_ANALYST_PASSWORD must be at least 12 characters'));
+
+  const duplicate = validateStartupConfig(runtimeConfig({ ...base, SOC_EXECUTIVE_USERNAME:'admin' }));
+  assert.equal(duplicate.ok, false);
+  assert.ok(duplicate.errors.includes('Role account usernames must be unique'));
 });
 
 test('Hermes-required startup fails closed without its server credential', () => {
@@ -65,4 +69,34 @@ test('Hermes timing and retry settings are bounded', () => {
   assert.equal(config.hermesCorrelationTimeoutMs, 600000);
   assert.equal(config.hermesToolTimeoutMs, 60000);
   assert.equal(config.hermesToolResultMaxBytes, 4096);
+});
+
+test('Splunk startup configuration fails without required credentials', () => {
+  const result = validateStartupConfig(runtimeConfig({ ...base, ALERT_SOURCE:'splunk' }));
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.includes('SPLUNK_URL is required when ALERT_SOURCE=splunk'));
+  assert.ok(result.errors.includes('SPLUNK_TOKEN is required when ALERT_SOURCE=splunk'));
+});
+
+test('Splunk startup configuration validates authentication and reports insecure TLS', () => {
+  const invalidAuth = validateStartupConfig(runtimeConfig({
+    ...base, ALERT_SOURCE:'splunk', SPLUNK_URL:'https://10.1.1.160:8089',
+    SPLUNK_TOKEN:'token', SPLUNK_AUTH_SCHEME:'Basic',
+  }));
+  assert.equal(invalidAuth.ok, false);
+  assert.ok(invalidAuth.errors.includes('SPLUNK_AUTH_SCHEME must be Bearer or Splunk'));
+
+  const invalidMode = validateStartupConfig(runtimeConfig({
+    ...base, ALERT_SOURCE:'splunk', SPLUNK_URL:'https://10.1.1.160:8089',
+    SPLUNK_TOKEN:'token', SPLUNK_COLLECTION_MODE:'browser',
+  }));
+  assert.equal(invalidMode.ok, false);
+  assert.ok(invalidMode.errors.includes('SPLUNK_COLLECTION_MODE must be index or triggered_alerts'));
+
+  const insecure = validateStartupConfig(runtimeConfig({
+    ...base, ALERT_SOURCE:'splunk', SPLUNK_URL:'https://10.1.1.160:8089',
+    SPLUNK_TOKEN:'token', SPLUNK_VERIFY_TLS:'false',
+  }));
+  assert.equal(insecure.ok, true);
+  assert.ok(insecure.warnings.some(message => message.includes('SPLUNK_VERIFY_TLS')));
 });

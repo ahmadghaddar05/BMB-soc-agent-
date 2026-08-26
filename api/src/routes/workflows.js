@@ -281,7 +281,17 @@ router.patch('/cases/:id', requireRoles('soc_analyst', 'administrator'), async (
     values.push(...auditValues(req, 'case.updated', 'case', req.params.id, { fields: supplied }));
     const result = await db.query(
       `WITH changed AS (
-         UPDATE incidents SET ${assignments.join(',')},updated_at=NOW()
+         UPDATE incidents
+         SET ${assignments.join(',')},
+             first_response_at=COALESCE(first_response_at, NOW()),
+             ${supplied.includes('status')
+               ? `resolved_at=CASE
+                    WHEN $${supplied.indexOf('status') + 1} IN ('closed','false_positive')
+                      THEN COALESCE(resolved_at, NOW())
+                    ELSE NULL
+                  END,`
+               : ''}
+             updated_at=NOW()
          WHERE id=$${idIndex} RETURNING *
        ), audited AS (
          INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
@@ -305,7 +315,10 @@ router.post('/cases/:id/notes', requireRoles('soc_analyst', 'administrator'), as
          INSERT INTO case_notes(incident_id,body,author)
          SELECT id,$2,$3 FROM incidents WHERE id=$1 RETURNING *
        ), touched AS (
-         UPDATE incidents SET updated_at=NOW() WHERE id=$1 AND EXISTS (SELECT 1 FROM added)
+         UPDATE incidents
+         SET first_response_at=COALESCE(first_response_at, NOW()),
+             updated_at=NOW()
+         WHERE id=$1 AND EXISTS (SELECT 1 FROM added)
        ), audited AS (
          INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
          SELECT $3,'case.note_added','case',$1::text,'success',$4,

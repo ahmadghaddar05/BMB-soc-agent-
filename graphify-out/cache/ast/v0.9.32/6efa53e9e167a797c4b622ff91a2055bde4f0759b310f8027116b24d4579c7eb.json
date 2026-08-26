@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_postgres_init_05_safe_pipeline_settings_sql", "label": "05_safe_pipeline_settings.sql", "file_type": "code", "source_file": "postgres/init/05_safe_pipeline_settings.sql", "source_location": null}], "edges": []}

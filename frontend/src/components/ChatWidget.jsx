@@ -68,19 +68,44 @@ function contextualMessage(message, role, pageContext) {
 
 const WELCOME = "Hi — I'm your evidence-grounded BMB AI analyst. I can explain the current workspace, inspect connected evidence, and state any limitations.";
 
-export default function ChatWidget({ role, pageContext = null }) {
+export function conversationStorageKey(accountKey) {
+  const scope = String(accountKey || 'authenticated-user')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._:-]+/g, '-');
+  return `bmb-soc-conversation-id:${scope}`;
+}
+
+function readConversationId(storageKey) {
+  try { return window.sessionStorage.getItem(storageKey); }
+  catch { return null; }
+}
+
+function forgetConversation(storageKey) {
+  try { window.sessionStorage.removeItem(storageKey); } catch { /* optional */ }
+}
+
+export default function ChatWidget({ role, accountKey, pageContext = null }) {
+  const storageKey = conversationStorageKey(accountKey);
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
   const [messages, setMessages] = useState([{ role: 'assistant', content: WELCOME }]);
-  const [conversationId, setConversationId] = useState(() => {
-    try { return window.sessionStorage.getItem('bmb-soc-conversation-id'); }
-    catch { return null; }
-  });
+  const [conversationId, setConversationId] = useState(() => readConversationId(storageKey));
   const scrollRef = useRef(null);
   const abortRef = useRef(null);
   const sendRef = useRef(null);
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
+    setProgress(null);
+    setConversationId(readConversationId(storageKey));
+    setMessages([{ role: 'assistant', content: WELCOME }]);
+    try { window.sessionStorage.removeItem('bmb-soc-conversation-id'); } catch { /* remove obsolete global key */ }
+  }, [storageKey]);
 
   useEffect(() => {
     if (typeof scrollRef.current?.scrollTo === 'function') {
@@ -113,18 +138,28 @@ export default function ChatWidget({ role, pageContext = null }) {
     const controller = new window.AbortController();
     abortRef.current = controller;
     try {
-      const result = await apiStream('/chat/stream', {
+      const request = activeConversationId => apiStream('/chat/stream', {
         method: 'POST',
         signal: controller.signal,
         body: JSON.stringify({
           message: contextualMessage(question, role, pageContext),
-          ...(conversationId ? { conversation_id: conversationId } : {}),
+          ...(activeConversationId ? { conversation_id: activeConversationId } : {}),
         }),
       }, event => {
         if (event.type === 'progress') setProgress(event);
       });
+      let result;
+      try {
+        result = await request(conversationId);
+      } catch (error) {
+        if (error?.code !== 'CONVERSATION_NOT_FOUND' || !conversationId || controller.signal.aborted) throw error;
+        forgetConversation(storageKey);
+        setConversationId(null);
+        setProgress({ stage:'recovering_conversation' });
+        result = await request(null);
+      }
       setConversationId(result.conversation_id);
-      try { window.sessionStorage.setItem('bmb-soc-conversation-id', result.conversation_id); } catch { /* optional */ }
+      try { window.sessionStorage.setItem(storageKey, result.conversation_id); } catch { /* optional */ }
       setMessages(current => [...current, {
         role: 'assistant',
         content: result.answer,
@@ -133,6 +168,9 @@ export default function ChatWidget({ role, pageContext = null }) {
         confidence: result.confidence,
         limitations: result.limitations,
         actions: result.actions,
+        provider: result.provider,
+        model: result.model,
+        runId: result.run_id,
       }]);
     } catch (error) {
       const cancelled = error?.name === 'AbortError';
@@ -157,7 +195,7 @@ export default function ChatWidget({ role, pageContext = null }) {
   function newConversation() {
     stop();
     setConversationId(null);
-    try { window.sessionStorage.removeItem('bmb-soc-conversation-id'); } catch { /* optional */ }
+    forgetConversation(storageKey);
     setMessages([{ role: 'assistant', content: WELCOME }]);
   }
 
@@ -221,6 +259,14 @@ export default function ChatWidget({ role, pageContext = null }) {
                   {message.actions?.length > 0 && <div className="mt-1.5 pt-1.5 border-t border-dark-600 text-[11px] text-cyan-300">actions: {message.actions.map(action => `${action.action_type} (${action.status})`).join(', ')} · review in Approvals</div>}
                   {message.confidence && <div className="mt-1 text-[11px] text-gray-500">confidence: {message.confidence}</div>}
                   {message.limitations?.length > 0 && <div className="mt-1 text-[11px] text-amber-300/80">limitations: {message.limitations.join('; ')}</div>}
+                  {message.model && (
+                    <div
+                      className="mt-1.5 border-t border-dark-600 pt-1.5 font-mono text-[10px] text-cyan-300/80"
+                      title={message.runId ? `BMB run ${message.runId}` : undefined}
+                    >
+                      runtime: {message.provider || 'hermes'} · {message.model}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -231,6 +277,7 @@ export default function ChatWidget({ role, pageContext = null }) {
                   <Loader2 className="w-4 h-4 animate-spin" />
                   {progress?.stage === 'tool_running' ? `querying ${progress.tool}...`
                     : progress?.stage === 'tool_completed' ? `reviewing ${progress.tool} evidence...`
+                      : progress?.stage === 'recovering_conversation' ? 'starting a secure conversation...'
                       : progress?.stage === 'finalizing' ? 'validating citations...'
                         : 'investigating...'}
                 </div>

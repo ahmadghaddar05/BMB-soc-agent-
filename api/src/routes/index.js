@@ -14,17 +14,19 @@ const responses = require('./responses');
 const admin = require('./admin');
 const { POLICY_VERSION: AUTONOMOUS_POLICY_VERSION, runAutonomousAgent } = require('../workers/autonomous');
 const { requireRoles } = require('../middleware/auth');
+const { activeConnector } = require('../services/connectors');
+const mitre = require('../services/mitre');
 
 const r = Router();
 
 const ANALYST_READ_PREFIXES = Object.freeze([
   '/health', '/collector/status', '/agent/status', '/alerts', '/alert-groups',
   '/incidents', '/pivot', '/stats', '/investigations', '/cases', '/actions',
-  '/action-policy', '/responses', '/reports',
+  '/action-policy', '/responses', '/reports', '/workflow-quality', '/analytics', '/mitre',
 ]);
 
 const EXECUTIVE_READ_PREFIXES = Object.freeze([
-  '/health', '/collector/status', '/agent/status', '/executive/overview', '/incidents',
+  '/health', '/collector/status', '/agent/status', '/executive',
 ]);
 
 function pathMatchesPrefix(path, prefix) {
@@ -61,7 +63,9 @@ const SEVERITIES = new Set(['critical','high','medium','low','informational']);
 const VERDICTS = new Set(['true_positive','false_positive','needs_investigation','benign_anomaly']);
 const TRIAGE_STATUSES = new Set(['pending','triaged','triage_failed','skipped']);
 const ENRICHMENT_STATUSES = new Set(['pending','enriched','enrichment_failed','skipped']);
+const ANALYST_REVIEW_DECISIONS = new Set(['confirmed','challenged','needs_more_evidence']);
 const EXECUTIVE_WINDOWS = new Set([7,30,90]);
+const ANALYTICS_WINDOWS = new Set([24,168,720]);
 const EXECUTIVE_TIME_ASSUMPTIONS = Object.freeze({
   triage_per_activity: 8,
   correlation_per_incident: 20,
@@ -146,7 +150,287 @@ function healthBand(score) {
   return 'at_risk';
 }
 
+r.post('/workflow-reviews', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
+  try {
+    const entityType = String(req.body?.entity_type || '');
+    const entityId = String(req.body?.entity_id || '').trim();
+    const decision = String(req.body?.decision || '');
+    const reason = String(req.body?.reason || '').trim();
+    if (!['alert','incident'].includes(entityType)) {
+      return res.status(400).json({ error: 'entity_type must be alert or incident' });
+    }
+    if (!entityId || entityId.length > 300) {
+      return res.status(400).json({ error: 'entity_id is required and must be at most 300 characters' });
+    }
+    if (!ANALYST_REVIEW_DECISIONS.has(decision)) {
+      return res.status(400).json({ error: 'decision has an unsupported value' });
+    }
+    if (reason.length < 10 || reason.length > 1000) {
+      return res.status(400).json({ error: 'reason must be between 10 and 1000 characters' });
+    }
+    const exists = entityType === 'alert'
+      ? await db.query('SELECT 1 FROM alerts WHERE id=$1', [entityId])
+      : await db.query('SELECT 1 FROM incidents WHERE id=$1', [entityId]);
+    if (!exists.rows.length) return res.status(404).json({ error: `${entityType} not found` });
+
+    const actor = req.user?.username || 'unknown-analyst';
+    const result = await db.query(
+      `WITH recorded AS (
+         INSERT INTO analyst_decision_reviews(entity_type,entity_id,decision,reason,actor)
+         VALUES($1,$2,$3,$4,$5)
+         RETURNING *
+       ), audited AS (
+         INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
+         SELECT $5,'analyst.decision_reviewed',$1,$2,'success',$6,
+                jsonb_build_object('decision',$3,'review_id',recorded.id)
+         FROM recorded
+       )
+       SELECT * FROM recorded`,
+      [entityType, entityId, decision, reason, actor, req.id]
+    );
+    res.status(201).json({ review:result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error:error.message });
+  }
+});
+
+r.get('/workflow-quality', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
+  try {
+    const days = Number(req.query.days ?? 30);
+    if (!EXECUTIVE_WINDOWS.has(days)) {
+      return res.status(400).json({ error: 'days must be one of 7, 30, or 90' });
+    }
+    const cutoff = new Date(Date.now() - (days * 86400000)).toISOString();
+    const [summary, trend, recent] = await Promise.all([
+      db.query(
+        `WITH machine_scope AS (
+           SELECT DISTINCT entity_type,entity_id
+           FROM workflow_stage_events
+           WHERE status='completed'
+             AND executor_type IN ('ai','cache')
+             AND created_at >= $1::timestamptz
+             AND (
+               (entity_type='alert' AND stage='triaged')
+               OR (entity_type='incident' AND stage='incident_decision')
+             )
+         ), latest_reviews AS (
+           SELECT DISTINCT ON (entity_type,entity_id)
+                  entity_type,entity_id,decision,actor,created_at
+           FROM analyst_decision_reviews
+           WHERE created_at >= $1::timestamptz
+           ORDER BY entity_type,entity_id,created_at DESC,id DESC
+         ), reviewed_scope AS (
+           SELECT scope.entity_type,scope.entity_id,reviews.decision
+           FROM machine_scope scope
+           LEFT JOIN latest_reviews reviews
+             ON reviews.entity_type=scope.entity_type
+            AND reviews.entity_id=scope.entity_id
+         )
+         SELECT
+           (COUNT(*) FILTER (WHERE entity_type='alert'))::int AS alert_decisions,
+           (COUNT(decision) FILTER (WHERE entity_type='alert'))::int AS alert_reviewed,
+           (COUNT(*) FILTER (WHERE entity_type='alert' AND decision='confirmed'))::int AS alert_confirmed,
+           (COUNT(*) FILTER (WHERE entity_type='alert' AND decision='challenged'))::int AS alert_challenged,
+           (COUNT(*) FILTER (WHERE entity_type='alert' AND decision='needs_more_evidence'))::int AS alert_needs_evidence,
+           (COUNT(*) FILTER (WHERE entity_type='incident'))::int AS incident_decisions,
+           (COUNT(decision) FILTER (WHERE entity_type='incident'))::int AS incident_reviewed,
+           (COUNT(*) FILTER (WHERE entity_type='incident' AND decision='confirmed'))::int AS incident_confirmed,
+           (COUNT(*) FILTER (WHERE entity_type='incident' AND decision='challenged'))::int AS incident_challenged,
+           (COUNT(*) FILTER (WHERE entity_type='incident' AND decision='needs_more_evidence'))::int AS incident_needs_evidence
+         FROM reviewed_scope`,
+        [cutoff]
+      ),
+      db.query(
+        `SELECT created_at::date::text AS day,
+                COUNT(*)::int AS reviews,
+                (COUNT(*) FILTER (WHERE decision='confirmed'))::int AS confirmed,
+                (COUNT(*) FILTER (WHERE decision='challenged'))::int AS challenged,
+                (COUNT(*) FILTER (WHERE decision='needs_more_evidence'))::int AS needs_evidence
+         FROM analyst_decision_reviews
+         WHERE created_at >= $1::timestamptz
+         GROUP BY created_at::date
+         ORDER BY created_at::date ASC`,
+        [cutoff]
+      ),
+      db.query(
+        `SELECT reviews.id,reviews.entity_type,reviews.entity_id,reviews.decision,
+                reviews.reason,reviews.actor,reviews.created_at,
+                COALESCE(NULLIF(incidents.title,''),NULLIF(alerts.rule_desc,''),
+                         NULLIF(alerts.alert_reason,''),'Security decision') AS title,
+                COALESCE(incidents.severity,alerts.source_severity,'unknown') AS severity
+         FROM analyst_decision_reviews reviews
+         LEFT JOIN alerts
+           ON reviews.entity_type='alert' AND alerts.id=reviews.entity_id
+         LEFT JOIN incidents
+           ON reviews.entity_type='incident' AND incidents.id::text=reviews.entity_id
+         WHERE reviews.created_at >= $1::timestamptz
+         ORDER BY reviews.created_at DESC,reviews.id DESC
+         LIMIT 12`,
+        [cutoff]
+      ),
+    ]);
+    const row = summary.rows[0] || {};
+    const alertDecisions = numericCount(row.alert_decisions);
+    const alertReviewed = numericCount(row.alert_reviewed);
+    const incidentDecisions = numericCount(row.incident_decisions);
+    const incidentReviewed = numericCount(row.incident_reviewed);
+    const totalDecisions = alertDecisions + incidentDecisions;
+    const totalReviewed = alertReviewed + incidentReviewed;
+    const totalConfirmed = numericCount(row.alert_confirmed) + numericCount(row.incident_confirmed);
+    const percentage = (value, denominator) => denominator > 0
+      ? Math.round((value / denominator) * 1000) / 10
+      : null;
+    res.json({
+      generated_at:new Date().toISOString(),
+      window_days:days,
+      summary:{
+        machine_decisions:totalDecisions,
+        reviewed:totalReviewed,
+        awaiting_review:Math.max(0, totalDecisions - totalReviewed),
+        review_coverage_percent:percentage(totalReviewed, totalDecisions),
+        analyst_agreement_percent:percentage(totalConfirmed, totalReviewed),
+        confirmed:totalConfirmed,
+        challenged:numericCount(row.alert_challenged) + numericCount(row.incident_challenged),
+        needs_more_evidence:numericCount(row.alert_needs_evidence) + numericCount(row.incident_needs_evidence),
+      },
+      scopes:{
+        alerts:{
+          machine_decisions:alertDecisions,
+          reviewed:alertReviewed,
+          confirmed:numericCount(row.alert_confirmed),
+          challenged:numericCount(row.alert_challenged),
+          needs_more_evidence:numericCount(row.alert_needs_evidence),
+          review_coverage_percent:percentage(alertReviewed, alertDecisions),
+        },
+        incidents:{
+          machine_decisions:incidentDecisions,
+          reviewed:incidentReviewed,
+          confirmed:numericCount(row.incident_confirmed),
+          challenged:numericCount(row.incident_challenged),
+          needs_more_evidence:numericCount(row.incident_needs_evidence),
+          review_coverage_percent:percentage(incidentReviewed, incidentDecisions),
+        },
+      },
+      review_activity:trend.rows,
+      recent_reviews:recent.rows,
+      methodology:{
+        accuracy_claim:false,
+        description:'Agreement is the latest recorded analyst review of each AI-assisted decision completed in the selected window. It is not independently verified ground truth or model accuracy.',
+        machine_scope:"Completed AI or cache triage decisions and AI incident decisions.",
+        review_scope:'Latest analyst review per entity recorded inside the selected window.',
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error:error.message });
+  }
+});
+
+function executiveImpact(severity) {
+  const normalized = String(severity || '').toLowerCase();
+  if (normalized === 'critical' || normalized === 'high') return 'high';
+  if (normalized === 'medium') return 'medium';
+  return 'low';
+}
+
+function executiveDecision(record = {}) {
+  if (!String(record.owner || '').trim()) return 'Assign an accountable incident owner';
+  if (['critical', 'high'].includes(String(record.severity || '').toLowerCase())) {
+    return 'Confirm the containment and recovery plan';
+  }
+  return 'Confirm continued monitoring or closure criteria';
+}
+
+function executiveIncidentView(record = {}) {
+  const severity = String(record.severity || 'unknown').toLowerCase();
+  const alertCount = numericCount(
+    record.alert_count ?? (Array.isArray(record.alert_ids) ? record.alert_ids.length : 0)
+  );
+  const status = String(record.status || 'open').toLowerCase();
+  const owner = String(record.owner || '').trim() || null;
+  const businessServices = Array.isArray(record.business_services)
+    ? record.business_services.filter(Boolean)
+    : [];
+  const evidenceStatement = alertCount > 1
+    ? 'Multiple correlated security signals support this incident record.'
+    : alertCount === 1
+      ? 'A stored security signal supports this incident record.'
+      : 'Supporting evidence exists in the SOC workspace, but its aggregate count is unavailable.';
+
+  return {
+    id: record.id,
+    title: record.title || `Security incident ${record.id}`,
+    severity,
+    business_impact: executiveImpact(severity),
+    status,
+    owner,
+    confidence: record.confidence ?? null,
+    first_seen: record.first_seen || null,
+    last_seen: record.last_seen || null,
+    alert_count: alertCount,
+    business_service: businessServices[0] || null,
+    business_services: businessServices,
+    business_service_mapping_available: businessServices.length > 0,
+    containment_status: record.containment_status || 'not_recorded',
+    required_decision: record.required_decision || executiveDecision({ ...record, severity, owner }),
+    impact_basis: businessServices.length
+      ? 'Stored incident severity with CMDB business-service mapping.'
+      : 'Stored incident severity; no linked CMDB business-service mapping was found.',
+    executive_summary: `${record.title || 'This security incident'} remains ${status.replaceAll('_', ' ')}. ${evidenceStatement} ${owner ? `${owner} is the recorded owner.` : 'No accountable owner is recorded.'}`,
+    evidence_assurance: evidenceStatement,
+  };
+}
+
+function executiveAssetCategory(record = {}) {
+  const name = String(record.name || '').toLowerCase();
+  const type = String(record.type || '').toLowerCase();
+  if (/customer.*(db|database)|crm.*(db|database)/.test(name)) return 'Customer Data Platform';
+  if (/\b(dc\d*|domain[-_ ]?controller|active[-_ ]?directory|identity|auth)\b/.test(name)) {
+    return 'Identity & Authentication';
+  }
+  if (/mail|email|exchange/.test(name)) return 'Corporate Communications';
+  if (/\b(fin|finance|payroll)/.test(name)) return 'Finance Operations';
+  if (/\b(hr|human[-_ ]?resources)/.test(name)) return 'Workforce Systems';
+  if (/web|portal|frontend|application/.test(name)) return 'Business Applications';
+  if (/\b(db|database|postgres|mysql|sql)\b/.test(name) || type.includes('database')) return 'Core Data Platforms';
+  if (type.includes('host') || type.includes('endpoint') || type.includes('server')) return 'Enterprise Systems';
+  return 'Other Technology Services';
+}
+
+function executiveAssetViews(records = []) {
+  const grouped = new Map();
+  for (const record of records) {
+    const mappedService = String(record.business_service || '').trim() || null;
+    const name = mappedService || executiveAssetCategory(record);
+    const current = grouped.get(name) || {
+      asset_key: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      name,
+      type: mappedService ? 'mapped business service' : 'observed technology category',
+      activity_count: 0,
+      high_risk_activity_count: 0,
+      business_impact: 'low',
+      last_seen: null,
+      business_service_mapped: Boolean(mappedService),
+      mapping_method: mappedService
+        ? 'stored CMDB CI-type mapping'
+        : 'derived from technical asset type',
+    };
+    current.activity_count += numericCount(record.activity_count);
+    current.high_risk_activity_count += numericCount(record.high_risk_activity_count);
+    if (executiveImpact(record.business_impact) === 'high') current.business_impact = 'high';
+    else if (record.business_impact === 'medium' && current.business_impact === 'low') current.business_impact = 'medium';
+    if (record.last_seen && (!current.last_seen || new Date(record.last_seen) > new Date(current.last_seen))) {
+      current.last_seen = record.last_seen;
+    }
+    grouped.set(name, current);
+  }
+  return [...grouped.values()].sort((a, b) =>
+    b.high_risk_activity_count - a.high_risk_activity_count
+    || b.activity_count - a.activity_count
+  );
+}
+
 const SETTING_KEYS = new Set([
+  'live_collection_enabled','live_collection_interval_seconds',
   'scheduler_enabled','interval_minutes','lookback_minutes','min_level','limit',
   'elastic_cursor_enabled','elastic_lookback_minutes','elastic_min_risk_score','elastic_limit',
   'elastic_cursor_page_size','elastic_cursor_max_pages','elastic_cursor_delay_seconds',
@@ -162,16 +446,20 @@ const SETTING_KEYS = new Set([
   'autonomous_agent_enabled','autonomous_lookback_hours','autonomous_max_items',
   'autonomous_min_confidence','autonomous_assignment_enabled','autonomous_default_owner',
   'simulated_response_proposals_enabled',
+  'alert_retention_enabled','alert_retention_critical_days','alert_retention_high_days',
+  'alert_retention_default_days','alert_retention_batch_size',
 ]);
 
 const BOOLEAN_SETTINGS = new Set([
-  'scheduler_enabled','triage_enabled','autoclose_enabled','correlation_enabled',
+  'live_collection_enabled','scheduler_enabled','triage_enabled','autoclose_enabled','correlation_enabled',
   'elastic_cursor_enabled',
   'caching_enabled','incident_promote_enabled',
   'autonomous_agent_enabled','autonomous_assignment_enabled','simulated_response_proposals_enabled',
+  'alert_retention_enabled',
 ]);
 
 const INTEGER_SETTING_LIMITS = {
+  live_collection_interval_seconds:[5,300],
   interval_minutes:[1,1440], lookback_minutes:[1,10080], min_level:[0,20], limit:[1,5000],
   elastic_lookback_minutes:[1,525600], elastic_min_risk_score:[0,100], elastic_limit:[1,5000],
   elastic_cursor_page_size:[1,1000], elastic_cursor_max_pages:[1,100], elastic_cursor_delay_seconds:[0,3600],
@@ -182,6 +470,8 @@ const INTEGER_SETTING_LIMITS = {
   triage_token_budget:[10000,500000], agentic_max_iterations:[2,4],
   hybrid_agentic_min_rule_level:[1,20],
   autonomous_lookback_hours:[1,168], autonomous_max_items:[1,100],
+  alert_retention_critical_days:[1,3650], alert_retention_high_days:[1,3650],
+  alert_retention_default_days:[1,3650], alert_retention_batch_size:[100,20000],
 };
 
 function validateSetting(key, value) {
@@ -252,7 +542,12 @@ r.put('/settings', requireRoles('administrator'), async (req, res) => {
     });
 
     // If scheduler settings changed, restart the cron
-    const schedulerKeys = ['scheduler_enabled','interval_minutes'];
+    const schedulerKeys = [
+      'live_collection_enabled','live_collection_interval_seconds',
+      'scheduler_enabled','interval_minutes',
+      'alert_retention_enabled','alert_retention_critical_days','alert_retention_high_days',
+      'alert_retention_default_days','alert_retention_batch_size',
+    ];
     if (updates.some(([k]) => schedulerKeys.includes(k))) await scheduler.restart();
 
     res.json({ ok: true, settings: await db.getAllSettings() });
@@ -278,14 +573,15 @@ r.get('/scheduler/status', async (_, res) => {
 r.get('/collector/status', async (_, res) => {
   try {
     const settings = await db.getAllSettings();
+    const managedSource = await activeConnector();
     const runtime = scheduler.status();
 
     let cursor = null;
 
     try {
-      cursor = JSON.parse(
-        settings.elastic_cursor_json || 'null'
-      );
+      cursor = managedSource?.source === 'elastic'
+        ? managedSource.collectionState?.elastic_cursor || null
+        : JSON.parse(settings.elastic_cursor_json || 'null');
     } catch {
       cursor = null;
     }
@@ -357,13 +653,32 @@ r.get('/collector/status', async (_, res) => {
     res.json({
       collector: {
         source:
-          process.env.ALERT_SOURCE || settings.alert_source || 'mock',
+          managedSource?.source || process.env.ALERT_SOURCE || settings.alert_source || 'mock',
+
+        source_configuration:
+          managedSource ? 'managed_connector' : 'environment_fallback',
+
+        active_connector_id:managedSource?.id || null,
+
+        active_connector_name:managedSource?.name || null,
 
         scheduler_enabled:
           settings.scheduler_enabled === 'true',
 
         scheduler_running:
           runtime.running,
+
+        live_collection_enabled:
+          settings.live_collection_enabled === 'true',
+
+        live_collection_running:
+          runtime.live_collection_running,
+
+        collection_active:
+          runtime.collection_running,
+
+        processing_active:
+          runtime.processing_running,
 
         cycle_active:
           runtime.cycle_active,
@@ -384,6 +699,12 @@ r.get('/collector/status', async (_, res) => {
         interval_minutes:
           parseInt(
             settings.interval_minutes || 5,
+            10
+          ),
+
+        live_collection_interval_seconds:
+          parseInt(
+            settings.live_collection_interval_seconds || 15,
             10
           ),
 
@@ -411,6 +732,10 @@ r.get('/collector/status', async (_, res) => {
       runtime: {
         last_run: runtime.last_run,
         last_error: runtime.last_error,
+        last_collection_run: runtime.last_collection_run,
+        last_collection_error: runtime.last_collection_error,
+        last_processing_run: runtime.last_processing_run,
+        last_processing_error: runtime.last_processing_error,
       },
 
       latest_run:
@@ -624,7 +949,7 @@ r.get('/alerts', async (req, res) => {
 
 
 // ────────────────────────────────────────────────────────────────────────────
-// Grouped Elastic activities
+// Grouped activities from every configured telemetry source
 // ────────────────────────────────────────────────────────────────────────────
 r.get('/alert-groups', async (req, res) => {
   try {
@@ -661,10 +986,7 @@ r.get('/alert-groups', async (req, res) => {
     const offset =
       (safePage - 1) * safeLimit;
 
-    const conditions = [
-      "source_system = 'elastic'",
-      'group_key IS NOT NULL',
-    ];
+    const conditions = ['group_key IS NOT NULL'];
 
     const params = [];
     let i = 1;
@@ -918,6 +1240,69 @@ r.get('/alerts/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+r.get('/alerts/:id/journey', async (req, res) => {
+  try {
+    const [alert, events, reviews, incidentMembership] = await Promise.all([
+      db.query(
+        `SELECT id,timestamp,source_system,enrichment_status,triage_status,
+                triage_run_id,fetch_run_id
+         FROM alerts WHERE id=$1`,
+        [req.params.id]
+      ),
+      db.query(
+        `SELECT id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+                provider,model,confidence_kind,confidence,input_summary,
+                output_summary,reason,limitations,error_code,error_message,
+                started_at,finished_at,created_at
+         FROM workflow_stage_events
+         WHERE entity_type='alert' AND entity_id=$1
+         ORDER BY created_at ASC,
+                  CASE stage
+                    WHEN 'collected' THEN 1 WHEN 'normalized' THEN 2
+                    WHEN 'enriched' THEN 3 WHEN 'triaged' THEN 4
+                    WHEN 'correlated' THEN 5 WHEN 'incident_decision' THEN 6
+                    ELSE 99
+                  END ASC,
+                  id ASC`,
+        [req.params.id]
+      ),
+      db.query(
+        `SELECT id,decision,reason,actor,created_at
+         FROM analyst_decision_reviews
+         WHERE entity_type='alert' AND entity_id=$1
+         ORDER BY created_at DESC,id DESC
+         LIMIT 25`,
+        [req.params.id]
+      ),
+      db.query(
+        `SELECT id,title,severity,status,correlation_run_id,created_at,updated_at
+         FROM incidents
+         WHERE $1::text=ANY(alert_ids)
+         ORDER BY updated_at DESC,id DESC
+         LIMIT 1`,
+        [req.params.id]
+      ),
+    ]);
+    if (!alert.rows.length) return res.status(404).json({ error: 'Alert not found' });
+    res.json({
+      entity: { type:'alert', ...alert.rows[0] },
+      stages: events.rows,
+      analyst_reviews: reviews.rows,
+      current_state: {
+        incident: incidentMembership.rows[0] || null,
+        description: incidentMembership.rows.length
+          ? 'The alert is currently stored as incident evidence. This state is shown separately from append-only workflow provenance.'
+          : 'The alert is not currently linked to a stored incident.',
+      },
+      provenance: {
+        append_only: true,
+        observed_events: events.rows.length,
+        description: 'Recorded system, AI, cache, and analyst workflow stages. Missing stages are not inferred.',
+      },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Re-triage a single alert
 r.post('/alerts/:id/retriage', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
@@ -937,6 +1322,163 @@ r.post('/alerts/:id/retriage', requireRoles('soc_analyst', 'administrator'), asy
 // ────────────────────────────────────────────────────────────────────────────
 // Incidents
 // ────────────────────────────────────────────────────────────────────────────
+r.get('/mitre/incidents', async (req, res) => {
+  try {
+    const { status = 'all', search = '', limit = 100 } = req.query;
+    const paging = pagination({ page:1, limit }, { defaultLimit:100, maxLimit:100 });
+    if (paging.error) return res.status(400).json({ error:paging.error });
+    if (!['all', 'open', 'closed', 'false_positive'].includes(status)) {
+      return res.status(400).json({ error:'status has an unsupported value' });
+    }
+    const searchError = optionalText(search, 'search', 200);
+    if (searchError) return res.status(400).json({ error:searchError });
+    const params = [];
+    const conditions = [
+      `EXISTS (
+         SELECT 1 FROM alerts evidence
+         WHERE evidence.id=ANY(i.alert_ids)
+           AND (
+             cardinality(COALESCE(evidence.mitre_tactics,'{}'::text[])) > 0
+             OR cardinality(COALESCE(evidence.mitre_techniques,'{}'::text[])) > 0
+           )
+       )`,
+    ];
+    if (status !== 'all') {
+      params.push(status);
+      conditions.push(`i.status=$${params.length}`);
+    }
+    if (search) {
+      params.push(`%${search}%`);
+      conditions.push(`(i.title ILIKE $${params.length} OR i.id::text ILIKE $${params.length})`);
+    }
+    params.push(paging.limit);
+    const result = await db.query(
+      `/* mitre_incident_directory */
+       SELECT i.id,i.title,i.severity,i.status,i.owner,i.first_seen,i.last_seen,
+              i.created_at,i.updated_at,cardinality(i.alert_ids)::int AS alert_count
+       FROM incidents i
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY CASE i.status WHEN 'open' THEN 0 ELSE 1 END,
+                CASE i.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+                i.last_seen DESC
+       LIMIT $${params.length}`,
+      params
+    );
+    const incidentIds = result.rows.map(item => Number(item.id));
+    const evidence = incidentIds.length ? await db.query(
+      `/* mitre_incident_directory_mappings */
+       SELECT i.id AS incident_id,a.id,a.mitre_tactics,a.mitre_techniques,a.raw
+       FROM incidents i JOIN alerts a ON a.id=ANY(i.alert_ids)
+       WHERE i.id=ANY($1::int[])`,
+      [incidentIds]
+    ) : { rows:[] };
+    const stageCounts = mitre.stageCounts(evidence.rows);
+    const pipeline = result.rows.length ? null : (await db.query(
+      `/* mitre_pipeline_status */
+       WITH mapped AS (
+         SELECT id,triage_status FROM alerts
+         WHERE cardinality(COALESCE(mitre_tactics,'{}'::text[])) > 0
+            OR cardinality(COALESCE(mitre_techniques,'{}'::text[])) > 0
+       )
+       SELECT COUNT(*)::int AS mapped_alerts,
+              COUNT(*) FILTER (WHERE triage_status='triaged')::int AS triaged_mapped_alerts,
+              COUNT(*) FILTER (WHERE triage_status='pending')::int AS pending_mapped_alerts,
+              (SELECT COUNT(DISTINCT i.id)::int
+               FROM incidents i JOIN mapped evidence ON evidence.id=ANY(i.alert_ids)) AS mapped_incidents
+       FROM mapped`
+    )).rows[0];
+    res.json({
+      incidents:result.rows.map(item => ({
+        id:Number(item.id),
+        reference:`INC-${String(item.id).padStart(5, '0')}`,
+        name:item.title || 'Untitled security incident',
+        severity:item.severity || 'low',
+        status:item.status || 'open',
+        owner:item.owner || null,
+        firstSeen:item.first_seen,
+        lastSeen:item.last_seen,
+        createdAt:item.created_at,
+        alertCount:Number(item.alert_count || 0),
+        stageCount:stageCounts.get(String(item.id)) || 0,
+      })),
+      pipeline:pipeline ? {
+        mappedAlerts:Number(pipeline.mapped_alerts || 0),
+        triagedMappedAlerts:Number(pipeline.triaged_mapped_alerts || 0),
+        pendingMappedAlerts:Number(pipeline.pending_mapped_alerts || 0),
+        mappedIncidents:Number(pipeline.mapped_incidents || 0),
+      } : null,
+    });
+  } catch (e) { res.status(500).json({ error:e.message }); }
+});
+
+r.get('/mitre/incidents/:id', async (req, res) => {
+  try {
+    const idError = positiveRecordId(req.params.id, 'incident id');
+    if (idError) return res.status(400).json({ error:idError });
+    const incident = await db.query('SELECT * FROM incidents WHERE id=$1', [req.params.id]);
+    if (!incident.rows.length) return res.status(404).json({ error:'Incident not found' });
+    const record = incident.rows[0];
+    const alertIds = Array.isArray(record.alert_ids) ? record.alert_ids.map(String) : [];
+    const [alerts, triage, simulations] = alertIds.length ? await Promise.all([
+      db.query(
+        `/* mitre_incident_alerts */
+         SELECT id,timestamp,rule_desc,alert_reason,event_action,event_dataset,
+                source_system,source_severity,hostname,agent_name,username,src_ip,dst_ip,
+                target_db,triage_status,triaged_at,verdict,mitre_techniques,mitre_tactics,raw
+         FROM alerts WHERE id=ANY($1::text[]) ORDER BY timestamp ASC,id ASC`,
+        [alertIds]
+      ),
+      db.query(
+        `/* mitre_incident_triage */
+         SELECT DISTINCT ON (entity_id) entity_id AS alert_id,confidence,provider,model,
+                input_summary,output_summary,reason,limitations,finished_at,created_at
+         FROM workflow_stage_events
+         WHERE entity_type='alert' AND stage='triaged' AND entity_id=ANY($1::text[])
+         ORDER BY entity_id,created_at DESC,id DESC`,
+        [alertIds]
+      ),
+      db.query(
+        `/* mitre_incident_simulations */
+         SELECT id,response_type,target_value,state,evidence_alert_ids,executed_by,
+                executed_at,verified_at,reverted_at
+         FROM simulated_response_states
+         WHERE evidence_alert_ids && $1::text[]
+         ORDER BY executed_at DESC`,
+        [alertIds]
+      ),
+    ]) : [{ rows:[] }, { rows:[] }, { rows:[] }];
+    res.json({
+      incident:mitre.buildIncident(record, alerts.rows, triage.rows),
+      tactics:mitre.TACTICS,
+      response_simulations:simulations.rows.map(item => ({ ...item, simulationOnly:true })),
+      trust:{
+        source:'stored incident evidence',
+        containmentMeaning:'Only source-observed blocked or prevented events are marked contained.',
+        externalActionsExecuted:false,
+      },
+    });
+  } catch (e) { res.status(500).json({ error:e.message }); }
+});
+
+r.get('/mitre/coverage', async (req, res) => {
+  try {
+    const range = String(req.query.range || '90');
+    if (!['30', '90', 'all'].includes(range)) {
+      return res.status(400).json({ error:'range must be 30, 90, or all' });
+    }
+    const days = range === 'all' ? null : Number(range);
+    const result = await db.query(
+      `/* mitre_coverage_aggregate */
+       SELECT DISTINCT i.id AS incident_id,a.id AS alert_id,a.rule_id,a.rule_desc,
+              a.alert_reason,a.event_action,a.mitre_tactics,a.mitre_techniques,a.raw
+       FROM incidents i JOIN alerts a ON a.id=ANY(i.alert_ids)
+       WHERE ($1::int IS NULL OR a.timestamp >= NOW() - ($1::int * INTERVAL '1 day'))`,
+      [days]
+    );
+    res.json({ generatedAt:new Date().toISOString(), ...mitre.coverageFromAlerts(result.rows, range) });
+  } catch (e) { res.status(500).json({ error:e.message }); }
+});
+
 r.get('/incidents', async (req, res) => {
   try {
     const { status = 'open', severity, page = 1, limit = 20 } = req.query;
@@ -983,6 +1525,92 @@ r.get('/incidents/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+r.get('/incidents/:id/journey', async (req, res) => {
+  try {
+    const idError = positiveRecordId(req.params.id, 'incident id');
+    if (idError) return res.status(400).json({ error: idError });
+    const incident = await db.query(
+      `SELECT id,title,severity,confidence,status,alert_ids,correlation_run_id,
+              common_entities,first_seen,last_seen,created_at,updated_at
+       FROM incidents WHERE id=$1`,
+      [req.params.id]
+    );
+    if (!incident.rows.length) return res.status(404).json({ error: 'Incident not found' });
+    const record = incident.rows[0];
+    const alertIds = Array.isArray(record.alert_ids) ? record.alert_ids.map(String) : [];
+    const [events, alertEvents, reviews] = await Promise.all([
+      db.query(
+        `SELECT id,stage,status,executor_type,actor,fetch_run_id,agent_run_id,
+                provider,model,confidence_kind,confidence,input_summary,
+                output_summary,reason,limitations,error_code,error_message,
+                started_at,finished_at,created_at
+         FROM workflow_stage_events
+         WHERE entity_type='incident' AND entity_id=$1
+         ORDER BY created_at ASC,
+                  CASE stage
+                    WHEN 'collected' THEN 1 WHEN 'normalized' THEN 2
+                    WHEN 'enriched' THEN 3 WHEN 'triaged' THEN 4
+                    WHEN 'correlated' THEN 5 WHEN 'incident_decision' THEN 6
+                    ELSE 99
+                  END ASC,
+                  id ASC`,
+         [req.params.id]
+      ),
+      alertIds.length
+        ? db.query(
+          `SELECT DISTINCT ON (entity_id,stage)
+                  entity_id AS alert_id,id,stage,status,executor_type,actor,
+                  fetch_run_id,agent_run_id,provider,model,confidence_kind,
+                  confidence,input_summary,output_summary,reason,limitations,
+                  error_code,error_message,started_at,finished_at,created_at
+           FROM workflow_stage_events
+           WHERE entity_type='alert'
+             AND entity_id=ANY($1::text[])
+             AND stage IN ('correlated','incident_decision')
+           ORDER BY entity_id,stage,created_at DESC,id DESC`,
+          [alertIds]
+        )
+        : Promise.resolve({ rows:[] }),
+      db.query(
+        `SELECT id,decision,reason,actor,created_at
+         FROM analyst_decision_reviews
+         WHERE entity_type='incident' AND entity_id=$1
+         ORDER BY created_at DESC,id DESC
+         LIMIT 25`,
+        [req.params.id]
+      ),
+    ]);
+    const coverage = alertEvents.rows.reduce((result, event) => {
+      if (event.stage === 'correlated') result.correlation_recorded += 1;
+      if (event.stage === 'incident_decision') result.incident_decision_recorded += 1;
+      return result;
+    }, {
+      total_alerts:alertIds.length,
+      correlation_recorded:0,
+      incident_decision_recorded:0,
+    });
+    res.json({
+      entity: {
+        type:'incident',
+        ...record,
+        alert_count: alertIds.length,
+      },
+      stages: events.rows,
+      analyst_reviews: reviews.rows,
+      correlation: {
+        run_id: record.correlation_run_id || null,
+        alert_outcomes: alertEvents.rows,
+        coverage,
+      },
+      provenance: {
+        append_only: true,
+        observed_events: events.rows.length + alertEvents.rows.length,
+        description: 'Recorded incident and alert correlation decisions only. Missing decisions are not inferred.',
+      },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 r.patch('/incidents/:id', requireRoles('soc_analyst', 'administrator'), async (req, res) => {
   try {
     const idError = positiveRecordId(req.params.id, 'incident id');
@@ -992,11 +1620,33 @@ r.patch('/incidents/:id', requireRoles('soc_analyst', 'administrator'), async (r
       return res.status(400).json({ error: 'Invalid status' });
     const r = await db.query(
       `WITH changed AS (
-         UPDATE incidents SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *
+         UPDATE incidents
+         SET status=$1,
+             first_response_at=COALESCE(first_response_at, NOW()),
+             resolved_at=CASE
+               WHEN $1 IN ('closed','false_positive') THEN COALESCE(resolved_at, NOW())
+               ELSE NULL
+             END,
+             updated_at=NOW()
+         WHERE id=$2
+         RETURNING *
        ), audited AS (
          INSERT INTO audit_events(actor,event_type,target_type,target_id,outcome,request_id,metadata)
          SELECT $3,'incident.status_updated','incident',changed.id::text,'success',$4,
                 jsonb_build_object('status',$1) FROM changed
+       ), provenance AS (
+         INSERT INTO workflow_stage_events(
+           entity_type,entity_id,stage,status,executor_type,actor,
+           input_summary,output_summary,reason,idempotency_key,finished_at
+         )
+         SELECT 'incident',changed.id::text,'incident_decision','completed',
+                'analyst',$3,
+                jsonb_build_object('action','status_update'),
+                jsonb_build_object('status',$1),
+                'An authenticated analyst changed the incident workflow status.',
+                CONCAT('incident-status:',changed.id,':',changed.updated_at),NOW()
+         FROM changed
+         ON CONFLICT(idempotency_key) DO NOTHING
        ) SELECT * FROM changed`,
       [status, req.params.id, req.user?.username || 'unknown', req.id || null]
     );
@@ -1020,7 +1670,9 @@ r.get('/pivot', async (req, res) => {
       db.query(
         `SELECT id, timestamp, rule_level, rule_desc, source_severity, risk_score,
                 src_ip, dst_ip, username, hostname, agent_name, process,
-                event_dataset, event_action, alert_reason, triage_status, verdict
+                target_db, event_dataset, event_action, alert_reason,
+                triage_status, verdict, mitre_techniques, mitre_tactics,
+                group_key, occurrence_count, first_seen, last_seen
          FROM alerts
          WHERE id ILIKE $1
             OR COALESCE(src_ip, '') ILIKE $1
@@ -1039,7 +1691,8 @@ r.get('/pivot', async (req, res) => {
         [searchTerm]
       ),
       db.query(
-        `SELECT id, title, severity, status, first_seen, last_seen
+        `SELECT id, title, severity, status, first_seen, last_seen,
+                alert_ids, common_entities, confidence
          FROM incidents i
          WHERE COALESCE(i.common_entities::text, '') ILIKE $1
             OR COALESCE(i.title, '') ILIKE $1
@@ -1151,9 +1804,11 @@ r.post('/chat/stream', async (req, res) => {
     if (!controller.signal.aborted && !res.writableEnded) res.write(`${JSON.stringify(event)}\n`);
   };
   try {
+    const settings = await db.getAllSettings();
     const result = await chatHermes(message.trim(), {
       conversationId: conversationId || null,
       actor: req.user?.username || 'unknown', requestId: req.id,
+      settings,
       authorization: {
         canReadSoc: ['executive', 'soc_analyst', 'administrator'].includes(req.user?.role),
         canRequestActions: ['soc_analyst', 'administrator'].includes(req.user?.role), role: req.user?.role,
@@ -1194,9 +1849,11 @@ r.post('/chat', async (req, res) => {
     if (!runtimeConfig().hermesApiKey) {
       throw new HermesError('HERMES_NOT_CONFIGURED', 'Hermes is not configured', { status: 503 });
     }
+    const settings = await db.getAllSettings();
     const result = await chatHermes(message.trim(), {
       conversationId: conversationId || null,
       actor: req.user?.username || 'unknown',
+      settings,
       authorization: {
         canReadSoc: ['executive', 'soc_analyst', 'administrator'].includes(req.user?.role),
         canRequestActions: ['soc_analyst', 'administrator'].includes(req.user?.role), role: req.user?.role,
@@ -1219,6 +1876,301 @@ r.post('/chat', async (req, res) => {
 // ────────────────────────────────────────────────────────────────────────────
 // Dashboard stats
 // ────────────────────────────────────────────────────────────────────────────
+// Executive incident contracts intentionally exclude raw alerts, observables,
+// technical timelines, model prompts, and response instructions.
+r.get('/executive/risks', async (req, res) => {
+  const pg = pagination(req.query, { defaultLimit: 50, maxLimit: 100 });
+  if (pg.error) return res.status(400).json({ error: pg.error });
+  const days = req.query.days == null || req.query.days === '' ? null : Number(req.query.days);
+  if (days != null && (!Number.isInteger(days) || !EXECUTIVE_WINDOWS.has(days))) {
+    return res.status(400).json({ error: 'days must be one of 7, 30, or 90' });
+  }
+  try {
+    const windowClause = days == null
+      ? ''
+      : " AND COALESCE(last_seen, created_at) >= NOW() - ($1::int * INTERVAL '1 day')";
+    const countParams = days == null ? [] : [days];
+    const listParams = days == null
+      ? [pg.limit, pg.offset]
+      : [days, pg.limit, pg.offset];
+    const limitIndex = days == null ? 1 : 2;
+    const [countResult, riskResult] = await Promise.all([
+      db.query(
+        `SELECT COUNT(*)::int AS n FROM incidents WHERE status = 'open'${windowClause}`,
+        countParams
+      ),
+      db.query(`
+        /* executive_risk_directory */
+        SELECT
+          id,
+          title,
+          severity,
+          confidence,
+          first_seen,
+          last_seen,
+          status,
+          owner,
+          COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count,
+          ARRAY(
+            SELECT DISTINCT m.business_service
+            FROM alerts evidence
+            JOIN LATERAL (
+              SELECT mapped.business_service
+              FROM business_service_mappings mapped
+              WHERE (
+                mapped.mapping_type = 'ci_type'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                  NULLIF(evidence.enrichment #>> '{dst_asset,ci_type}', ''),
+                  NULLIF(evidence.enrichment #>> '{src_asset,ci_type}', '')
+                ))
+              ) OR (
+                mapped.mapping_type = 'event_dataset'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.event_dataset, ''))
+              ) OR (
+                mapped.mapping_type = 'asset_name'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                  NULLIF(evidence.enrichment #>> '{dst_asset,hostname}', ''),
+                  NULLIF(evidence.enrichment #>> '{src_asset,hostname}', ''),
+                  NULLIF(evidence.hostname, ''),
+                  NULLIF(evidence.agent_name, ''),
+                  NULLIF(evidence.target_db, '')
+                ))
+              )
+              ORDER BY CASE mapped.mapping_type
+                WHEN 'asset_name' THEN 1 WHEN 'ci_type' THEN 2 ELSE 3
+              END
+              LIMIT 1
+            ) m ON TRUE
+            WHERE evidence.id = ANY(incidents.alert_ids)
+            ORDER BY m.business_service
+          ) AS business_services
+        FROM incidents
+        WHERE status = 'open'
+        ${windowClause}
+        ORDER BY
+          CASE severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+            ELSE 5
+          END,
+          last_seen DESC NULLS LAST,
+          id DESC
+        LIMIT $${limitIndex} OFFSET $${limitIndex + 1}
+      `, listParams),
+    ]);
+    res.json({
+      total: numericCount(countResult.rows[0]?.n),
+      page: pg.page,
+      limit: pg.limit,
+      risks: riskResult.rows.map(executiveIncidentView),
+      detail_level: 'executive_summary',
+      window_days: days,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Analyst-facing, read-only security aggregations. Every value is derived from
+// stored BMB alert evidence inside one explicit time window.
+r.get('/analytics/security', async (req, res) => {
+  try {
+    const hours = Number(req.query.hours || 24);
+    if (!ANALYTICS_WINDOWS.has(hours)) {
+      return res.status(400).json({ error: 'hours must be 24, 168, or 720' });
+    }
+    const bucket = hours === 24 ? 'hour' : 'day';
+    const scoped = `a.timestamp >= NOW() - make_interval(hours => $1::int)`;
+    const severity = `LOWER(COALESCE(NULLIF(a.source_severity,''),CASE
+      WHEN a.rule_level>=15 THEN 'critical'
+      WHEN a.rule_level>=12 THEN 'high'
+      WHEN a.rule_level>=7 THEN 'medium'
+      ELSE 'low' END))`;
+
+    const [
+      summaryResult, trendResult, severityResult, sourceResult, destinationResult,
+      datasetResult, identityResult, tacticResult, detectionResult,
+    ] = await Promise.all([
+      db.query(
+        `/* analytics_summary */
+         SELECT COUNT(*)::int AS total_alerts,
+                COUNT(*) FILTER (WHERE ${severity}='critical')::int AS critical,
+                COUNT(*) FILTER (WHERE ${severity}='high')::int AS high,
+                COUNT(*) FILTER (WHERE a.triage_status='triaged')::int AS triaged,
+                COUNT(DISTINCT NULLIF(a.src_ip,''))::int AS unique_source_ips,
+                COUNT(DISTINCT COALESCE(NULLIF(a.dst_ip,''),NULLIF(a.hostname,''),NULLIF(a.target_db,''),NULLIF(a.agent_name,'')))::int AS unique_targets,
+                COUNT(*) FILTER (WHERE EXISTS (
+                  SELECT 1 FROM workflow_stage_events w
+                  WHERE w.entity_type='alert' AND w.entity_id=a.id AND w.stage='correlated'
+                ))::int AS correlation_decisions
+         FROM alerts a WHERE ${scoped}`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_trend */
+         SELECT date_trunc($2::text,a.timestamp) AS bucket,
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE ${severity}='critical')::int AS critical,
+                COUNT(*) FILTER (WHERE ${severity}='high')::int AS high,
+                COUNT(*) FILTER (WHERE ${severity} NOT IN ('critical','high'))::int AS other,
+                COUNT(DISTINCT NULLIF(a.src_ip,''))::int AS unique_sources
+         FROM alerts a WHERE ${scoped}
+         GROUP BY 1 ORDER BY 1`,
+        [hours, bucket]
+      ),
+      db.query(
+        `/* analytics_severity */
+         SELECT ${severity} AS name,COUNT(*)::int AS count
+         FROM alerts a WHERE ${scoped}
+         GROUP BY 1 ORDER BY COUNT(*) DESC`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_sources */
+         SELECT a.src_ip AS name,COUNT(*)::int AS count,
+                COUNT(*) FILTER (WHERE ${severity} IN ('critical','high'))::int AS high_risk
+         FROM alerts a WHERE ${scoped} AND NULLIF(a.src_ip,'') IS NOT NULL
+         GROUP BY a.src_ip ORDER BY count DESC,name LIMIT 8`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_destinations */
+         SELECT COALESCE(NULLIF(a.hostname,''),NULLIF(a.target_db,''),NULLIF(a.dst_ip,''),NULLIF(a.agent_name,'')) AS name,
+                COUNT(*)::int AS count,
+                COUNT(*) FILTER (WHERE ${severity} IN ('critical','high'))::int AS high_risk
+         FROM alerts a WHERE ${scoped}
+           AND COALESCE(NULLIF(a.hostname,''),NULLIF(a.target_db,''),NULLIF(a.dst_ip,''),NULLIF(a.agent_name,'')) IS NOT NULL
+         GROUP BY 1 ORDER BY count DESC,name LIMIT 8`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_datasets */
+         SELECT COALESCE(NULLIF(a.event_dataset,''),'Unclassified source') AS name,COUNT(*)::int AS count
+         FROM alerts a WHERE ${scoped}
+         GROUP BY 1 ORDER BY count DESC,name LIMIT 8`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_identities */
+         SELECT a.username AS name,COUNT(*)::int AS count,
+                COUNT(*) FILTER (WHERE ${severity} IN ('critical','high'))::int AS high_risk
+         FROM alerts a WHERE ${scoped} AND NULLIF(a.username,'') IS NOT NULL
+         GROUP BY a.username ORDER BY high_risk DESC,count DESC,name LIMIT 8`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_tactics */
+         SELECT tactic AS name,COUNT(*)::int AS count
+         FROM alerts a CROSS JOIN LATERAL unnest(COALESCE(a.mitre_tactics,'{}'::text[])) tactic
+         WHERE ${scoped} AND NULLIF(tactic,'') IS NOT NULL
+         GROUP BY tactic ORDER BY count DESC,name LIMIT 8`,
+        [hours]
+      ),
+      db.query(
+        `/* analytics_detections */
+         SELECT COALESCE(NULLIF(a.alert_reason,''),NULLIF(a.rule_desc,''),NULLIF(a.event_action,''),'Unclassified detection') AS name,
+                COUNT(*)::int AS count
+         FROM alerts a WHERE ${scoped}
+         GROUP BY 1 ORDER BY count DESC,name LIMIT 8`,
+        [hours]
+      ),
+    ]);
+
+    const rows = result => result.rows.map(row => Object.fromEntries(
+      Object.entries(row).map(([key,value]) => [key, key === 'name' || key === 'bucket' ? value : Number(value || 0)])
+    ));
+    res.json({
+      generated_at: new Date().toISOString(),
+      window_hours: hours,
+      bucket,
+      source: 'stored_bmb_alerts',
+      summary: rows(summaryResult)[0] || {
+        total_alerts:0, critical:0, high:0, triaged:0,
+        unique_source_ips:0, unique_targets:0, correlation_decisions:0,
+      },
+      trend: rows(trendResult),
+      severity: rows(severityResult),
+      top_source_ips: rows(sourceResult),
+      top_destinations: rows(destinationResult),
+      top_datasets: rows(datasetResult),
+      top_identities: rows(identityResult),
+      mitre_tactics: rows(tacticResult),
+      top_detections: rows(detectionResult),
+      coverage: {
+        source_ip: sourceResult.rows.length > 0,
+        destination: destinationResult.rows.length > 0,
+        identity: identityResult.rows.length > 0,
+        mitre: tacticResult.rows.length > 0,
+      },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+r.get('/executive/incidents/:id', async (req, res) => {
+  const invalid = positiveRecordId(req.params.id, 'incident id');
+  if (invalid) return res.status(400).json({ error: invalid });
+  try {
+    const result = await db.query(`
+      /* executive_incident_brief */
+      SELECT
+        id,
+        title,
+        severity,
+        confidence,
+        first_seen,
+        last_seen,
+        status,
+        owner,
+        COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count,
+        ARRAY(
+          SELECT DISTINCT m.business_service
+          FROM alerts evidence
+          JOIN LATERAL (
+            SELECT mapped.business_service
+            FROM business_service_mappings mapped
+            WHERE (
+              mapped.mapping_type = 'ci_type'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                NULLIF(evidence.enrichment #>> '{dst_asset,ci_type}', ''),
+                NULLIF(evidence.enrichment #>> '{src_asset,ci_type}', '')
+              ))
+            ) OR (
+              mapped.mapping_type = 'event_dataset'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.event_dataset, ''))
+            ) OR (
+              mapped.mapping_type = 'asset_name'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                NULLIF(evidence.enrichment #>> '{dst_asset,hostname}', ''),
+                NULLIF(evidence.enrichment #>> '{src_asset,hostname}', ''),
+                NULLIF(evidence.hostname, ''),
+                NULLIF(evidence.agent_name, ''),
+                NULLIF(evidence.target_db, '')
+              ))
+            )
+            ORDER BY CASE mapped.mapping_type
+              WHEN 'asset_name' THEN 1 WHEN 'ci_type' THEN 2 ELSE 3
+            END
+            LIMIT 1
+          ) m ON TRUE
+          WHERE evidence.id = ANY(incidents.alert_ids)
+          ORDER BY m.business_service
+        ) AS business_services
+      FROM incidents
+      WHERE id = $1
+    `, [req.params.id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Incident not found' });
+    res.json({
+      ...executiveIncidentView(result.rows[0]),
+      detail_level: 'executive_summary',
+      technical_evidence_restricted: true,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Executive security posture. Every score is derived from stored SOC records;
 // the response exposes the weighting and time-saving assumptions used.
 r.get('/executive/overview', async (req, res) => {
@@ -1247,6 +2199,8 @@ r.get('/executive/overview', async (req, res) => {
       businessRiskSummaryResult,
       businessRiskItemsResult,
       fetchMetricsResult,
+      businessServiceRiskResult,
+      responseMetricsResult,
       riskTrendResult,
       topAssetsResult,
       workflowControlResult,
@@ -1286,10 +2240,19 @@ r.get('/executive/overview', async (req, res) => {
           (COUNT(*) FILTER (WHERE severity = 'medium'))::int AS medium,
           (COUNT(*) FILTER (
             WHERE severity IS NULL OR severity NOT IN ('critical', 'high', 'medium')
-          ))::int AS low
+          ))::int AS low,
+          (
+            SELECT COUNT(*)::int
+            FROM incidents previous
+            WHERE previous.status = 'open'
+              AND previous.severity = 'critical'
+              AND COALESCE(previous.last_seen, previous.created_at) < NOW() - ($1::int * INTERVAL '1 day')
+              AND COALESCE(previous.last_seen, previous.created_at) >= NOW() - ($1::int * INTERVAL '2 day')
+          ) AS previous_critical
         FROM incidents
         WHERE status = 'open'
-      `),
+          AND COALESCE(last_seen, created_at) >= NOW() - ($1::int * INTERVAL '1 day')
+      `, [days]),
 
       db.query(`
         /* executive_business_risk_items */
@@ -1298,29 +2261,47 @@ r.get('/executive/overview', async (req, res) => {
           title,
           severity,
           confidence,
-          attack_stages,
-          common_entities,
-          alert_ids,
-          narrative,
-          recommended_actions,
           first_seen,
           last_seen,
           status,
           owner,
-          NULL::text AS business_service,
-          CASE
-            WHEN NULLIF(BTRIM(owner), '') IS NULL THEN 'Assign an accountable incident owner'
-            WHEN severity IN ('critical', 'high') THEN 'Confirm the containment and recovery plan'
-            ELSE 'Confirm continued monitoring or closure criteria'
-          END AS required_decision,
-          CASE
-            WHEN severity IN ('critical', 'high') THEN 'high'
-            WHEN severity = 'medium' THEN 'medium'
-            ELSE 'low'
-          END AS business_impact,
-          COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count
+          COALESCE(array_length(alert_ids, 1), 0)::int AS alert_count,
+          ARRAY(
+            SELECT DISTINCT m.business_service
+            FROM alerts evidence
+            JOIN LATERAL (
+              SELECT mapped.business_service
+              FROM business_service_mappings mapped
+              WHERE (
+                mapped.mapping_type = 'ci_type'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                  NULLIF(evidence.enrichment #>> '{dst_asset,ci_type}', ''),
+                  NULLIF(evidence.enrichment #>> '{src_asset,ci_type}', '')
+                ))
+              ) OR (
+                mapped.mapping_type = 'event_dataset'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.event_dataset, ''))
+              ) OR (
+                mapped.mapping_type = 'asset_name'
+                AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                  NULLIF(evidence.enrichment #>> '{dst_asset,hostname}', ''),
+                  NULLIF(evidence.enrichment #>> '{src_asset,hostname}', ''),
+                  NULLIF(evidence.hostname, ''),
+                  NULLIF(evidence.agent_name, ''),
+                  NULLIF(evidence.target_db, '')
+                ))
+              )
+              ORDER BY CASE mapped.mapping_type
+                WHEN 'asset_name' THEN 1 WHEN 'ci_type' THEN 2 ELSE 3
+              END
+              LIMIT 1
+            ) m ON TRUE
+            WHERE evidence.id = ANY(incidents.alert_ids)
+            ORDER BY m.business_service
+          ) AS business_services
         FROM incidents
         WHERE status = 'open'
+          AND COALESCE(last_seen, created_at) >= NOW() - ($1::int * INTERVAL '1 day')
         ORDER BY
           CASE severity
             WHEN 'critical' THEN 1
@@ -1332,7 +2313,7 @@ r.get('/executive/overview', async (req, res) => {
           last_seen DESC NULLS LAST,
           id DESC
         LIMIT 12
-      `),
+      `, [days]),
 
       db.query(`
         /* executive_fetch_metrics */
@@ -1363,6 +2344,143 @@ r.get('/executive/overview', async (req, res) => {
           ), 0)::int AS previous_notes_added
         FROM fetch_runs
         WHERE started_at >= NOW() - ($1::int * INTERVAL '2 day')
+      `, [days]),
+
+      db.query(`
+        /* executive_business_service_risk */
+        WITH scoped_incidents AS (
+          SELECT id, alert_ids, severity, COALESCE(last_seen, created_at) AS observed_at
+          FROM incidents
+          WHERE status = 'open'
+            AND severity IN ('critical', 'high')
+            AND COALESCE(last_seen, created_at) >= NOW() - ($1::int * INTERVAL '2 day')
+        ),
+        incident_services AS (
+          SELECT DISTINCT
+            i.id AS incident_id,
+            i.observed_at,
+            m.business_service,
+            m.criticality,
+            m.mapping_source
+          FROM scoped_incidents i
+          JOIN alerts a ON a.id = ANY(i.alert_ids)
+          JOIN LATERAL (
+            SELECT
+              mapped.business_service,
+              mapped.criticality,
+              mapped.mapping_source
+            FROM business_service_mappings mapped
+            WHERE (
+              mapped.mapping_type = 'ci_type'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                NULLIF(a.enrichment #>> '{dst_asset,ci_type}', ''),
+                NULLIF(a.enrichment #>> '{src_asset,ci_type}', '')
+              ))
+            ) OR (
+              mapped.mapping_type = 'event_dataset'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(a.event_dataset, ''))
+            ) OR (
+              mapped.mapping_type = 'asset_name'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(
+                NULLIF(a.enrichment #>> '{dst_asset,hostname}', ''),
+                NULLIF(a.enrichment #>> '{src_asset,hostname}', ''),
+                NULLIF(a.hostname, ''),
+                NULLIF(a.agent_name, ''),
+                NULLIF(a.target_db, '')
+              ))
+            )
+            ORDER BY CASE mapped.mapping_type
+              WHEN 'asset_name' THEN 1 WHEN 'ci_type' THEN 2 ELSE 3
+            END
+            LIMIT 1
+          ) m ON TRUE
+          WHERE m.criticality IN ('critical', 'high')
+        ),
+        current_services AS (
+          SELECT
+            business_service,
+            criticality,
+            mapping_source,
+            COUNT(DISTINCT incident_id)::int AS incident_count,
+            MAX(observed_at) AS last_seen
+          FROM incident_services
+          WHERE observed_at >= NOW() - ($1::int * INTERVAL '1 day')
+          GROUP BY business_service, criticality, mapping_source
+        )
+        SELECT
+          (SELECT COUNT(*)::int FROM current_services) AS current_services,
+          (SELECT COUNT(DISTINCT business_service)::int
+             FROM incident_services
+            WHERE observed_at < NOW() - ($1::int * INTERVAL '1 day')
+              AND observed_at >= NOW() - ($1::int * INTERVAL '2 day')) AS previous_services,
+          (SELECT COUNT(*)::int
+             FROM scoped_incidents
+            WHERE observed_at >= NOW() - ($1::int * INTERVAL '1 day')) AS current_high_risk_incidents,
+          (SELECT COUNT(DISTINCT incident_id)::int
+             FROM incident_services
+            WHERE observed_at >= NOW() - ($1::int * INTERVAL '1 day')) AS mapped_high_risk_incidents,
+          COALESCE(
+            (SELECT jsonb_agg(
+              jsonb_build_object(
+                'name', business_service,
+                'criticality', criticality,
+                'incident_count', incident_count,
+                'last_seen', last_seen,
+                'mapping_source', mapping_source
+              )
+              ORDER BY
+                CASE criticality WHEN 'critical' THEN 1 WHEN 'high' THEN 2 ELSE 3 END,
+                incident_count DESC,
+                business_service
+            ) FROM current_services),
+            '[]'::jsonb
+          ) AS services
+      `, [days]),
+
+      db.query(`
+        /* executive_response_metrics */
+        WITH audited_responses AS (
+          SELECT
+            target_id::int AS incident_id,
+            MIN(created_at) AS first_response_at
+          FROM audit_events
+          WHERE target_type IN ('incident', 'case')
+            AND target_id ~ '^[1-9][0-9]*$'
+            AND event_type IN ('incident.status_updated', 'case.updated', 'case.note_added')
+            AND outcome = 'success'
+          GROUP BY target_id::int
+        ),
+        milestones AS (
+          SELECT
+            i.id,
+            i.created_at,
+            COALESCE(i.first_response_at, a.first_response_at) AS first_response_at
+          FROM incidents i
+          LEFT JOIN audited_responses a ON a.incident_id = i.id
+          WHERE i.created_at >= NOW() - ($1::int * INTERVAL '2 day')
+        )
+        SELECT
+          ROUND((AVG(
+            GREATEST(0, EXTRACT(EPOCH FROM (first_response_at - created_at)) / 3600)
+          ) FILTER (
+            WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+              AND first_response_at IS NOT NULL
+          ))::numeric, 1) AS current_hours,
+          ROUND((AVG(
+            GREATEST(0, EXTRACT(EPOCH FROM (first_response_at - created_at)) / 3600)
+          ) FILTER (
+            WHERE created_at < NOW() - ($1::int * INTERVAL '1 day')
+              AND created_at >= NOW() - ($1::int * INTERVAL '2 day')
+              AND first_response_at IS NOT NULL
+          ))::numeric, 1) AS previous_hours,
+          (COUNT(*) FILTER (
+            WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+          ))::int AS incidents_in_scope,
+          (COUNT(*) FILTER (
+            WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+              AND first_response_at IS NOT NULL
+          ))::int AS incidents_with_response
+        FROM milestones
       `, [days]),
 
       db.query(`
@@ -1404,7 +2522,11 @@ r.get('/executive/overview', async (req, res) => {
             (COUNT(*) FILTER (WHERE severity = 'high'))::int AS high_incidents,
             (COUNT(*) FILTER (WHERE severity IN ('critical', 'high')))::int AS high_impact,
             (COUNT(*) FILTER (WHERE severity = 'medium'))::int AS medium_impact,
-            (COUNT(*) FILTER (WHERE severity IN ('low', 'informational')))::int AS low_impact
+            (COUNT(*) FILTER (WHERE severity IN ('low', 'informational')))::int AS low_impact,
+            ROUND((AVG(
+              GREATEST(0, EXTRACT(EPOCH FROM (first_response_at - created_at)) / 3600)
+            ) FILTER (WHERE first_response_at IS NOT NULL))::numeric, 1) AS response_time_hours,
+            (COUNT(*) FILTER (WHERE first_response_at IS NOT NULL))::int AS responded_incidents
           FROM incidents
           WHERE created_at >= CURRENT_DATE - ($1::int - 1)
           GROUP BY created_at::date
@@ -1422,7 +2544,9 @@ r.get('/executive/overview', async (req, res) => {
           COALESCE(daily_incidents.high_incidents, 0)::int AS high_incidents,
           COALESCE(daily_incidents.high_impact, 0)::int AS high_impact,
           COALESCE(daily_incidents.medium_impact, 0)::int AS medium_impact,
-          COALESCE(daily_incidents.low_impact, 0)::int AS low_impact
+          COALESCE(daily_incidents.low_impact, 0)::int AS low_impact,
+          daily_incidents.response_time_hours,
+          COALESCE(daily_incidents.responded_incidents, 0)::int AS responded_incidents
         FROM days
         LEFT JOIN daily_activities USING (day)
         LEFT JOIN daily_incidents USING (day)
@@ -1436,6 +2560,7 @@ r.get('/executive/overview', async (req, res) => {
             COALESCE(group_key, id) AS activity_id,
             timestamp,
             ${severityExpression} AS severity,
+            event_dataset,
             COALESCE(
               NULLIF(enrichment #>> '{dst_asset,hostname}', ''),
               NULLIF(enrichment #>> '{src_asset,hostname}', ''),
@@ -1460,6 +2585,7 @@ r.get('/executive/overview', async (req, res) => {
         SELECT
           asset_name AS name,
           asset_type AS type,
+          m.business_service,
           COUNT(*)::int AS activity_count,
           (COUNT(*) FILTER (WHERE severity IN ('critical', 'high')))::int AS high_risk_activity_count,
           CASE
@@ -1469,10 +2595,32 @@ r.get('/executive/overview', async (req, res) => {
           END AS business_impact,
           MAX(timestamp) AS last_seen
         FROM evidence
+        LEFT JOIN LATERAL (
+          SELECT mapped.business_service
+          FROM business_service_mappings mapped
+          WHERE (
+              mapped.mapping_type = 'asset_name'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.asset_name, ''))
+            )
+            OR (
+              mapped.mapping_type = 'ci_type'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.asset_type, ''))
+            )
+            OR (
+              mapped.mapping_type = 'event_dataset'
+              AND LOWER(mapped.match_value) = LOWER(COALESCE(evidence.event_dataset, ''))
+            )
+          ORDER BY CASE mapped.mapping_type
+            WHEN 'asset_name' THEN 1
+            WHEN 'ci_type' THEN 2
+            ELSE 3
+          END
+          LIMIT 1
+        ) m ON TRUE
         WHERE asset_name IS NOT NULL
-        GROUP BY asset_name, asset_type
+        GROUP BY asset_name, asset_type, m.business_service
         ORDER BY high_risk_activity_count DESC, activity_count DESC, last_seen DESC
-        LIMIT 5
+        LIMIT 20
       `, [days]),
 
       db.query(`
@@ -1512,6 +2660,8 @@ r.get('/executive/overview', async (req, res) => {
     const activityRow = activitySummaryResult.rows[0] || {};
     const riskRow = businessRiskSummaryResult.rows[0] || {};
     const runRow = fetchMetricsResult.rows[0] || {};
+    const serviceRiskRow = businessServiceRiskResult.rows[0] || {};
+    const responseRow = responseMetricsResult.rows[0] || {};
     const workflowRow = workflowControlResult.rows[0] || {};
     const coverageRow = coverageResult.rows[0] || {};
     const activity = {
@@ -1526,11 +2676,27 @@ r.get('/executive/overview', async (req, res) => {
     const businessRiskCounts = {
       total: numericCount(riskRow.total),
       critical: numericCount(riskRow.critical),
+      previousCritical: numericCount(riskRow.previous_critical),
       unassignedHigh: numericCount(riskRow.unassigned_high),
       high: numericCount(riskRow.high),
       medium: numericCount(riskRow.medium),
       low: numericCount(riskRow.low),
     };
+    const businessServices = Array.isArray(serviceRiskRow.services) ? serviceRiskRow.services : [];
+    const criticalBusinessServicesAtRisk = numericCount(serviceRiskRow.current_services);
+    const previousCriticalBusinessServicesAtRisk = numericCount(serviceRiskRow.previous_services);
+    const currentHighRiskIncidents = numericCount(serviceRiskRow.current_high_risk_incidents);
+    const mappedHighRiskIncidents = numericCount(serviceRiskRow.mapped_high_risk_incidents);
+    const businessServiceCoverage = currentHighRiskIncidents > 0
+      ? Number(((mappedHighRiskIncidents / currentHighRiskIncidents) * 100).toFixed(1))
+      : 100;
+    const incidentsWithResponse = numericCount(responseRow.incidents_with_response);
+    const incidentsInResponseScope = numericCount(responseRow.incidents_in_scope);
+    const responseCoverage = incidentsInResponseScope > 0
+      ? Number(((incidentsWithResponse / incidentsInResponseScope) * 100).toFixed(1))
+      : 0;
+    const currentMttr = responseRow.current_hours == null ? null : Number(responseRow.current_hours);
+    const previousMttr = responseRow.previous_hours == null ? null : Number(responseRow.previous_hours);
     const pressure = executiveRiskPressure({
       ...activity,
       highImpact: businessRiskCounts.high,
@@ -1592,6 +2758,8 @@ r.get('/executive/overview', async (req, res) => {
         incidents_created: incidentsCreated,
         critical_incidents_created: numericCount(row.critical_incidents),
         high_incidents_created: numericCount(row.high_incidents),
+        response_time_hours: row.response_time_hours == null ? null : Number(row.response_time_hours),
+        responded_incidents: numericCount(row.responded_incidents),
       };
     });
 
@@ -1667,25 +2835,44 @@ r.get('/executive/overview', async (req, res) => {
           confidence: activity.total > 0 ? 'medium' : 'unavailable',
         },
         critical_business_services_at_risk: {
-          value: null,
-          available: false,
-          reason: 'No durable business-service mapping is stored. Technical asset exposure is shown as supporting evidence.',
-          confidence: 'unavailable',
+          value: criticalBusinessServicesAtRisk,
+          available: currentHighRiskIncidents === 0 || mappedHighRiskIncidents > 0,
+          reason: mappedHighRiskIncidents === 0 && currentHighRiskIncidents > 0
+            ? 'High-impact incidents exist, but none of their evidence is linked to a mapped CMDB business service.'
+            : null,
+          previous_period: previousCriticalBusinessServicesAtRisk,
+          target: 0,
+          confidence: currentHighRiskIncidents === 0 || businessServiceCoverage >= 80
+            ? 'high'
+            : businessServiceCoverage >= 50 ? 'medium' : 'low',
+          coverage_percent: businessServiceCoverage,
+          mapped_incidents: mappedHighRiskIncidents,
+          incidents_in_scope: currentHighRiskIncidents,
         },
         open_critical_incidents: {
           value: businessRiskCounts.critical,
           available: true,
-          previous_period: null,
+          previous_period: businessRiskCounts.previousCritical,
           target: 0,
           confidence: 'high',
+          scope: `open incidents with activity observed in the last ${days} days`,
         },
         mean_time_to_respond: {
-          value: null,
-          available: false,
-          reason: 'Reliable acknowledgement and response milestone timestamps are not stored.',
-          confidence: 'unavailable',
+          value: currentMttr,
+          unit: 'hours',
+          available: currentMttr != null,
+          reason: currentMttr == null
+            ? `No recorded analyst response milestone exists for incidents created in the last ${days} days.`
+            : null,
+          previous_period: previousMttr,
+          target: null,
+          confidence: responseCoverage >= 80 ? 'high' : responseCoverage >= 50 ? 'medium' : 'low',
+          coverage_percent: responseCoverage,
+          incidents_with_response: incidentsWithResponse,
+          incidents_in_scope: incidentsInResponseScope,
+          milestone: 'first recorded analyst status change, ownership change, or case note',
         },
-        analyst_workload_reduced: {
+        estimated_analyst_time_saved: {
           value: Number((minutesSaved / 60).toFixed(1)),
           unit: 'hours',
           available: true,
@@ -1701,15 +2888,40 @@ r.get('/executive/overview', async (req, res) => {
           medium: businessRiskCounts.medium,
           low: businessRiskCounts.low,
         },
-        items: businessRiskItemsResult.rows,
+        items: businessRiskItemsResult.rows.map(executiveIncidentView),
         methodology: {
-          scope: 'currently open incidents',
+          scope: `currently open incidents with activity observed in the last ${days} days`,
           derived_from: 'incident severity',
           mapping: {
             high: ['critical', 'high'],
             medium: ['medium'],
             low: ['low', 'informational', 'unknown'],
           },
+        },
+      },
+      business_services_at_risk: {
+        total: criticalBusinessServicesAtRisk,
+        services: businessServices,
+        coverage_percent: businessServiceCoverage,
+        mapped_incidents: mappedHighRiskIncidents,
+        incidents_in_scope: currentHighRiskIncidents,
+        methodology: {
+          incident_scope: `open critical or high-severity incidents observed in the last ${days} days`,
+          mapping_source: 'stored CMDB CI-type to business-service mappings',
+          service_scope: 'services classified as critical or high business criticality',
+        },
+      },
+      response_performance: {
+        mean_time_to_respond_hours: currentMttr,
+        previous_period_hours: previousMttr,
+        coverage_percent: responseCoverage,
+        incidents_with_response: incidentsWithResponse,
+        incidents_in_scope: incidentsInResponseScope,
+        methodology: {
+          start: 'incident record creation',
+          end: 'first recorded analyst status change, ownership change, or case note',
+          scope: `incidents created in the last ${days} days`,
+          excludes: 'incidents without a recorded response milestone',
         },
       },
       automation: {
@@ -1751,7 +2963,7 @@ r.get('/executive/overview', async (req, res) => {
         methodology: 'Estimated from completed workflow outputs and explicit task-time assumptions; token usage is not treated as human time.',
       },
       risk_trend: riskTrend,
-      top_assets: topAssetsResult.rows,
+      top_assets: executiveAssetViews(topAssetsResult.rows).slice(0, 5),
       decision_queue: {
         unassigned_high_impact_incidents: unassignedHighRisks,
         pending_approvals: pendingApprovals,
@@ -1769,7 +2981,10 @@ r.get('/executive/overview', async (req, res) => {
         enrichment_percent: coverageActivities > 0
           ? Number(((enrichedActivities / coverageActivities) * 100).toFixed(1))
           : null,
-        business_service_mapping_available: false,
+        business_service_mapping_available: true,
+        business_service_mapping_percent: currentHighRiskIncidents > 0
+          ? businessServiceCoverage
+          : 100,
         threat_intelligence_freshness: null,
         vulnerability_source_freshness: null,
       },

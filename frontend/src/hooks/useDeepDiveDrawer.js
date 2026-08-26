@@ -21,41 +21,49 @@ function reducer(state, action) {
 function selectionFromParams(params) {
   const type = params.get('detail');
   const id = params.get('id');
-  if (!type || !id || !['risk-summary','incident','asset','automation','metric'].includes(type)) return null;
-  const days = type === 'asset' && [7,30,90].includes(Number(params.get('days'))) ? Number(params.get('days')) : null;
+  if (!type || !id || !['risk-summary','incident','asset','metric'].includes(type)) return null;
+  const days = [7,30,90].includes(Number(params.get('days'))) ? Number(params.get('days')) : null;
   return { type, id, days, key:`${type}:${id}:${days || ''}` };
 }
 
 async function loadSelection(selection, seed, signal) {
   if (selection.type === 'metric') {
     if (seed?.evidence_type === 'risk-summary') {
-      const result = await api('/incidents?status=open&page=1&limit=100', { signal });
-      return { ...seed, evidence:result.incidents || [], total:result.total || 0 };
+      const days = seed?.window_days || seed?.overview?.window_days || selection.days;
+      const result = await api(`/executive/risks?page=1&limit=100${days ? `&days=${days}` : ''}`, { signal });
+      return { ...seed, evidence:result.risks || [], total:result.total || 0 };
     }
     if (seed?.evidence_type === 'assets') return { ...seed, evidence:seed?.overview?.top_assets || [] };
+    if (seed?.evidence_type === 'business-services') {
+      return { ...seed, evidence:seed?.overview?.business_services_at_risk?.services || [] };
+    }
+    if (seed?.evidence_type === 'response-performance') {
+      return { ...seed, response_performance:seed?.overview?.response_performance || null, evidence:[] };
+    }
     return { ...seed, evidence:[] };
   }
   if (selection.type === 'risk-summary') {
-    const result = await api('/incidents?status=open&page=1&limit=100', { signal });
-    return { ...seed, incidents:result.incidents || [], total:result.total || 0 };
+    const days = seed?.window_days || selection.days;
+    const result = await api(`/executive/risks?page=1&limit=100${days ? `&days=${days}` : ''}`, { signal });
+    return { ...seed, risks:result.risks || [], total:result.total || 0 };
   }
-  if (selection.type === 'incident') return api(`/incidents/${encodeURIComponent(selection.id)}`, { signal });
+  if (selection.type === 'incident') {
+    return api(`/executive/incidents/${encodeURIComponent(selection.id)}`, { signal });
+  }
   if (selection.type === 'asset') {
     const windowDays = seed?.window_days || selection.days || 30;
-    const from = new Date(Date.now() - (windowDays * 86400000)).toISOString();
-    const result = await api(`/alert-groups?page=1&limit=20&from=${encodeURIComponent(from)}&search=${encodeURIComponent(selection.id)}`, { signal });
-    return { ...seed, window_days:windowDays, alerts:result.groups || [], total:result.total || 0 };
+    const result = await api(`/executive/overview?days=${windowDays}`, { signal });
+    const asset = (result.top_assets || []).find(item =>
+      String(item.asset_key || item.id || item.name) === String(selection.id)
+    );
+    return {
+      ...(asset || seed || {}),
+      window_days:windowDays,
+      source_coverage:result.source_coverage || null,
+      detail_level:'executive_summary',
+    };
   }
-
-  let operation = seed;
-  if (!operation?.source_id) operation = await api(`/agent/operations/${encodeURIComponent(selection.id)}`, { signal });
-  if (!operation) throw new Error('Automation record is no longer available');
-  if (operation.source_type === 'case') {
-    const incident = await api(`/incidents/${encodeURIComponent(operation.source_id)}`, { signal });
-    return { ...operation, incident };
-  }
-  const alert = await api(`/alerts/${encodeURIComponent(operation.source_id)}`, { signal });
-  return { ...operation, alert };
+  throw new Error('This executive detail type is not supported');
 }
 
 export default function useDeepDiveDrawer() {
@@ -83,7 +91,7 @@ export default function useDeepDiveDrawer() {
   }, [selection?.key]);
 
   const open = useCallback((next, trigger = null) => {
-    const days = next.type === 'asset' ? next.seed?.window_days || null : null;
+    const days = next.seed?.window_days || next.seed?.overview?.window_days || null;
     const normalized = { ...next, id:String(next.id), days, key:`${next.type}:${next.id}:${days || ''}` };
     if (next.seed) seeds.current.set(normalized.key, next.seed);
     if (!selection) returnFocus.current = trigger || document.activeElement;

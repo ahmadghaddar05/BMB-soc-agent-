@@ -2,7 +2,9 @@
 
 const crypto = require('crypto');
 const db = require('../db');
-const { correlateHermes } = require('../services/hermes/correlation');
+const {
+  correlateHermes, hasStrongRelation, relationScore,
+} = require('../services/hermes/correlation');
 const { HermesError } = require('../services/hermes/errors');
 
 const SEV_ORDER = { informational: 0, low: 1, medium: 2, high: 3, critical: 4 };
@@ -98,18 +100,6 @@ function meaningful(value) {
     ? normalized : null;
 }
 
-function relationScore(a, b) {
-  let score = 0;
-  for (const key of ['username', 'hostname', 'process', 'target_db']) {
-    const left = meaningful(a[key]);
-    const right = meaningful(b[key]);
-    if (left && left === right) score += key === 'process' ? 1 : 2;
-  }
-  const leftIps = new Set([meaningful(a.src_ip), meaningful(a.dst_ip)].filter(Boolean));
-  if ([meaningful(b.src_ip), meaningful(b.dst_ip)].filter(Boolean).some(ip => leftIps.has(ip))) score += 2;
-  return score;
-}
-
 function withinHours(a, b, hours) {
   const left = new Date(a.timestamp).getTime();
   const right = new Date(b.timestamp).getTime();
@@ -144,7 +134,10 @@ async function correlatePending(settings = {}, fetchRunId = null, {
 
   const columns = `
     id,timestamp,triaged_at,rule_id,rule_level,rule_desc,source_severity,
-    src_ip,dst_ip,username,hostname,target_db,process,mitre_tactics,verdict
+    src_ip,dst_ip,username,hostname,target_db,process,mitre_tactics,verdict,
+    source_system,source_index,elastic_alert_uuid,risk_score,workflow_status,
+    alert_reason,full_log,event_dataset,event_category,event_action,
+    mitre_techniques,occurrence_count,first_seen,last_seen,raw
   `;
   const fresh = cursor
     ? await db.query(
@@ -181,7 +174,8 @@ async function correlatePending(settings = {}, fetchRunId = null, {
     [String(hours), newIds, contextPoolCap]
   );
   const relatedContext = pool.rows.filter(candidate => newRows.some(freshAlert =>
-    relationScore(freshAlert, candidate) > 0 && withinHours(freshAlert, candidate, entityWindowHours)
+    hasStrongRelation(freshAlert, candidate) &&
+      withinHours(freshAlert, candidate, entityWindowHours)
   ));
   const candidates = [...newRows, ...relatedContext]
     .filter((row, index, all) => all.findIndex(item => item.id === row.id) === index)
@@ -198,9 +192,44 @@ async function correlatePending(settings = {}, fetchRunId = null, {
   const includedFreshIds = includedFresh.map(row => String(row.id));
 
   const hasPlausiblePair = candidates.some((left, leftIndex) => candidates.some((right, rightIndex) =>
-    rightIndex > leftIndex && relationScore(left, right) > 0 && withinHours(left, right, entityWindowHours)
+    rightIndex > leftIndex && hasStrongRelation(left, right) &&
+      withinHours(left, right, entityWindowHours)
   ));
   if (!hasPlausiblePair) {
+    await db.query(
+      `INSERT INTO workflow_stage_events(
+         entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+         input_summary,output_summary,reason,idempotency_key,finished_at
+       )
+       SELECT 'alert',candidate_id,'correlated','skipped','system',$2::text,$3::integer,
+              jsonb_build_object(
+                'entity_window_hours',$4::int,
+                'candidate_count',$5::int
+              ),
+              '{}'::jsonb,
+              'No plausible shared entity was found within the configured correlation window.',
+              CONCAT('correlation-screen:',$6::text,':alert:',candidate_id),NOW()
+       FROM UNNEST($1::text[]) AS candidate_id
+       ON CONFLICT(idempotency_key) DO NOTHING`,
+      [
+        candidates.map(row => String(row.id)), actor, fetchRunId,
+        entityWindowHours, candidates.length, requestId,
+      ]
+    );
+    await db.query(
+      `INSERT INTO workflow_stage_events(
+         entity_type,entity_id,stage,status,executor_type,actor,fetch_run_id,
+         input_summary,output_summary,reason,idempotency_key,finished_at
+       )
+       SELECT 'alert',candidate_id,'incident_decision','skipped','system',$2::text,$3::integer,
+              jsonb_build_object('correlation_status','skipped'),
+              jsonb_build_object('decision','not_promoted'),
+              'No incident was created because no plausible shared entity was found in the configured time window.',
+              CONCAT('incident-screen:',$4::text,':alert:',candidate_id),NOW()
+       FROM UNNEST($1::text[]) AS candidate_id
+       ON CONFLICT(idempotency_key) DO NOTHING`,
+      [candidates.map(row => String(row.id)), actor, fetchRunId, requestId]
+    );
     await db.setSetting('correlation_cursor_json', JSON.stringify(nextCursor));
     return {
       incidents_created: 0, incidents_updated: 0, incidents_unchanged: 0,
@@ -212,12 +241,13 @@ async function correlatePending(settings = {}, fetchRunId = null, {
   const timestamps = Object.fromEntries(candidates.map(row => [String(row.id), row.timestamp]));
   const freshSet = new Set(includedFreshIds);
   const result = await correlate(candidates, includedFreshIds, settings, {
-    actor, requestId, signal,
+    actor, requestId, signal, fetchRunId,
     persist: async (incidents, correlationRunId) => {
       let created = 0;
       let updated = 0;
       let unchanged = 0;
       const incidentIds = [];
+      const persistenceResults = [];
       const targetIds = new Set();
       // Resolve every existing target before writing. This prevents two model
       // groups from silently rewriting the same open incident in one run.
@@ -245,11 +275,16 @@ async function correlatePending(settings = {}, fetchRunId = null, {
           incident, firstSeen, lastSeen, fetchRunId, correlationRunId, identityAlertIds
         );
         incidentIds.push(persisted.id);
+        persistenceResults.push({
+          incident_id:persisted.id,
+          status:persisted.status,
+          alert_ids:incident.alert_ids.map(String),
+        });
         if (persisted.status === 'created') created += 1;
         else if (persisted.status === 'updated') updated += 1;
         else unchanged += 1;
       }
-      return { created, updated, unchanged, incidentIds };
+      return { created, updated, unchanged, incidentIds, results:persistenceResults };
     },
   });
 

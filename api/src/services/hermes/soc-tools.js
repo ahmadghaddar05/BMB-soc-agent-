@@ -5,6 +5,8 @@ const { isIP } = require('node:net');
 const db = require('../../db');
 const { runtimeConfig } = require('../../config');
 const elastic = require('../elastic');
+const splunk = require('../splunk');
+const { activeConnector } = require('../connectors');
 const { HermesError } = require('./errors');
 const { ActionError, createActionService, stableKey } = require('../actions');
 
@@ -19,6 +21,11 @@ const TOOL_SPECS = [
     parameters: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
+    name: 'get_executive_summary',
+    description: 'Return leadership-safe aggregate security posture, risk ownership, and workflow coverage without technical identifiers or record-level evidence.',
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
     name: 'search_alerts',
     description: 'Search collected alerts, including alerts not yet triaged, using bounded filters.',
     parameters: {
@@ -29,7 +36,7 @@ const TOOL_SPECS = [
         source_ip: { type: 'string', minLength: 1, maxLength: 64 },
         username: { type: 'string', minLength: 1, maxLength: 128 },
         hostname: { type: 'string', minLength: 1, maxLength: 253 },
-        source_system: { enum: ['elastic', 'wazuh', 'mock', 'legacy'] },
+        source_system: { enum: ['elastic', 'wazuh', 'splunk', 'mock', 'legacy'] },
         hours: { type: 'integer', minimum: 1, maximum: 720 },
         limit: { type: 'integer', minimum: 1, maximum: 25 },
       },
@@ -311,19 +318,162 @@ function sanitize(value, depth = 0) {
 }
 
 function publicAlert(row) {
+  const rawFields = row.raw?.fields || row.raw || {};
+  const rawValue = key => {
+    if (rawFields[key] !== undefined) return rawFields[key];
+    return key.split('.').reduce((current, part) => current?.[part], rawFields);
+  };
+  const firstRaw = key => {
+    const value = rawValue(key);
+    return Array.isArray(value) ? value[0] : value;
+  };
+  const allRaw = key => {
+    const value = rawValue(key);
+    if (value == null) return [];
+    return Array.isArray(value) ? value : [value];
+  };
   return sanitize({
     id: String(row.id), timestamp: row.timestamp, source_system: row.source_system,
     source_index: row.source_index, elastic_alert_uuid: row.elastic_alert_uuid,
     rule_id: row.rule_id, rule_level: row.rule_level, description: row.rule_desc,
     severity: row.verdict?.severity || row.source_severity || 'unknown',
     risk_score: row.risk_score, workflow_status: row.workflow_status,
-    reason: row.alert_reason, triage_status: row.triage_status,
+    reason: row.alert_reason, observed_summary: row.full_log,
+    triage_status: row.triage_status,
     enrichment_status: row.enrichment_status, verdict: row.verdict,
     source_ip: row.src_ip, destination_ip: row.dst_ip, username: row.username,
     hostname: row.hostname, process: row.process, event_dataset: row.event_dataset,
     event_category: row.event_category, event_action: row.event_action,
     mitre_techniques: row.mitre_techniques, mitre_tactics: row.mitre_tactics,
     occurrence_count: row.occurrence_count, first_seen: row.first_seen, last_seen: row.last_seen,
+    technical_context: {
+      process: {
+        name: firstRaw('process.name'),
+        executable: firstRaw('process.executable'),
+        command_line: firstRaw('process.command_line'),
+        args: allRaw('process.args'),
+        working_directory: firstRaw('process.working_directory'),
+        entity_id: firstRaw('process.entity_id'),
+        pid: firstRaw('process.pid'),
+        sha256: firstRaw('process.hash.sha256'),
+        signed: firstRaw('process.code_signature.trusted'),
+        signer: firstRaw('process.code_signature.subject_name'),
+      },
+      parent_process: {
+        name: firstRaw('process.parent.name'),
+        executable: firstRaw('process.parent.executable'),
+        command_line: firstRaw('process.parent.command_line'),
+        args: allRaw('process.parent.args'),
+        entity_id: firstRaw('process.parent.entity_id'),
+        pid: firstRaw('process.parent.pid'),
+        sha256: firstRaw('process.parent.hash.sha256'),
+      },
+      file: {
+        name: firstRaw('file.name'),
+        path: firstRaw('file.path'),
+        size: firstRaw('file.size'),
+        mime_type: firstRaw('file.mime_type'),
+        sha256: firstRaw('file.hash.sha256'),
+        signed: firstRaw('file.code_signature.trusted'),
+        signer: firstRaw('file.code_signature.subject_name'),
+      },
+      network: {
+        source_port: firstRaw('source.port'),
+        destination_port: firstRaw('destination.port'),
+        direction: firstRaw('network.direction'),
+        transport: firstRaw('network.transport'),
+        protocol: firstRaw('network.protocol'),
+        dns_question: firstRaw('dns.question.name'),
+        dns_answers: allRaw('dns.resolved_ip'),
+        url_domain: firstRaw('url.domain'),
+        url_path: firstRaw('url.path'),
+        url_original: firstRaw('url.original'),
+      },
+      authentication: {
+        type: firstRaw('authentication.type'),
+        result: firstRaw('authentication.result'),
+        logon_type: firstRaw('authentication.logon_type'),
+        mfa: firstRaw('authentication.mfa'),
+        session_id: firstRaw('authentication.session_id'),
+        failure_reason: firstRaw('authentication.failure_reason') ||
+          firstRaw('winlog.event_data.FailureReason'),
+        status: firstRaw('winlog.event_data.Status'),
+        sub_status: firstRaw('winlog.event_data.SubStatus'),
+      },
+      email: {
+        subject: firstRaw('email.subject'),
+        message_id: firstRaw('email.message_id'),
+        sender: allRaw('email.from.address'),
+        recipients: allRaw('email.to.address'),
+        delivery_action: firstRaw('email.delivery_action'),
+        spf: firstRaw('email.security.spf'),
+        dkim: firstRaw('email.security.dkim'),
+        dmarc: firstRaw('email.security.dmarc'),
+        reputation: firstRaw('email.security.reputation'),
+        sandbox_verdict: firstRaw('email.sandbox.verdict'),
+        sandbox_score: firstRaw('email.sandbox.score'),
+        sandbox_behaviors: allRaw('email.sandbox.observed_behaviors'),
+      },
+      web: {
+        method: firstRaw('http.request.method'),
+        request_bytes: firstRaw('http.request.bytes'),
+        status_code: firstRaw('http.response.status_code'),
+        response_bytes: firstRaw('http.response.bytes'),
+        url: firstRaw('url.original'),
+        user_agent: firstRaw('user_agent.original'),
+        session_id: firstRaw('session.id'),
+      },
+      database: {
+        name: firstRaw('database.name'),
+        operation: firstRaw('database.operation'),
+        query: firstRaw('database.query'),
+        query_id: firstRaw('database.query_id'),
+        transaction_id: firstRaw('database.transaction_id'),
+        duration_ms: firstRaw('database.duration_ms'),
+        rows_affected: firstRaw('database.rows_affected'),
+        schema: firstRaw('database.schema'),
+        table: firstRaw('database.table'),
+      },
+      evidence_quality: {
+        profile: firstRaw('evidence.profile'),
+        provenance: firstRaw('evidence.provenance'),
+        answer_key_included: firstRaw('evidence.answer_key_included'),
+        assessment_basis: firstRaw('evidence.assessment_basis'),
+        context_completeness: firstRaw('evidence.context_completeness'),
+        observed_context: allRaw('evidence.observed_context'),
+      },
+      correlation: {
+        campaign_id: firstRaw('attack.campaign_id'),
+        stage: firstRaw('attack.stage'),
+        tactic: firstRaw('attack.tactic'),
+        tactic_id: firstRaw('attack.tactic_id') || firstRaw('threat.tactic.id'),
+        tactic_name: firstRaw('attack.tactic_name') || firstRaw('threat.tactic.name'),
+        technique_id: firstRaw('attack.technique_id') || firstRaw('threat.technique.id'),
+        technique_name: firstRaw('attack.technique_name') || firstRaw('threat.technique.name'),
+        observed_state: firstRaw('attack.observed_state'),
+        session_id: firstRaw('correlation.session_id'),
+        sequence: firstRaw('correlation.sequence'),
+        join_keys: allRaw('correlation.join_keys'),
+        path_position: firstRaw('correlation.path_position'),
+        path_length: firstRaw('correlation.path_length'),
+      },
+      security_control: {
+        status: firstRaw('security_control.status'),
+        action: firstRaw('security_control.action'),
+        observed: firstRaw('security_control.observed'),
+      },
+      authorization_context: {
+        policy_id: firstRaw('policy.id'),
+        category: firstRaw('policy.category'),
+        violation: firstRaw('policy.violation'),
+        authorized: firstRaw('policy.authorized'),
+        security_alert: firstRaw('policy.security_alert'),
+        disposition: firstRaw('policy.disposition'),
+        reason: firstRaw('policy.reason'),
+        change_id: firstRaw('change.id'),
+        change_approved: firstRaw('change.approved'),
+      },
+    },
   });
 }
 
@@ -343,7 +493,7 @@ function createSocToolkit({
     rule_id,rule_level,rule_desc,risk_score,source_severity,workflow_status,alert_reason,
     triage_status,enrichment_status,verdict,src_ip,dst_ip,username,hostname,process,
     event_dataset,event_category,event_action,mitre_techniques,mitre_tactics,
-    occurrence_count,first_seen,last_seen FROM alerts`;
+    occurrence_count,first_seen,last_seen,full_log,raw FROM alerts`;
 
   async function fetchEnrichment(path, { method = 'GET', body, signal } = {}) {
     const controller = new AbortController();
@@ -415,16 +565,76 @@ function createSocToolkit({
       return { data: { count: alerts.length, alerts }, evidence: alerts.flatMap(row => evidence('alert', row.id)) };
     },
 
+    async get_executive_summary() {
+      const [stats, risks, workflow] = await Promise.all([
+        database.getAlertStats(),
+        database.query(`
+          SELECT
+            COUNT(*)::int AS open_risks,
+            (COUNT(*) FILTER (WHERE severity = 'critical'))::int AS critical_risks,
+            (COUNT(*) FILTER (
+              WHERE severity IN ('critical', 'high') AND NULLIF(BTRIM(owner), '') IS NULL
+            ))::int AS unassigned_high_risks
+          FROM incidents
+          WHERE status = 'open'
+        `),
+        database.query(`
+          SELECT
+            (COUNT(*) FILTER (WHERE status = 'pending'))::int AS pending_approvals,
+            (COUNT(*) FILTER (WHERE status = 'failed'))::int AS workflow_failures
+          FROM action_requests
+        `),
+      ]);
+      const posture = stats || {};
+      const risk = risks.rows[0] || {};
+      const control = workflow.rows[0] || {};
+      return {
+        data: {
+          security_activity: {
+            grouped_activities: Number(posture.grouped_activities || 0),
+            critical_activities: Number(posture.critical_activities || 0),
+            high_activities: Number(posture.high_activities || 0),
+            triaged: Number(posture.triaged || 0),
+            triage_pending: Number(posture.triage_pending || 0),
+          },
+          leadership_risks: {
+            open: Number(risk.open_risks || 0),
+            critical: Number(risk.critical_risks || 0),
+            unassigned_high: Number(risk.unassigned_high_risks || 0),
+          },
+          governance: {
+            pending_approvals: Number(control.pending_approvals || 0),
+            workflow_failures: Number(control.workflow_failures || 0),
+          },
+          limitations: [
+            'No raw alerts, observables, identities, hosts, or technical timelines are included.',
+            'Business-service impact remains unavailable until durable service mapping is connected.',
+          ],
+        },
+        evidence: [],
+      };
+    },
+
     async search_raw_events(args) {
+      const managedSource = await activeConnector();
+      // Injected unit-test configurations predate alertSource and historically
+      // exercised the Elastic raw-event adapter. Runtime configuration always
+      // supplies the field explicitly.
+      const source = managedSource?.source || config.alertSource || 'elastic';
       try {
-        const events = await elasticService.searchEvents(args);
+        if (!['elastic', 'splunk'].includes(source)) {
+          throw new Error(`Raw-event pivots are not implemented for ${source}`);
+        }
+        const events = source === 'splunk'
+          ? await splunk.searchEvents(args, managedSource?.connection || null)
+          : await elasticService.searchEvents(args, { connection:managedSource?.connection || null });
         const cleanEvents = sanitize(events);
         return {
           data: { count: cleanEvents.length, events: cleanEvents, raw_source_omitted: true },
           evidence: cleanEvents.flatMap(row => evidence('raw_event', row.id)),
         };
       } catch (error) {
-        throw new HermesError('HERMES_TOOL_FAILED', 'Elastic raw-event search failed', {
+        throw new HermesError('HERMES_TOOL_FAILED', `${source === 'splunk' ? 'Splunk' : source === 'elastic' ? 'Elastic' : source} raw-event search failed`, {
           status: 502, cause: error,
         });
       }
@@ -655,10 +865,15 @@ function createSocToolkit({
 
   async function execute(name, args, { signal, authorization, actor, runId, requestId } = {}) {
     const isAction = name === 'request_soc_action';
-    if (isAction ? authorization?.canRequestActions !== true : authorization?.canReadSoc !== true) {
+    const executiveToolDenied = authorization?.role === 'executive' && name !== 'get_executive_summary';
+    if (executiveToolDenied || (isAction ? authorization?.canRequestActions !== true : authorization?.canReadSoc !== true)) {
       throw new HermesError(
         'HERMES_TOOL_UNAUTHORIZED',
-        isAction ? 'The actor is not authorized to request SOC actions' : 'The actor is not authorized to read SOC evidence',
+        isAction
+          ? 'The actor is not authorized to request SOC actions'
+          : executiveToolDenied
+            ? 'Executive access is limited to aggregate security posture'
+            : 'The actor is not authorized to read SOC evidence',
         { status: 403 }
       );
     }

@@ -1,9 +1,9 @@
+import { KeyRound, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import { KeyRound, Loader2, ShieldCheck } from 'lucide-react';
 import { api } from '../lib/api';
 
 export default function LoginPage({ onAuthenticated }) {
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -14,12 +14,12 @@ export default function LoginPage({ onAuthenticated }) {
     setError('');
     try {
       const session = await api('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ username, password }),
+        method:'POST',
+        body:JSON.stringify({ username:username.trim(), password }),
       });
       onAuthenticated(session);
     } catch (loginError) {
-      setError(loginError.message);
+      setError(loginError.message || 'Sign-in failed.');
     } finally {
       setBusy(false);
     }
@@ -27,14 +27,50 @@ export default function LoginPage({ onAuthenticated }) {
 
   return (
     <main className="login-page">
-      <form className="login-card" onSubmit={submit}>
-        <div className="login-mark"><ShieldCheck /></div>
-        <div><small>BMB AI-SOC</small><h1>Analyst sign in</h1><p>Authenticate to access security evidence and operational controls.</p></div>
-        {error && <div className="login-error" role="alert">{error}</div>}
-        <label>Username<input autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} required /></label>
-        <label>Password<input type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required /></label>
-        <button disabled={busy || !username || !password}>{busy ? <Loader2 className="animate-spin" /> : <KeyRound />}{busy ? 'Signing in…' : 'Sign in'}</button>
-      </form>
+      <section className="login-layout" aria-labelledby="login-heading">
+        <div className="login-story">
+          <div className="login-bmb-lockup" role="img" aria-label="BMB Security Operations">
+            <img src="/bmb-logo.png?v=6" alt="" aria-hidden="true" />
+          </div>
+        </div>
+
+        <form className="login-card unified" onSubmit={submit}>
+          <div className="login-mark"><KeyRound /></div>
+          <div className="login-card-heading">
+            <small>Authorized users</small>
+            <h2 id="login-heading">Sign in to BMB</h2>
+            <p>Enter the credentials provisioned by your security administrator.</p>
+          </div>
+          {error && <div className="login-error" role="alert">{error}</div>}
+          <label>
+            Username
+            <input
+              autoComplete="username"
+              value={username}
+              onChange={event => setUsername(event.target.value)}
+              maxLength={64}
+              required
+              autoFocus
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={event => setPassword(event.target.value)}
+              maxLength={256}
+              required
+            />
+          </label>
+          <button disabled={busy || !username.trim() || !password}>
+            {busy ? <Loader2 className="animate-spin" /> : <KeyRound />}
+            {busy ? 'Verifying access…' : 'Sign in securely'}
+          </button>
+          <p className="login-help">Your role and landing page are determined by your server-side account. Contact a security administrator for access changes.</p>
+        </form>
+      </section>
     </main>
   );
 }

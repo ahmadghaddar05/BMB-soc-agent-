@@ -270,9 +270,27 @@ function parseJsonOutput(raw) {
   const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
   if (fenced) text = fenced[1];
   let value;
-  try { value = JSON.parse(text); }
-  catch {
-    throw new HermesError('HERMES_INVALID_OUTPUT', 'Hermes returned invalid structured output', { status: 502 });
+  try {
+    value = JSON.parse(text);
+  } catch {
+    // Smaller instruction-tuned models sometimes add a short sentence before
+    // otherwise valid JSON. Accept one bounded object, but never attempt to
+    // repair values or merge multiple objects; the strict schema still applies.
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    const prefix = start >= 0 ? text.slice(0, start).trim() : '';
+    const suffix = end >= 0 ? text.slice(end + 1).trim() : '';
+    const candidate = start >= 0 && end > start ? text.slice(start, end + 1) : '';
+    const boundedWrapper = prefix.length <= 200 && suffix.length <= 200 &&
+      !prefix.includes('{') && !suffix.includes('}');
+    if (!candidate || !boundedWrapper) {
+      throw new HermesError('HERMES_INVALID_OUTPUT', 'Hermes returned invalid structured output', { status: 502 });
+    }
+    try {
+      value = JSON.parse(candidate);
+    } catch {
+      throw new HermesError('HERMES_INVALID_OUTPUT', 'Hermes returned invalid structured output', { status: 502 });
+    }
   }
   return value;
 }

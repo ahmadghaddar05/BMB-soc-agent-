@@ -17,6 +17,7 @@ import email_generator as email
 import linux_generator as linux
 import webapp_generator as webapp
 from common_inventory import USERS, user_doc, workstation_host_doc
+from evidence_context import enrich_event_evidence
 
 
 SOURCE_PORTS = {
@@ -69,10 +70,23 @@ def _correlate(event, source, user, source_ip, campaign_id, stage, tactic, seque
     related_hosts = [host for host in related.get("hosts", []) if host]
     related["hosts"] = list(dict.fromkeys([user["host"], *related_hosts]))
 
-    event["attack"] = {
+    event.setdefault("attack", {}).update({
         "campaign_id": campaign_id,
+        "path_id": campaign_id,
         "stage": stage,
         "tactic": tactic,
+    })
+    event["correlation"] = {
+        "session_id": str(uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"bmb-scenario:{campaign_id}:{user['name']}:{source_ip}",
+        )),
+        "sequence": sequence,
+        "join_keys": [
+            f"campaign:{campaign_id}",
+            f"user:{user['name']}",
+            f"source_ip:{source_ip}",
+        ],
     }
     event.setdefault("labels", {}).update({
         "scenario_managed": "true",
@@ -80,7 +94,23 @@ def _correlate(event, source, user, source_ip, campaign_id, stage, tactic, seque
         "scenario_stage": stage,
     })
     event.setdefault("tags", []).extend(["coordinated-scenario", campaign_id])
-    return event
+    return enrich_event_evidence(event, source)
+
+
+def _link_alert_path(records):
+    """Record stable chronological positions without pre-creating an incident."""
+    alerts = [event for _, event in records if event.get("event", {}).get("kind") == "alert"]
+    for position, event in enumerate(alerts, start=1):
+        correlation = event.setdefault("correlation", {})
+        correlation["path_position"] = position
+        correlation["path_length"] = len(alerts)
+        correlation["previous_event_id"] = (
+            alerts[position - 2]["event"]["id"] if position > 1 else None
+        )
+        correlation["next_event_id"] = (
+            alerts[position]["event"]["id"] if position < len(alerts) else None
+        )
+    return records
 
 
 def _record(source, builder, user, source_ip, campaign_id, stage, tactic, sequence, timestamp):
@@ -119,17 +149,33 @@ def build_scenario(name, user_name="maya.georges", source_ip="198.51.100.24",
             sequence, start + timedelta(seconds=(sequence - 1) * 4)
         ))
 
-    if name in {"account_compromise", "full_attack_chain", "mixed_enterprise"}:
+    if name in {"full_attack_chain", "mixed_enterprise"}:
+        # One evidence-linked story in ATT&CK order.  The shared campaign and
+        # correlation session make the relationship observable; the backend
+        # still decides whether the alerts qualify as an incident.
+        add("email", email.malicious_link, "initial_access", "TA0001")
+        add("edr", edr.powershell_attack, "execution", "TA0002")
+        add("edr", edr.scheduled_task_persistence, "persistence", "TA0003")
+        add("edr", edr.credential_dumping, "credential_access", "TA0006")
+        add("edr", edr.network_service_scan, "discovery", "TA0007")
+        add("edr", edr.remote_service_execution, "lateral_movement", "TA0008")
+        add("webapp", webapp.large_data_export, "collection", "TA0009")
+        add("edr", edr.c2_connection, "command_and_control", "TA0011")
+        add("database", database.large_data_export, "exfiltration", "TA0010")
+        add("database", database.destructive_action, "impact", "TA0040")
+
+    elif name == "account_compromise":
+        add("email", email.phishing_email, "initial_access", "TA0001")
         add("ad", ad.failed_logon, "credential_access", "TA0006")
         add("ad", ad.failed_logon, "credential_access", "TA0006")
         add("ad", ad.successful_logon, "initial_access", "TA0001")
-        add("email", email.phishing_email, "initial_access", "TA0001")
 
-    if name in {"endpoint_persistence", "full_attack_chain", "mixed_enterprise"}:
+    elif name == "endpoint_persistence":
+        add("edr", edr.powershell_attack, "execution", "TA0002")
         add("edr", edr.credential_dumping, "credential_access", "TA0006")
         add("edr", edr.scheduled_task_persistence, "persistence", "TA0003")
 
-    if name in {"exfiltration", "full_attack_chain", "mixed_enterprise"}:
+    elif name == "exfiltration":
         add("webapp", webapp.large_data_export, "collection", "TA0009")
         add("database", database.large_data_export, "exfiltration", "TA0010")
 
@@ -161,5 +207,4 @@ def build_scenario(name, user_name="maya.georges", source_ip="198.51.100.24",
     }
     if name not in valid_names:
         raise ValueError(f"Unknown scenario {name!r}; choose one of {sorted(valid_names)}")
-    return records
-
+    return _link_alert_path(records)
